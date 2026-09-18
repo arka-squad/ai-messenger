@@ -69,9 +69,10 @@ Noms de comptes : minuscules, chiffres, `.`, `_`, `-` ; 32 caractères au plus.
 - Rien d'autre ne se modifie. Une correction est un nouveau message, relié par
   `re`.
 
-Un lecteur doit **ignorer les champs qu'il ne connaît pas** : de nouveaux champs
-facultatifs pourront s'ajouter sans changer `version`. Un changement
-incompatible incrémentera `version`.
+Un lecteur doit **ignorer les champs qu'il ne connaît pas**, et un écrivain doit
+**les conserver** — `messenger.py` le fait, au niveau de la boîte, de chaque
+message et de chaque compte : de nouveaux champs facultatifs pourront s'ajouter
+sans changer `version`. Un changement incompatible incrémentera `version`.
 
 ## Le manifeste des comptes : `boite.manifest.json`
 
@@ -117,6 +118,11 @@ python3 messenger.py check --agent <nom> --json   # {"agent": …, "nouveaux": [
 python3 messenger.py list --json --limit 50        # [messages], du plus récent au plus ancien
 python3 messenger.py agents --json                 # le manifeste
 ```
+
+L'interface locale (`npm run dev`, ou `messenger.py ui`) expose aussi une API sur
+127.0.0.1 : `GET /api/boite` rend les messages, enrichis pour le compte de
+l'interface de `suite` (le statut qu'il peut donner, ou `null`) et de
+`pj_presente`.
 
 Quelques lectures utiles :
 

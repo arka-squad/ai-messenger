@@ -1,5 +1,19 @@
+# Python
 __pycache__/
 *.pyc
+
+# Node
+node_modules/
+ui/app/dist/
+
+# Configuration locale (chemin de la boîte, compte)
+.env.local
+.env.*.local
+
+# Écritures en cours de la boîte (verrou, remplacement atomique)
 *.lock
 *.tmp
+
+# Systèmes
 .DS_Store
+Thumbs.db

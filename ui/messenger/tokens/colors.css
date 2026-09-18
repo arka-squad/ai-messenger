@@ -1,0 +1,26 @@
+/* Marque — invariant selon le thème. */
+:root {
+  --color-primary: #c70f43;
+  --arka-red:      #c70f43;   /* négatif, identité de marque */
+
+  --arka-green:    #00d287;   /* état actif / sélectionné */
+  --arka-purple:   #8b5cf6;   /* data viz */
+  --arka-blue:     #4a90e2;   /* data viz */
+  --arka-fuchsia:  #d946ef;   /* data viz */
+
+  --status-pass:    #16a34a;
+  --status-fail:    #dc2626;
+  --status-warn:    #d97706;
+  --status-pending: var(--arka-red);
+
+  /* Sand — thème clair uniquement. Ne jamais utiliser en sombre. */
+  --color-sand-50:  #FAF7F4;
+  --color-sand-100: #F0EBE5;
+  --color-sand-200: #E3DCD5;
+  --color-sand-300: #D1C9C0;
+  --color-sand-900: #1C1816;
+
+  --glow-red:   0 0 8px rgba(199, 15, 67, 0.5);
+  --glow-green: 0 0 8px rgba(0, 210, 135, 0.5);
+  --glow-amber: 0 0 8px rgba(217, 119, 6, 0.5);
+}

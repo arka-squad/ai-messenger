@@ -1,0 +1,52 @@
+html, body {
+  background-color: var(--surface);
+  color: var(--content);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, .t-h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.015em; color: var(--content); }
+h2, .t-h2 { font-size: 14px; font-weight: 700; color: var(--content); }
+
+/* La signature du système : l'eyebrow de section. */
+.t-eyebrow {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--content-subtle);
+}
+
+.t-meta {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em; color: var(--content-subtle);
+}
+
+.t-body  { font-size: 12px; line-height: 1.6; color: var(--content-muted); }
+.t-label { font-size: 12px; font-weight: 500; color: var(--content); }
+
+.t-metric {
+  font-family: var(--font-mono); font-size: 24px; font-weight: 700;
+  letter-spacing: -0.015em; color: var(--content);
+}
+
+.t-mono { font-family: var(--font-mono); font-size: 12px; color: var(--content); }
+
+/* Hero — Poppins 800, aplat arka-red. Jamais de dégradé, jamais de teinte. */
+.t-hero {
+  font-family: var(--font-display); font-weight: 800; font-size: 64px;
+  line-height: 1.05; letter-spacing: -0.03em; color: var(--arka-red);
+}
+
+/* Lettrage de marque : arka en black, labs en light. */
+.t-wordmark { font-family: var(--font-sans); letter-spacing: -0.03em; color: var(--tx1); }
+.t-wordmark b { font-weight: 900; }
+.t-wordmark i { font-weight: 300; font-style: normal; }
+
+code, kbd, .t-kbd {
+  font-family: var(--font-mono); font-size: 10px; padding: 2px 6px;
+  border: 1px solid var(--app-border-subtle); background: var(--surface-hover);
+  border-radius: var(--radius-md); color: var(--content-muted);
+}
+
+/* Lettrage produit : Talos en Poppins 900, point final framboise. */
+.t-talos { font-family: var(--font-sans); font-weight: 900; letter-spacing: -0.02em; color: var(--tx1); }
+.t-talos em { font-style: normal; color: var(--arka-red); }

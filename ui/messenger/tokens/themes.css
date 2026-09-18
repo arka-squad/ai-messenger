@@ -1,0 +1,110 @@
+/* ==========================================================================
+   Thèmes. Le sombre est canonique et vit sur :root — un consommateur obtient
+   la console sans classe de thème. Le clair s'active avec class="theme-light"
+   sur <html>.
+
+   Le canal --w vaut 255,255,255 en sombre et 28,24,20 en clair : une seule
+   écriture rgba(var(--w), α) est juste dans les deux thèmes. C'est la règle
+   qui permet d'écrire un écran entier sans un seul hex en dur.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  --surface:        #171718;   /* corps de l'app, derrière le châssis */
+  --surface-alt:    #1e1e1f;
+  --surface-card:   rgba(255, 255, 255, 0.025);
+  --surface-hover:  rgba(255, 255, 255, 0.05);
+  --app-border:        rgba(255, 255, 255, 0.08);
+  --app-border-subtle: rgba(255, 255, 255, 0.04);
+
+  --content:        #ffffff;
+  --content-muted:  #9ca3af;
+  --content-subtle: #6b7280;
+
+  --scrollbar-thumb: #3f3f46;
+
+  /* Extension console */
+  --w: 255, 255, 255;
+  --bar:      #222121;
+  --head:     #222121;   /* bandeaux INTERNES au contenu : en-têtes de tableau, barres d'outils */   /* rail + topbar */
+  --zone:     #1D1C1C;   /* zone de lecture */
+  --elevated: #1e1e20;   /* menus, popovers, modales */
+  --tx1: #ffffff;
+  --tx2: #e5e7eb;
+  --tx3: #9ca3af;
+  --tx4: #838a92;   /* 4,9:1 sur la zone sombre — niveau de prose secondaire */
+  --tx5: #939ca9;   /* 4,7:1 minimum, y compris sur les lavis de sélection — libellés de 9,5 px */
+  --tx-soft: #c9ccd2;
+  --tx-inactive: #8b929c;
+  --tx-dim: #7c828c;
+
+  /* Ombres : portées par le thème. En clair l'ombre est une teinte d'encre,
+     jamais du noir pur — sinon la zone blanche se salit. */
+  --veil: rgba(8, 8, 9, 0.62);
+  --shadow-pop:  0 20px 48px rgba(0, 0, 0, 0.5);
+  --shadow-rail: 0 0 44px rgba(0, 0, 0, 0.4);
+  --shadow-node: 0 8px 24px rgba(0, 0, 0, 0.35);
+
+  /* Accents sémantiques en TEXTE uniquement — jamais pastilles ni bordures. */
+  --warn-tx:  #d9a55f;
+  --pass-tx:  #00d287;
+  --fail-tx:  #e8756f;   /* refus en TEXTE — #dc2626 ne passe que 3,5:1 sur la zone */
+  --muted-tx: #a39a8c;
+}
+
+.theme-light {
+  color-scheme: light;
+
+  --surface:        #ECE8E1;   /* sable : le châssis */
+  --surface-alt:    #F4F1EC;
+  --surface-card:   #FFFFFF;
+  --surface-hover:  rgba(0, 0, 0, 0.05);
+  --app-border:        rgba(0, 0, 0, 0.08);
+  --app-border-subtle: rgba(0, 0, 0, 0.04);
+
+  --content:        #1C1816;
+  --content-muted:  #5C5650;
+  --content-subtle: #9C9288;
+
+  --scrollbar-thumb: #D1C9C0;
+
+  --w: 28, 24, 20;
+  --bar:      #F4F1EC;   /* sable : réservé au châssis — en-tête d'app, rails, pied */
+  --head:     #F7F7F6;   /* bandeaux internes : gris neutre sur blanc, jamais de sable */
+  --zone:     #FFFFFF;   /* la zone de lecture est blanche */
+  --elevated: #FFFFFF;
+  --tx1: #1C1816;
+  --tx2: #33302B;
+  --tx3: #57524B;
+  --tx4: #6E665B;   /* 5,0:1 minimum sur le sable — niveau de prose secondaire */
+  --tx5: #665F54;   /* 4,9:1 minimum, y compris sur les lavis de sélection — libellés de 9,5 px */
+  --tx-soft: #45403A;
+  --tx-inactive: #6E675E;
+  --tx-dim: #7C7568;
+
+  --veil: rgba(46, 40, 33, 0.46);
+  --shadow-pop:  0 16px 40px rgba(28, 24, 20, 0.14);
+  --shadow-rail: 0 0 40px rgba(28, 24, 20, 0.11);
+  --shadow-node: 0 6px 20px rgba(28, 24, 20, 0.10);
+
+  --warn-tx:  #8a5308;
+  --pass-tx:  #0f6b31;
+  --fail-tx:  #a8181c;
+  --muted-tx: #6E675E;
+}
+
+.theme-dark, .theme-arka { color-scheme: dark; }
+
+/* Alias hérités — codebase ui-HCM_v3. */
+:root {
+  --praxis-base:        var(--surface);
+  --praxis-surface:     var(--surface-alt);
+  --praxis-elevated:    var(--surface-hover);
+  --praxis-interactive: #3f3f46;
+  --text-primary:   var(--content);
+  --text-secondary: var(--content-muted);
+  --text-muted:     var(--content-subtle);
+  --border-color:   var(--app-border);
+  --border-subtle:  var(--app-border-subtle);
+}

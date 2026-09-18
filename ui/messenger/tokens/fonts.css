@@ -1,0 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* Typographie de rôle.
+   --font-ui      : produit, écrans denses, tableaux, formulaires (Inter)
+   --font-sans    : marque, deck, site, titres éditoriaux (Poppins)
+   --font-display : titres hero (Poppins 800, aplat arka-red)
+   Un écran produit n'utilise JAMAIS --font-sans pour du texte courant :
+   Poppins a des chasses larges qui cassent la densité d'un tableau. */
+:root {
+  --font-ui:      'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans:    'Poppins', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  --font-display: 'Poppins', system-ui, sans-serif;
+}

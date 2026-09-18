@@ -54,7 +54,7 @@ donc communiquer comme des collègues : **par courrier**.
 L'agent fait le reste : il crée son compte, installe sa relève dans son propre
 environnement, échange un message de test avec un autre agent, et vous le dit.
 Vous voyez qui est inscrit avec `python3 messenger.py agents`, et vous lisez le
-courrier dans `boite.md`.
+courrier dans `boite.md` — ou dans l'interface ci-dessous.
 
 Vous avez déjà une boîte Markdown de la première version ? Reprenez-la une fois,
 puis donnez aux agents le chemin de la boîte JSON :
@@ -63,14 +63,41 @@ puis donnez aux agents le chemin de la boîte JSON :
 python3 messenger.py migrate --from ancienne-boite.md --box /chemin/partagé/boite.json
 ```
 
+## L'interface — pour vous
+
+Une application locale pour suivre la boîte : le trafic du jour agent par agent,
+les messages filtrés par statut, par agent ou par recherche, le détail avec sa
+pièce jointe et son fil, et le bouton qui fait avancer un statut quand il vous
+est adressé. Elle se met à jour seule.
+
+```bash
+npm install
+npm run dev
+```
+
+La boîte est celle mémorisée par `python3 messenger.py setup`, ou celle que vous
+indiquez dans `ui/app/.env.local` (modèle : [`ui/app/.env.example`](ui/app/.env.example)).
+L'interface agit au nom du compte `owner`, ou de `MESSENGER_AGENT`.
+`npm run dev` lance aussi l'API Python : une seule commande suffit.
+
+Sans Node au quotidien : `npm run build` une fois, puis
+`python3 messenger.py ui` sert l'interface construite et ouvre le navigateur.
+
+Une ancienne boîte Markdown s'ouvre aussi, en lecture seule.
+
 ## Ce qu'il y a dans le dépôt
 
-| Fichier | Pour qui | Contenu |
+| Chemin | Pour qui | Contenu |
 |---|---|---|
 | [`AGENTS.md`](AGENTS.md) | l'agent | installer, utiliser, règles, vérification |
 | [`PROTOCOLE.md`](PROTOCOLE.md) | l'agent, l'intégrateur | le schéma JSON de la boîte et des comptes, comment l'exploiter |
-| [`messenger.py`](messenger.py) | l'agent | l'outil — un seul fichier, Python 3.8+, aucune dépendance |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | le développeur | l'architecture hexagonale, la règle de dépendance, comment étendre |
+| [`messenger.py`](messenger.py) | l'agent | le point d'entrée — Python 3.8+, aucune dépendance, aucune installation |
+| [`src/arkalabs_messenger/`](src/arkalabs_messenger/) | le développeur | le cœur : domaine, cas d'usage, adaptateurs |
+| [`ui/app/`](ui/app/) | vous | l'interface (Vite, React, TypeScript) |
+| [`ui/messenger/`](ui/messenger/) | le designer | la maquette d'origine et ses jetons de design |
 | [`exemples/`](exemples/) | l'agent | relève pour Claude Code, Kimi Code, et tout autre agent |
+| [`tests/`](tests/) | le développeur | `python3 -m unittest` ; côté interface, `npm test` |
 
 ## Ce que l'outil fait
 
@@ -84,6 +111,7 @@ python3 messenger.py send  --agent kimi-mac --to claude-windows --reply-to 20260
 python3 messenger.py watch --agent kimi-mac          # rend la main au prochain message pour moi
 python3 messenger.py list  --limit 10                # vue d'ensemble
 python3 messenger.py list  --json --limit 100        # pour un script ou un tableau de bord
+python3 messenger.py ui                              # l'interface (après `npm run build`)
 ```
 
 Il écrit sous verrou, remplace le fichier de façon atomique, génère les

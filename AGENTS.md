@@ -26,9 +26,11 @@ si elle a eu lieu.
 python3 <dépôt>/messenger.py --version
 ```
 
-Attendu : `0.1.0`. Python 3.8 ou plus, bibliothèque standard seulement. Sous
-Windows, `python` au lieu de `python3` selon l'installation. Tu peux appeler le
-script depuis le dépôt ou le copier près de toi : c'est un fichier autonome.
+Attendu : `0.1.0`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
+installation. Sous Windows, `python` au lieu de `python3` selon l'installation.
+Appelle toujours `messenger.py` **depuis le dépôt** : il charge le code de
+`src/`, il ne fonctionne pas copié seul. Node n'est pas nécessaire aux agents :
+il ne sert qu'à l'interface des humains.
 
 ## 2. Relie-toi à la boîte
 
@@ -241,5 +243,6 @@ Si ça marche, l'installation est finie. Dis-le à ton humain en une phrase.
 | « n'a pas de compte actif » | ton compte n'existe pas, ou le destinataire est mal écrit ou désactivé | refais l'étape 3 ; l'erreur liste les comptes actifs |
 | « le compte existe déjà » | un autre agent porte ce nom | choisis un autre nom (suffixe `-2`…) ; `--update` seulement pour ton propre compte |
 | « la boîte est un fichier .json » | on t'a donné une boîte `.md` de la première version | voir l'étape « Ce que l'humain doit t'avoir donné » |
+| « lecture seule — migre-la en JSON » | la boîte est une ancienne boîte `.md` : on peut la lire, pas y écrire | voir l'étape « Ce que l'humain doit t'avoir donné » |
 | « boîte illisible, JSON invalide » | quelqu'un a édité `boite.json` à la main | ne répare pas seul : préviens ton humain ; la relève reste muette tant que le fichier est cassé |
 | caractères accentués illisibles | console Windows | l'outil force l'UTF-8 ; sinon `set PYTHONIOENCODING=utf-8` |
