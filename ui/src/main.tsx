@@ -1,7 +1,7 @@
 /** L'assemblage du front : choisit les adaptateurs et monte l'interface. */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import '../../messenger/styles.css';
+import './design/styles.css';
 import './ui/messenger.css';
 import { ApiHttp } from './adapters/api-http.ts';
 import { PreferencesLocales } from './adapters/navigateur.ts';

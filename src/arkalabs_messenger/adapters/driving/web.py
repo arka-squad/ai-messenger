@@ -98,7 +98,7 @@ def servir(messagerie: Messagerie, compte: str, port: int, front: Optional[str],
     mode = "lecture seule (ancienne boîte Markdown)" if messagerie.lecture_seule else f"au nom de {compte}"
     print(f"Messenger — {url}{'' if front else 'api/boite'}", flush=True)
     print(f"boîte : {messagerie.emplacement} · {mode}", flush=True)
-    if not front:
+    if not front and not lie_au_parent:  # lancée par `npm run dev`, l'interface est déjà là
         print("API seule : l'interface se lance avec `npm run dev`, ou se construit avec `npm run build`.",
               flush=True)
     elif ouvrir_navigateur:

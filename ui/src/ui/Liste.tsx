@@ -99,7 +99,7 @@ function Panne({ erreur }: { erreur: string }) {
       <span className="panne__titre">La boîte n’a pas pu être lue</span>
       <span className="panne__message">{erreur}</span>
       <ul className="panne__aide">
-        <li>Indique la boîte : <code>MESSENGER_BOX</code> dans <code>ui/app/.env.local</code>, ou <code>python3 messenger.py setup --box &lt;chemin&gt;</code>.</li>
+        <li>Indique la boîte : <code>MESSENGER_BOX</code> dans <code>ui/.env.local</code>, ou <code>python3 messenger.py setup --box &lt;chemin&gt;</code>.</li>
         <li>Le détail est dans le terminal où tourne <code>npm run dev</code>.</li>
       </ul>
     </div>

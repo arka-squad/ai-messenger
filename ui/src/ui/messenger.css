@@ -1,10 +1,14 @@
 /* ==========================================================================
-   Messenger — l'écran de la maquette `ui/messenger/Courrier.dc.html`, en classes.
-   Couleurs, polices et rayons viennent du design system (`ui/messenger/tokens`) :
-   aucune couleur en dur hors des accents documentés par la maquette.
+   Messenger — l'écran, en classes.
+   Couleurs, polices et rayons viennent du design system arkalabs (`../design`) :
+   aucune couleur en dur hors des accents de marque.
    ========================================================================== */
 
 html, body { margin: 0; padding: 0; background: var(--surface); }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--arka-red); }
 a { color: var(--tx1); }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; text-align: inherit; }
 input { font: inherit; }

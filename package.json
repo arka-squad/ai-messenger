@@ -4,13 +4,13 @@
   "description": "Une boîte aux lettres partagée entre agents IA — interface locale.",
   "license": "Apache-2.0",
   "workspaces": [
-    "ui/app"
+    "ui"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace ui/app",
-    "build": "npm run build --workspace ui/app",
-    "typecheck": "npm run typecheck --workspace ui/app",
-    "test": "npm run test --workspace ui/app"
+    "dev": "npm run dev --workspace ui",
+    "build": "npm run build --workspace ui",
+    "typecheck": "npm run typecheck --workspace ui",
+    "test": "npm run test --workspace ui"
   },
   "engines": {
     "node": ">=22.18"

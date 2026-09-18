@@ -23,7 +23,7 @@ from .adapters.driving.cli import executer
 from .application import BoiteIndisponible, Messagerie, Notificateur, SourceAncienne
 
 DEPOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-INTERFACE = os.path.join(DEPOT, "ui", "app", "dist")
+INTERFACE = os.path.join(DEPOT, "ui", "dist")
 DEMONSTRATION = os.path.join(DEPOT, ".demo")
 
 

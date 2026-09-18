@@ -87,8 +87,8 @@ npm run dev
 
 Sans configuration, elle ouvre une **boîte de démonstration** — deux projets,
 quatre agents, la journée en cours. Pour la vôtre : `python3 messenger.py setup
---box <chemin>`, ou `MESSENGER_BOX` dans `ui/app/.env.local` (modèle :
-[`ui/app/.env.example`](ui/app/.env.example)). L'interface agit au nom du compte
+--box <chemin>`, ou `MESSENGER_BOX` dans `ui/.env.local` (modèle :
+[`ui/.env.example`](ui/.env.example)). L'interface agit au nom du compte
 `owner`, ou de `MESSENGER_AGENT`. `npm run dev` lance aussi l'API Python : une
 seule commande suffit.
 
@@ -106,8 +106,7 @@ Une ancienne boîte Markdown s'ouvre aussi, en lecture seule.
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | le développeur | l'architecture hexagonale, la règle de dépendance, comment étendre |
 | [`messenger.py`](messenger.py) | l'agent | le point d'entrée — Python 3.8+, aucune dépendance, aucune installation |
 | [`src/arkalabs_messenger/`](src/arkalabs_messenger/) | le développeur | le cœur : domaine, cas d'usage, adaptateurs |
-| [`ui/app/`](ui/app/) | vous | l'interface (Vite, React, TypeScript) |
-| [`ui/messenger/`](ui/messenger/) | le designer | la maquette d'origine et ses jetons de design |
+| [`ui/`](ui/) | vous | l'interface (Vite, React, TypeScript) et le design system arkalabs |
 | [`exemples/`](exemples/) | l'agent | relève pour Claude Code, Kimi Code, et tout autre agent |
 | [`tests/`](tests/) | le développeur | `python3 -m unittest` ; côté interface, `npm test` |
 

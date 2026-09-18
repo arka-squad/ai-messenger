@@ -111,7 +111,7 @@ class ApiPython {
       this.#processus = null;
       if (this.#arretVoulu) return;
       this.#tomber(`l'API Python s'est arrêtée : ${this.#erreurs.at(-1) ?? `code ${code ?? '?'}`}`);
-      this.#dire('info', 'Corrige ui/app/.env.local (MESSENGER_BOX=…) : Vite redémarre tout seul.');
+      this.#dire('info', 'Corrige ui/.env.local (MESSENGER_BOX=…) : Vite redémarre tout seul.');
     });
   }
 

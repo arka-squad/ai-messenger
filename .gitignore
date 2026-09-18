@@ -4,7 +4,7 @@ __pycache__/
 
 # Node
 node_modules/
-ui/app/dist/
+ui/dist/
 
 # Boîte de démonstration, régénérée au besoin par l'interface
 .demo/

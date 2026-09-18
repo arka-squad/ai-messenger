@@ -332,7 +332,7 @@ def _parseur() -> argparse.ArgumentParser:
     x = commande("ui", "ouvre l'interface web locale (et son API)", _ui, projet=False)
     x.add_argument("--port", type=int, default=8765)
     x.add_argument("--api", action="store_true", help="API seule, sans interface (utilisé par `npm run dev`)")
-    x.add_argument("--front", help="dossier de l'interface construite (défaut : ui/app/dist)")
+    x.add_argument("--front", help="dossier de l'interface construite (défaut : ui/dist)")
     x.add_argument("--no-browser", action="store_true", help="ne pas ouvrir le navigateur")
     x.add_argument("--exit-with-parent", action="store_true",
                    help="s'arrêter quand l'entrée standard se ferme (utilisé par `npm run dev`)")

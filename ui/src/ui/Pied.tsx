@@ -9,7 +9,7 @@ export function Pied({ compteurs, source }: { compteurs: Compteurs; source: Sour
       </span>
       <span className="vide" />
       {source?.demonstration && (
-        <span>Démonstration — ta boîte : MESSENGER_BOX dans ui/app/.env.local</span>
+        <span>Démonstration — ta boîte : MESSENGER_BOX dans ui/.env.local</span>
       )}
       {source && !source.demonstration && (
         <span title={source.chemin}>
