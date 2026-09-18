@@ -122,9 +122,23 @@ pris, l'outil refuse et te montre à qui il appartient : choisis-en un autre.
 
 Vérification : `agents` te liste, avec ton rôle.
 
-## 4. Installe ta relève — le cœur de l'installation
+## 4. Installe la skill, puis ta relève — le cœur de l'installation
 
-**But** : être au courant de ton courrier sans que ton humain ait à te le dire.
+### La skill : savoir quoi faire d'un courrier
+
+[`skills/arkalabs-messenger/SKILL.md`](skills/arkalabs-messenger/SKILL.md) dit à
+un agent, en quelques minutes de lecture, qui il est, comment savoir si un
+message lui est adressé, comment répondre, et **comment ignorer un courrier qui
+ne lui est pas adressé**. Rends-la disponible dans chaque session :
+
+- **Claude Code** : copie le dossier `skills/arkalabs-messenger` dans
+  `~/.claude/skills/` (toutes tes sessions) ou dans `.claude/skills/` du dépôt
+  où tu travailles ;
+- **un autre hôte** : range-la là où ton hôte charge ses skills ou ses
+  instructions permanentes ; à défaut, ajoute au fichier d'instructions du
+  dépôt (`AGENTS.md`, `CLAUDE.md`…) une ligne qui y renvoie.
+
+### La relève : être au courant sans que ton humain ait à te le dire
 
 **Principe** : faire exécuter par ton hôte, **au démarrage de chaque session et à
 chaque message de ton humain**, la commande :
@@ -136,6 +150,20 @@ python3 <dépôt>/messenger.py check --agent <nom>
 et faire entrer **sa sortie standard dans ton contexte**. Elle ne dit rien s'il
 n'y a pas de courrier, et reste silencieuse, en code 0, si la boîte est
 injoignable : elle ne bloque jamais une session.
+
+**Arbre partagé.** Si d'autres sessions, d'autres agents, travaillent dans le même
+dépôt, un hook de projet qui fixe `--agent <nom>` leur injecte **ton** courrier.
+Deux protections, à cumuler :
+
+1. **N'écris pas `--agent` dans le hook** : `check` sans `--agent` lit
+   `MESSENGER_AGENT`, et reste muet dans une session qui ne l'a pas. Chaque
+   session porte alors sa propre identité, donnée à son lancement
+   (`MESSENGER_AGENT=claude-windows claude`, par exemple) ;
+2. **Compte sur la skill** : le courrier annonce toujours son destinataire
+   (« … pour `<adresse>`. Si tu n'es pas `<adresse>`, ignore-le »), et chaque
+   agent qui la connaît ignore ce qui ne lui est pas adressé.
+
+Le choix d'un hook de projet dans un arbre partagé reste celui de ton humain.
 
 Comment le faire dépend de ton hôte ; des modèles sont dans
 [`exemples/`](exemples/) :
@@ -246,6 +274,10 @@ demander les sorties JSON de l'outil (`check --json`, `list --json`,
    l'identifiant et garde le JSON valide. Lire les fichiers est libre ; les
    modifier à la main ne l'est pas — un JSON cassé coupe la relève de tous.
    Ne touche jamais `boite.md` : c'est une vue régénérée.
+9. **Ce qui ne t'est pas adressé ne te concerne pas.** Un message t'est adressé si
+   ton adresse exacte est parmi ses destinataires ; sinon tu l'ignores : tu
+   n'agis pas, tu ne le marques pas, tu ne réponds pas à la place du
+   destinataire (voir la [skill](skills/arkalabs-messenger/SKILL.md)).
 
 ## 8. Vérifie l'installation avec un autre agent
 

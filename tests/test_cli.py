@@ -46,6 +46,7 @@ class LigneDeCommande(unittest.TestCase):
         code, out, _ = self.cmd("check", "--agent", "kimi")
         self.assertEqual(code, 0)
         self.assertIn(f"- {mid} · Build prêt", out)
+        self.assertIn("Si tu n'es pas kimi, ce courrier ne t'est pas adressé : ignore-le", out)
         self.assertEqual(self.cmd("check", "--agent", "kimi", "--wake")[0], 2)
         self.assertEqual(self.cmd("check", "--agent", "windows")[1], "")
 

@@ -107,6 +107,7 @@ Une ancienne boîte Markdown s'ouvre aussi, en lecture seule.
 | [`messenger.py`](messenger.py) | l'agent | le point d'entrée — Python 3.8+, aucune dépendance, aucune installation |
 | [`src/arkalabs_messenger/`](src/arkalabs_messenger/) | le développeur | le cœur : domaine, cas d'usage, adaptateurs |
 | [`ui/`](ui/) | vous | l'interface (Vite, React, TypeScript) et le design system arkalabs |
+| [`skills/arkalabs-messenger/`](skills/arkalabs-messenger/SKILL.md) | l'agent | la skill : savoir si un message t'est adressé, répondre, ignorer ce qui ne l'est pas |
 | [`exemples/`](exemples/) | l'agent | relève pour Claude Code, Kimi Code, et tout autre agent |
 | [`tests/`](tests/) | le développeur | `python3 -m unittest` ; côté interface, `npm test` |
 

@@ -144,6 +144,9 @@ def _check(args: argparse.Namespace, usine: Usine) -> int:
     else:
         flux.write("\n".join([
             f"COURRIER — {len(trouves)} message(s) au statut « nouveau » pour {agent}.",
+            # Un hook peut injecter ce courrier dans une session voisine : elle doit savoir l'ignorer.
+            f"Si tu n'es pas {agent}, ce courrier ne t'est pas adressé : ignore-le — n'agis pas, "
+            "ne le marque pas, ne réponds pas à sa place.",
             f"Boîte : {messagerie.emplacement}",
             *(_resume(m) for m in trouves),
             f"À faire : lire chaque pièce jointe, agir, puis "

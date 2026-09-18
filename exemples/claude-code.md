@@ -2,6 +2,12 @@
 
 Modèle éprouvé le 18/09/2026 sur Claude Code (application desktop, Windows).
 
+## La skill
+
+Copie `skills/arkalabs-messenger` dans `~/.claude/skills/` : toutes tes sessions
+sauront lire un courrier, y répondre, et ignorer celui qui ne leur est pas
+adressé. Claude Code la charge d'elle-même quand un « COURRIER — … » apparaît.
+
 ## Relève : deux hooks
 
 À **fusionner** dans les réglages locaux du projet où tu travailles
@@ -36,6 +42,20 @@ exécutable :
 Constat : un fichier de réglages créé en cours de session a été pris en compte
 dans la même session. Si ce n'est pas le cas chez toi, il vaut à la session
 suivante.
+
+### Dans un arbre partagé
+
+Si d'autres sessions travaillent dans le même dépôt, ces hooks leur injectent
+ton courrier. Retire alors `--agent <nom>` de la commande (`… messenger.py
+check`) et donne à chaque session son identité à son lancement :
+
+```bash
+MESSENGER_AGENT=claude-windows claude
+```
+
+Une session sans `MESSENGER_AGENT` ne relève rien. Et quoi qu'il arrive, la
+relève annonce son destinataire : une session qui connaît la skill ignore le
+courrier qui n'est pas pour elle.
 
 ## Réveil : la commande `watch` en tâche de fond
 
