@@ -1,7 +1,8 @@
 import { ArrowRight, CheckCheck, ExternalLink, FileText, LoaderCircle, Lock } from 'lucide-react';
 import { useState } from 'react';
-import { adresseCourte, fil, horodatage, instant, titre } from '../domain/boite.ts';
+import { adresseCourte, fil, horodatage, instant, projetsDe, titre } from '../domain/boite.ts';
 import { type Message, STATUTS, type Statut } from '../domain/types.ts';
+import { EtiquettesProjet } from './EtiquettesProjet.tsx';
 
 interface Props {
   message: Message | null;
@@ -42,6 +43,8 @@ function Contenu({ message: m, tous, projet, lectureSeule, lienPieceJointe, onMa
           <span className="adresse-a">{m.a.map((x) => adresseCourte(x, projet)).join(', ')}</span>
           <span className="detail__point-median">·</span>
           <span className="detail__date">{horodatage(instant(m))}{fuseau}</span>
+          {/* La portée du message : tous les projets qu'il touche, la discussion inter-projet comprise. */}
+          <EtiquettesProjet projets={projetsDe(m)} avecIcone />
         </div>
       </div>
 

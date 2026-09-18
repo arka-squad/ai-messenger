@@ -1,7 +1,8 @@
 import { ArrowRight, Paperclip } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { adresseCourte, heure, instant, titre } from '../domain/boite.ts';
+import { adresseCourte, heure, instant, projetsDe, titre } from '../domain/boite.ts';
 import type { Message } from '../domain/types.ts';
+import { EtiquettesProjet } from './EtiquettesProjet.tsx';
 import { IconeStatut } from './IconeStatut.tsx';
 
 interface Props {
@@ -69,6 +70,8 @@ function Lignes({ messages, projet, arrivees, choisi, onChoix, total }: Props) {
               <ArrowRight className="ic" size={11} />
               <span className="adresse-a">{m.a.map((x) => adresseCourte(x, projet)).join(', ')}</span>
               <span className="vide" />
+              {/* Le projet filtré est déjà implicite : on ne montre que les autres qu'un message touche. */}
+              <EtiquettesProjet projets={projetsDe(m).filter((p) => p !== projet)} />
               {m.pj && <Paperclip className="ic" size={12} />}
               <IconeStatut statut={m.statut} />
             </span>

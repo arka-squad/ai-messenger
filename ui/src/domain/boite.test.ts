@@ -12,6 +12,7 @@ import {
   initiales,
   libelleJour,
   projets,
+  projetsDe,
   recents,
   titre,
 } from './boite.ts';
@@ -107,6 +108,12 @@ describe('projets', () => {
     assert.equal(adresseCourte('kimi@cortex', 'cortex'), 'kimi');
     assert.equal(adresseCourte('claude@talos', 'cortex'), 'claude@talos');
     assert.equal(adresseCourte('kimi@cortex', null), 'kimi@cortex');
+  });
+  it('les projets qu\'un message touche, sans doublon et sans les comptes communs', () => {
+    assert.deepEqual(projetsDe(P[0]!), ['cortex']);
+    assert.deepEqual(projetsDe(P[1]!), ['cortex', 'talos']);
+    assert.deepEqual(projetsDe(P[2]!), ['talos']);
+    assert.deepEqual(projetsDe(message('x', '2026-09-18T09:00:00', 'owner', ['owner'])), []);
   });
 });
 

@@ -170,7 +170,7 @@ Comment le faire dépend de ton hôte ; des modèles sont dans
 
 - [Claude Code](exemples/claude-code.md) — hooks `SessionStart` et
   `UserPromptSubmit` ;
-- [Kimi Code](exemples/kimi-code.md) — hooks de plugin ;
+- [Kimi Code](exemples/kimi-code.md) — hooks natifs dans `config.toml` ;
 - [autre agent](exemples/autre-agent.md) — le principe, à transposer.
 
 Installe la relève dans **tes réglages locaux ou de projet**, en fusionnant avec

@@ -35,6 +35,17 @@ export function adresseCourte(adresse: string, projet: string | null): string {
   return projet && projetDe(adresse) === projet ? adresse.slice(0, adresse.indexOf('@')) : adresse;
 }
 
+/** Les projets que ce message touche (émetteur et destinataires), sans doublon, dans l'ordre d'apparition.
+ *  Un message entre comptes communs (`owner`) n'en touche aucun. */
+export function projetsDe(m: Message): string[] {
+  const vus: string[] = [];
+  for (const adresse of [m.de, ...m.a]) {
+    const p = projetDe(adresse);
+    if (p && !vus.includes(p)) vus.push(p);
+  }
+  return vus;
+}
+
 /** L'objet tel qu'on l'affiche : préfixé de `Re : <id> — ` pour une réponse. */
 export function titre(m: Message): string {
   return (m.re ? `Re : ${m.re} — ` : '') + m.objet;
