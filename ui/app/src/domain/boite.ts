@@ -13,10 +13,27 @@ export interface Filtre {
   classement: Classement;
   statut: Statut | null;
   agent: string | null;
+  projet: string | null;
   recherche: string;
 }
 
-export const FILTRE_INITIAL: Filtre = { classement: 'toutes', statut: null, agent: null, recherche: '' };
+export const FILTRE_INITIAL: Filtre = { classement: 'toutes', statut: null, agent: null, projet: null, recherche: '' };
+
+/** Le projet d'une adresse `nom@projet`, ou null pour un compte commun. */
+export function projetDe(adresse: string): string | null {
+  const i = adresse.indexOf('@');
+  return i < 0 ? null : adresse.slice(i + 1);
+}
+
+/** Écrit ou reçu par un compte du projet — la discussion avec les autres projets comprise. */
+export function toucheLeProjet(m: Message, projet: string): boolean {
+  return [m.de, ...m.a].some((x) => projetDe(x) === projet);
+}
+
+/** Une adresse du projet affiché se lit sans son projet ; les autres le gardent. */
+export function adresseCourte(adresse: string, projet: string | null): string {
+  return projet && projetDe(adresse) === projet ? adresse.slice(0, adresse.indexOf('@')) : adresse;
+}
 
 /** L'objet tel qu'on l'affiche : préfixé de `Re : <id> — ` pour une réponse. */
 export function titre(m: Message): string {
@@ -71,6 +88,7 @@ export function filtrer(messages: readonly Message[], filtre: Filtre, compte: st
     if (filtre.classement === 'pj' && !m.pj) return false;
     if (filtre.classement === 'moi' && !m.a.includes(compte)) return false;
     if (filtre.agent && m.de !== filtre.agent && !m.a.includes(filtre.agent)) return false;
+    if (filtre.projet && !toucheLeProjet(m, filtre.projet)) return false;
     if (cherche) {
       const texte = [m.id, titre(m), m.pj ?? '', m.de, ...m.a, ...m.corps].join(' ').toLowerCase();
       if (!texte.includes(cherche)) return false;
@@ -102,6 +120,7 @@ export function compter(messages: readonly Message[], compte: string): Compteurs
 
 export interface Agent {
   nom: string;
+  projet: string | null;
   role: string | undefined;
   envois: number;
   dernierEnvoi: Date | null;
@@ -109,10 +128,11 @@ export interface Agent {
   enAttente: number;
 }
 
-/** Les comptes actifs, du plus récemment actif au silencieux. */
-export function agents(comptes: readonly Compte[], messages: readonly Message[]): Agent[] {
+/** Les comptes actifs — ceux du projet et les comptes communs, si un projet est choisi —
+ *  du plus récemment actif au silencieux. */
+export function agents(comptes: readonly Compte[], messages: readonly Message[], projet: string | null = null): Agent[] {
   return comptes
-    .filter((c) => c.actif)
+    .filter((c) => c.actif && (!projet || projetDe(c.nom) === projet || projetDe(c.nom) === null))
     .map((c) => {
       const envoyes = messages.filter((m) => m.de === c.nom);
       const dernier = envoyes.reduce<Date | null>((acc, m) => {
@@ -121,6 +141,7 @@ export function agents(comptes: readonly Compte[], messages: readonly Message[])
       }, null);
       return {
         nom: c.nom,
+        projet: projetDe(c.nom),
         role: c.role,
         envois: envoyes.length,
         dernierEnvoi: dernier,
@@ -161,8 +182,23 @@ export function fil(messages: readonly Message[], m: Message): Message[] {
   return [...parent, ...[...reponses].sort((x, y) => instant(x).getTime() - instant(y).getTime())];
 }
 
-/** « OW » pour owner, « CW » pour claude-windows. */
-export function initiales(nom: string): string {
+export interface Projet {
+  nom: string;
+  messages: number;
+  /** Messages « nouveau » qui le touchent. */
+  nouveaux: number;
+}
+
+export function projets(noms: readonly string[], messages: readonly Message[]): Projet[] {
+  return noms.map((nom) => {
+    const siens = messages.filter((m) => toucheLeProjet(m, nom));
+    return { nom, messages: siens.length, nouveaux: siens.filter((m) => m.statut === 'nouveau').length };
+  });
+}
+
+/** « OW » pour owner, « CW » pour claude-windows (le projet ne compte pas). */
+export function initiales(adresse: string): string {
+  const nom = adresse.split('@')[0] ?? adresse;
   const parts = nom.split(/[-_.]/).filter(Boolean);
   const lettres = parts.length > 1 ? (parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '') : nom.slice(0, 2);
   return lettres.toUpperCase();

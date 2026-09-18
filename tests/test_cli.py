@@ -17,7 +17,7 @@ class LigneDeCommande(unittest.TestCase):
         self.dossier = self._tmp.name
         self.boite = os.path.join(self.dossier, "partage", "boite.json")
         self.env = dict(os.environ, HOME=self.dossier, USERPROFILE=self.dossier, PYTHONIOENCODING="utf-8")
-        for cle in ("MESSENGER_BOX", "MESSENGER_AGENT"):
+        for cle in ("MESSENGER_BOX", "MESSENGER_AGENT", "MESSENGER_PROJECT"):
             self.env.pop(cle, None)
 
     def tearDown(self):

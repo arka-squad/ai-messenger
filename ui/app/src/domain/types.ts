@@ -48,6 +48,8 @@ export interface Etat {
   source: Source;
   /** Le compte au nom duquel l'interface agit. */
   compte: string;
+  /** Les projets connus : une adresse est `nom` (commun) ou `nom@projet`. */
+  projets: string[];
   /** Notifications système du poste : actives, coupées, ou null si indisponibles. */
   notifications: boolean | null;
   version: string;

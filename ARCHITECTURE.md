@@ -12,8 +12,9 @@ toucher aux règles.
    CLI des agents ─┐                                    ┌─ boîte JSON (+ vue .md)
    (messenger.py)  │     ┌───────────────────────┐      ├─ annuaire JSON (manifeste)
                    ├───▶ │  application          │ ───▶ ├─ pièces jointes (dossier)
-   API web locale ─┘     │  Messagerie + ports   │      ├─ ancienne boîte .md (lecture)
-   (messenger.py ui)     │   ┌───────────────┐   │      └─ horloge système
+   API web locale ─┘     │  Messagerie, Annonceur│      ├─ ancienne boîte .md (lecture)
+   (messenger.py ui)     │   ┌───────────────┐   │      ├─ notifications système
+                         │   │               │   │      └─ horloge système
                          │   │    domaine    │   │
                          │   │ Message, Boite│   │
                          │   │ Compte, règles│   │
@@ -44,16 +45,18 @@ grep -rn "import" src/arkalabs_messenger/adapters/driving | grep "driven"
 
 | Fichier | Rôle |
 |---|---|
-| `domain/modele.py` | `Message` (immuable, seul son statut avance), `Brouillon` (un message validé, pas encore envoyé), `Boite` et `Annuaire` (les agrégats), `Compte`, et les règles : noms, deux lignes de corps, statut qui n'avance que par un destinataire et jamais en arrière |
+| `domain/modele.py` | `Message` (immuable, seul son statut avance), `Brouillon` (un message validé, pas encore envoyé), `Boite` et `Annuaire` (les agrégats), `Compte`, et les règles : adresses `nom@projet` et leur résolution, deux lignes de corps, statut qui n'avance que par un destinataire et jamais en arrière |
 | `domain/erreurs.py` | les refus, chacun avec un message qui dit quoi faire |
-| `application/ports.py` | les interfaces attendues : `DepotBoite`, `DepotAnnuaire`, `PiecesJointes`, `Horloge`, `SourceAncienne` |
+| `application/ports.py` | les interfaces attendues : `DepotBoite`, `DepotAnnuaire`, `PiecesJointes`, `Horloge`, `Notificateur`, `SourceAncienne` |
 | `application/messagerie.py` | les cas d'usage : initialiser, inscrire, envoyer, relever, marquer, lister, guetter, importer |
+| `application/annonces.py` | `Annonceur` : une notification pour chaque message qui passe, résumée en rafale |
 | `adapters/codec.py` | le format d'échange JSON de [PROTOCOLE.md](PROTOCOLE.md) ; conserve les champs inconnus |
-| `adapters/driven/` | boîte et annuaire en fichiers JSON (verrou, écriture atomique), vue Markdown, ancienne boîte Markdown en lecture seule, pièces jointes, horloge |
+| `adapters/driven/` | boîte et annuaire en fichiers JSON (verrou, écriture atomique), vue Markdown, ancienne boîte Markdown en lecture seule, pièces jointes, notifications système natives (toast Windows à la marque, macOS, Linux), horloge |
 | `adapters/driving/cli.py` | la ligne de commande des agents |
-| `adapters/driving/web.py` | l'API locale de l'interface (et l'interface construite) |
-| `adapters/driving/poste.py` | la boîte mémorisée par `setup`, les variables d'environnement |
+| `adapters/driving/web.py` | l'API locale de l'interface (et l'interface construite), et la relève des annonces |
+| `adapters/driving/poste.py` | la boîte du poste (`setup --box`), le projet du dépôt (`.messenger.json`), l'environnement |
 | `bootstrap.py` | l'assemblage : choisit les adaptateurs selon l'extension de la boîte |
+| `demonstration.py` | la boîte de démonstration, écrite par les cas d'usage eux-mêmes |
 
 `messenger.py`, à la racine, ne fait que rendre `src/` importable et appeler
 `bootstrap.main` : aucune installation n'est nécessaire.

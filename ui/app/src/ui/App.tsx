@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { PortPreferences } from '../application/ports.ts';
 import type { Veille } from '../application/veille.ts';
-import { FILTRE_INITIAL, type Filtre, agents, compter, filtrer, recents } from '../domain/boite.ts';
+import {
+  FILTRE_INITIAL,
+  type Filtre,
+  agents,
+  compter,
+  filtrer,
+  projets,
+  recents,
+  toucheLeProjet,
+} from '../domain/boite.ts';
 import type { Message, Statut } from '../domain/types.ts';
 import { Detail } from './Detail.tsx';
 import { Entete } from './Entete.tsx';
@@ -47,14 +56,20 @@ export function App({ veille, preferences }: Props) {
   const tous = useMemo(() => recents(etat?.messages ?? []), [etat]);
   const visibles = useMemo(() => filtrer(tous, filtre, compte), [tous, filtre, compte]);
   const compteurs = useMemo(() => compter(tous, compte), [tous, compte]);
-  const listeAgents = useMemo(() => agents(etat?.comptes ?? [], tous), [etat, tous]);
+  const listeAgents = useMemo(() => agents(etat?.comptes ?? [], tous, filtre.projet), [etat, tous, filtre.projet]);
+  const listeProjets = useMemo(() => projets(etat?.projets ?? [], tous), [etat, tous]);
+  // Le trafic suit le projet choisi, pas les autres filtres : il montre la journée du projet.
+  const duProjet = useMemo(
+    () => (filtre.projet ? tous.filter((m) => toucheLeProjet(m, filtre.projet as string)) : tous),
+    [tous, filtre.projet],
+  );
   const choisi = (choix ? tous.find((m) => m.id === choix) : undefined) ?? visibles[0] ?? tous[0] ?? null;
   const idsVisibles = useMemo(() => visibles.map((m) => m.id), [visibles]);
   const arrivees = useMemo(() => new Set(v.arrivees.map((m) => m.id)), [v.arrivees]);
   const ordre = useMemo(() => {
     const noms = listeAgents.map((a) => a.nom);
-    return [...noms, ...sansCompte(tous, noms)];
-  }, [listeAgents, tous]);
+    return [...noms, ...sansCompte(duProjet, noms)];
+  }, [listeAgents, duProjet]);
 
   const marquer = useCallback((id: string, statut: Statut) => veille.marquer(id, statut), [veille]);
 
@@ -78,6 +93,7 @@ export function App({ veille, preferences }: Props) {
         <Rail
           compte={compte}
           compteurs={compteurs}
+          projets={listeProjets}
           agents={listeAgents}
           filtre={filtre}
           onFiltre={setFiltre}
@@ -88,8 +104,9 @@ export function App({ veille, preferences }: Props) {
           <Outils compteurs={compteurs} filtre={filtre} onFiltre={setFiltre} />
           <Trafic
             chargement={chargement}
-            messages={tous}
+            messages={duProjet}
             ordre={ordre}
+            projet={filtre.projet}
             choisi={choisi}
             agentFiltre={filtre.agent}
             onChoix={setChoix}
@@ -100,6 +117,7 @@ export function App({ veille, preferences }: Props) {
               chargement={chargement}
               erreur={etat ? null : v.erreur}
               messages={visibles}
+              projet={filtre.projet}
               arrivees={arrivees}
               total={tous.length}
               choisi={choisi?.id ?? null}
@@ -108,6 +126,7 @@ export function App({ veille, preferences }: Props) {
             <Detail
               message={choisi}
               tous={tous}
+              projet={filtre.projet}
               lectureSeule={etat?.source.lecture_seule ?? true}
               lienPieceJointe={(nom) => veille.lienPieceJointe(nom)}
               onMarquer={marquer}

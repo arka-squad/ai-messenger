@@ -8,7 +8,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
-from ..domain import Boite, Brouillon, Compte, Message, MessageInvalide, NomInvalide, valider_nom
+from ..domain import (
+    Boite,
+    Brouillon,
+    Compte,
+    Message,
+    MessageInvalide,
+    NomInvalide,
+    projet_de,
+    qualifier,
+    valider_adresse,
+)
 from .ports import (
     BoiteExistante,
     BoiteIndisponible,
@@ -70,8 +80,21 @@ class Messagerie:
     def annuaire_present(self) -> bool:
         return self._annuaire.existe()
 
-    def comptes(self, tous: bool = False) -> List[Compte]:
-        return [c for c in self._annuaire.lire().comptes if tous or c.actif]
+    def comptes(self, tous: bool = False, projet: Optional[str] = None) -> List[Compte]:
+        return [c for c in self._annuaire.lire().comptes
+                if (tous or c.actif) and (projet is None or c.projet == projet)]
+
+    def adresse(self, nom: str, projet: Optional[str]) -> str:
+        """L'adresse que désigne `nom` depuis `projet` (voir `Annuaire.resoudre`)."""
+        if self._annuaire.existe():
+            return self._annuaire.lire().resoudre(nom, projet)
+        return qualifier(valider_adresse(nom), projet)
+
+    def projets(self) -> List[str]:
+        """Les projets connus : ceux des comptes, et ceux vus dans la boîte."""
+        vus = {c.projet for c in self._annuaire.lire().comptes if c.projet}
+        vus.update(p for p in (projet_de(x) for x in self._boite.lire().participants()) if p)
+        return sorted(vus)
 
     def inscrire(self, nom: str, hote: str, role: str, *, machine: Optional[str] = None,
                  modele: Optional[str] = None, humain: Optional[str] = None,
@@ -85,12 +108,15 @@ class Messagerie:
 
     def desactiver(self, nom: str) -> None:
         with self._annuaire.transaction() as annuaire:
-            annuaire.desactiver(valider_nom(nom))
+            annuaire.desactiver(valider_adresse(nom))
 
     # -- Les messages ---------------------------------------------------------
     def envoyer(self, de: str, a: Sequence[str], objet: str, corps: str = "",
                 piece: Optional[str] = None, re: Optional[str] = None) -> Envoi:
-        brouillon = Brouillon.rediger(de, a, objet, corps.splitlines(), re)
+        """`de` est une adresse complète ; un destinataire au nom court est cherché dans le projet de `de`."""
+        projet = projet_de(valider_adresse(de, "expéditeur"))
+        destinataires = [self.adresse(d.strip(), projet) for d in a if d and d.strip()]
+        brouillon = Brouillon.rediger(de, destinataires, objet, corps.splitlines(), re)
         verifiees = self._annuaire.existe()
         if verifiees:
             self._annuaire.lire().verifier(brouillon.de, brouillon.a)
@@ -104,17 +130,18 @@ class Messagerie:
 
     def releve(self, compte: str) -> List[Message]:
         """Les messages au statut « nouveau » adressés à `compte`."""
-        return self._boite.lire().nouveaux_pour(valider_nom(compte))
+        return self._boite.lire().nouveaux_pour(valider_adresse(compte))
 
     def marquer(self, compte: str, mid: str, statut: str) -> Message:
         with self._boite.transaction() as boite:
-            return boite.marquer(mid, valider_nom(compte), statut, self._horodatage())
+            return boite.marquer(mid, valider_adresse(compte), statut, self._horodatage())
 
     def lister(self, compte: Optional[str] = None, statut: Optional[str] = None,
-               limite: Optional[int] = None) -> List[Message]:
-        """Du plus récent au plus ancien, filtré par compte (émis ou reçu) et par statut."""
+               limite: Optional[int] = None, projet: Optional[str] = None) -> List[Message]:
+        """Du plus récent au plus ancien, filtré par compte (émis ou reçu), statut et projet."""
         messages = [m for m in self._boite.lire().recents()
-                    if (compte is None or m.concerne(compte)) and (statut is None or m.statut == statut)]
+                    if (compte is None or m.concerne(compte)) and (statut is None or m.statut == statut)
+                    and (projet is None or m.touche_le_projet(projet))]
         return messages if limite is None else messages[:limite]
 
     def guetter(self, compte: str, intervalle: float, heures: float) -> List[Message]:
@@ -169,7 +196,7 @@ class Messagerie:
 
 def _nom_valide(nom: str) -> bool:
     try:
-        valider_nom(nom)
+        valider_adresse(nom)
     except NomInvalide:
         return False
     return True

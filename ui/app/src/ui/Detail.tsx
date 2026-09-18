@@ -1,11 +1,13 @@
 import { ArrowRight, CheckCheck, ExternalLink, FileText, LoaderCircle, Lock } from 'lucide-react';
 import { useState } from 'react';
-import { fil, horodatage, instant, titre } from '../domain/boite.ts';
+import { adresseCourte, fil, horodatage, instant, titre } from '../domain/boite.ts';
 import { type Message, STATUTS, type Statut } from '../domain/types.ts';
 
 interface Props {
   message: Message | null;
   tous: readonly Message[];
+  /** Le projet affiché : ses adresses se lisent sans leur projet. */
+  projet: string | null;
   lectureSeule: boolean;
   lienPieceJointe: (nom: string) => string;
   onMarquer: (id: string, statut: Statut) => Promise<void>;
@@ -27,7 +29,7 @@ export function Detail({ message, ...reste }: Props) {
   );
 }
 
-function Contenu({ message: m, tous, lectureSeule, lienPieceJointe, onMarquer, onChoix }: Props & { message: Message }) {
+function Contenu({ message: m, tous, projet, lectureSeule, lienPieceJointe, onMarquer, onChoix }: Props & { message: Message }) {
   const lies = fil(tous, m);
   const fuseau = Intl.DateTimeFormat().resolvedOptions().timeZone === 'Europe/Paris' ? ' Paris' : '';
   return (
@@ -35,9 +37,9 @@ function Contenu({ message: m, tous, lectureSeule, lienPieceJointe, onMarquer, o
       <div className="detail__bloc detail__bloc--serre">
         <span className="detail__objet">{titre(m)}</span>
         <div className="detail__adresse">
-          <span className="adresse-de">{m.de}</span>
+          <span className="adresse-de">{adresseCourte(m.de, projet)}</span>
           <ArrowRight className="ic" size={11} />
-          <span className="adresse-a">{m.a.join(', ')}</span>
+          <span className="adresse-a">{m.a.map((x) => adresseCourte(x, projet)).join(', ')}</span>
           <span className="detail__point-median">·</span>
           <span className="detail__date">{horodatage(instant(m))}{fuseau}</span>
         </div>

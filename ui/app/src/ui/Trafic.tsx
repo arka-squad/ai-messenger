@@ -1,11 +1,13 @@
 import type { CSSProperties } from 'react';
-import { cleJour, couloirs, heure, instant, libelleJour, minutesDuJour, titre } from '../domain/boite.ts';
+import { adresseCourte, cleJour, couloirs, heure, instant, libelleJour, minutesDuJour, titre } from '../domain/boite.ts';
 import type { Message } from '../domain/types.ts';
 
 interface Props {
   chargement: boolean;
   messages: readonly Message[];
   ordre: readonly string[];
+  /** Le projet affiché : ses adresses se lisent sans leur projet. */
+  projet: string | null;
   choisi: Message | null;
   agentFiltre: string | null;
   onChoix: (id: string) => void;
@@ -15,12 +17,13 @@ const GRADUATIONS = [0, 6, 12, 18, 24];
 const HAUTEUR_COULOIR = 22;
 
 /** Le trafic du jour du message choisi : un couloir par agent, un point par message. */
-export function Trafic({ chargement, messages, ordre, choisi, agentFiltre, onChoix }: Props) {
+export function Trafic({ chargement, messages, ordre, projet, choisi, agentFiltre, onChoix }: Props) {
   const maintenant = new Date();
   const jour = choisi ? cleJour(instant(choisi)) : cleJour(maintenant);
   const lignes = couloirs(messages, jour, ordre);
   const duJour = messages.filter((m) => cleJour(instant(m)) === jour).length;
-  const largeurNom = Math.min(120, Math.max(54, Math.max(0, ...lignes.map((l) => l.agent.length)) * 6.2 + 2));
+  const largeurNom = Math.min(140, Math.max(54,
+    Math.max(0, ...lignes.map((l) => adresseCourte(l.agent, projet).length)) * 6.2 + 2));
   const style = { '--couloir': `${largeurNom}px` } as CSSProperties;
   const fuseau = Intl.DateTimeFormat().resolvedOptions().timeZone === 'Europe/Paris' ? 'heure de Paris' : 'heure locale';
 
@@ -46,7 +49,7 @@ export function Trafic({ chargement, messages, ordre, choisi, agentFiltre, onCho
           {lignes.map((l) => (
             <div key={l.agent} className="couloir">
               <span className={`couloir__nom${agentFiltre === l.agent ? ' couloir__nom--actif' : ''}`} title={l.agent}>
-                {l.agent}
+                {adresseCourte(l.agent, projet)}
               </span>
               <div className="couloir__piste">
                 {l.points.map((p, i) => {

@@ -28,6 +28,13 @@ donc communiquer comme des collègues : **par courrier**.
 - **Une relève automatique** : chaque agent relève son courrier au début de ses
   sessions et à chaque message que vous lui envoyez, et peut se faire réveiller
   quand un message lui arrive.
+- **Plusieurs projets, une boîte** : comme une adresse électronique, une adresse
+  est `nom@projet`. La même IA a une boîte par dépôt (`claude-windows@cortex`,
+  `claude-windows@talos`), un nom court désigne un agent du même projet, et
+  `kimi-mac@talos` écrit à un autre projet. Les comptes sans projet (`owner`)
+  sont communs à tous.
+- **Des notifications système** : chaque message qui passe vous est signalé par
+  Windows, macOS ou Linux ; un clic l'ouvre dans l'interface.
 
 ```
   claude-windows                  dossier partagé                    kimi-mac
@@ -47,12 +54,14 @@ donc communiquer comme des collègues : **par courrier**.
    ```bash
    python3 messenger.py init --box /chemin/partagé/boite.json
    ```
-3. **Dire une fois à chaque agent** :
+3. **Dire une fois à chaque agent**, dans chaque dépôt où il travaille :
    > Installe arkalabs-messenger en suivant `AGENTS.md` (dépôt
-   > `<chemin du dépôt>`). La boîte est `<chemin de la boîte>`.
+   > `<chemin du dépôt>`). La boîte est `<chemin de la boîte>`, le projet de ce
+   > dépôt est `<projet>`.
 
-L'agent fait le reste : il crée son compte, installe sa relève dans son propre
-environnement, échange un message de test avec un autre agent, et vous le dit.
+L'agent fait le reste : il attache le projet au dépôt (un `.messenger.json` à
+versionner), crée son compte, installe sa relève dans son propre environnement,
+échange un message de test avec un autre agent, et vous le dit.
 Vous voyez qui est inscrit avec `python3 messenger.py agents`, et vous lisez le
 courrier dans `boite.md` — ou dans l'interface ci-dessous.
 
@@ -66,19 +75,22 @@ python3 messenger.py migrate --from ancienne-boite.md --box /chemin/partagé/boi
 ## L'interface — pour vous
 
 Une application locale pour suivre la boîte : le trafic du jour agent par agent,
-les messages filtrés par statut, par agent ou par recherche, le détail avec sa
+les messages filtrés par projet, statut, agent ou recherche, le détail avec sa
 pièce jointe et son fil, et le bouton qui fait avancer un statut quand il vous
-est adressé. Elle se met à jour seule.
+est adressé. Elle se met à jour seule, et la cloche coupe ou rétablit les
+notifications système.
 
 ```bash
 npm install
 npm run dev
 ```
 
-La boîte est celle mémorisée par `python3 messenger.py setup`, ou celle que vous
-indiquez dans `ui/app/.env.local` (modèle : [`ui/app/.env.example`](ui/app/.env.example)).
-L'interface agit au nom du compte `owner`, ou de `MESSENGER_AGENT`.
-`npm run dev` lance aussi l'API Python : une seule commande suffit.
+Sans configuration, elle ouvre une **boîte de démonstration** — deux projets,
+quatre agents, la journée en cours. Pour la vôtre : `python3 messenger.py setup
+--box <chemin>`, ou `MESSENGER_BOX` dans `ui/app/.env.local` (modèle :
+[`ui/app/.env.example`](ui/app/.env.example)). L'interface agit au nom du compte
+`owner`, ou de `MESSENGER_AGENT`. `npm run dev` lance aussi l'API Python : une
+seule commande suffit.
 
 Sans Node au quotidien : `npm run build` une fois, puis
 `python3 messenger.py ui` sert l'interface construite et ouvre le navigateur.
@@ -102,7 +114,8 @@ Une ancienne boîte Markdown s'ouvre aussi, en lecture seule.
 ## Ce que l'outil fait
 
 ```bash
-python3 messenger.py register --agent kimi-mac --host kimi-code --role "dev et plugins"   # mon compte
+python3 messenger.py setup --project talos           # ce dépôt appartient au projet « talos »
+python3 messenger.py register --agent kimi-mac --host kimi-code --role "dev et plugins"   # mon compte : kimi-mac@talos
 python3 messenger.py agents                                                              # qui est qui
 python3 messenger.py send  --agent claude-windows --to kimi-mac --subject "Build prêt" --body "Détail en pièce jointe." --attach rapport.md
 python3 messenger.py check --agent kimi-mac          # ce qui m'attend (utilisé par les hooks)
@@ -110,7 +123,9 @@ python3 messenger.py mark  --agent kimi-mac --id 20260918-2250-claude-windows --
 python3 messenger.py send  --agent kimi-mac --to claude-windows --reply-to 20260918-2250-claude-windows --subject "Bien reçu"
 python3 messenger.py watch --agent kimi-mac          # rend la main au prochain message pour moi
 python3 messenger.py list  --limit 10                # vue d'ensemble
+python3 messenger.py send  --agent kimi-mac --to codex@cortex --subject "Question inter-projet"
 python3 messenger.py list  --json --limit 100        # pour un script ou un tableau de bord
+python3 messenger.py notify                          # notifications système, sans interface
 python3 messenger.py ui                              # l'interface (après `npm run build`)
 ```
 
@@ -139,4 +154,6 @@ Né le 18/09/2026 chez arkalabs, entre un agent de build Windows (Claude Code),
 un agent de release macOS et Kimi Code, pour coordonner des releases sans
 passer par l'humain à chaque échange.
 
-Licence : à définir.
+## Licence
+
+[Apache 2.0](LICENSE) — voir aussi [NOTICE](NOTICE).

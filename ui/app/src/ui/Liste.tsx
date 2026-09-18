@@ -1,6 +1,6 @@
 import { ArrowRight, Paperclip } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { heure, instant, titre } from '../domain/boite.ts';
+import { adresseCourte, heure, instant, titre } from '../domain/boite.ts';
 import type { Message } from '../domain/types.ts';
 import { IconeStatut } from './IconeStatut.tsx';
 
@@ -10,6 +10,8 @@ interface Props {
   chargement: boolean;
   erreur: string | null;
   messages: readonly Message[];
+  /** Le projet affiché : ses adresses se lisent sans leur projet. */
+  projet: string | null;
   /** Les messages arrivés à la dernière relève : ils s'animent en entrant. */
   arrivees: ReadonlySet<string>;
   total: number;
@@ -32,7 +34,7 @@ export function Liste(p: Props) {
   );
 }
 
-function Lignes({ messages, arrivees, choisi, onChoix, total }: Props) {
+function Lignes({ messages, projet, arrivees, choisi, onChoix, total }: Props) {
   // Comme la maquette : les douze premières lignes entrent au montage, puis chaque arrivée.
   const [entrees] = useState(() => new Set(messages.slice(0, 12).map((m) => m.id)));
   const choisie = useRef<HTMLButtonElement | null>(null);
@@ -63,9 +65,9 @@ function Lignes({ messages, arrivees, choisi, onChoix, total }: Props) {
           >
             <span className="ligne__tete">
               <span className="ligne__heure">{heure(instant(m))}</span>
-              <span className="adresse-de">{m.de}</span>
+              <span className="adresse-de">{adresseCourte(m.de, projet)}</span>
               <ArrowRight className="ic" size={11} />
-              <span className="adresse-a">{m.a.join(', ')}</span>
+              <span className="adresse-a">{m.a.map((x) => adresseCourte(x, projet)).join(', ')}</span>
               <span className="vide" />
               {m.pj && <Paperclip className="ic" size={12} />}
               <IconeStatut statut={m.statut} />

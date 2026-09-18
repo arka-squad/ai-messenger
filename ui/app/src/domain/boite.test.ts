@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   FILTRE_INITIAL,
+  adresseCourte,
   agents,
   cleJour,
   compter,
@@ -10,6 +11,7 @@ import {
   filtrer,
   initiales,
   libelleJour,
+  projets,
   recents,
   titre,
 } from './boite.ts';
@@ -83,9 +85,35 @@ describe('fil', () => {
   });
 });
 
+describe('projets', () => {
+  const P = [
+    message('p1', '2026-09-18T09:00:00', 'kimi@cortex', ['claude@cortex']),
+    message('p2', '2026-09-18T10:00:00', 'kimi@cortex', ['claude@talos', 'owner'], { statut: 'lu' }),
+    message('p3', '2026-09-18T11:00:00', 'claude@talos', ['owner']),
+  ];
+  it('un projet voit ses messages, discussion inter-projet comprise', () => {
+    assert.deepEqual(filtrer(P, { ...FILTRE_INITIAL, projet: 'cortex' }, 'owner').map((m) => m.id), ['p1', 'p2']);
+    assert.deepEqual(filtrer(P, { ...FILTRE_INITIAL, projet: 'talos' }, 'owner').map((m) => m.id), ['p2', 'p3']);
+    assert.deepEqual(projets(['cortex', 'talos'], P), [
+      { nom: 'cortex', messages: 2, nouveaux: 1 },
+      { nom: 'talos', messages: 2, nouveaux: 1 },
+    ]);
+  });
+  it('les agents d\'un projet, plus les comptes communs', () => {
+    const comptes = ['kimi@cortex', 'claude@talos', 'owner'].map((nom) => ({ nom, actif: true }));
+    assert.deepEqual(agents(comptes, P, 'cortex').map((a) => a.nom).sort(), ['kimi@cortex', 'owner']);
+  });
+  it('une adresse du projet affiché se lit sans son projet', () => {
+    assert.equal(adresseCourte('kimi@cortex', 'cortex'), 'kimi');
+    assert.equal(adresseCourte('claude@talos', 'cortex'), 'claude@talos');
+    assert.equal(adresseCourte('kimi@cortex', null), 'kimi@cortex');
+  });
+});
+
 describe('initiales', () => {
   it('prend une lettre par segment', () => {
     assert.equal(initiales('owner'), 'OW');
     assert.equal(initiales('claude-windows'), 'CW');
+    assert.equal(initiales('claude-windows@cortex'), 'CW');
   });
 });

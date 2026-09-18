@@ -60,7 +60,24 @@ ajoute toujours à la fin.
 | `historique` | liste | chaque changement de statut : `date`, `par` (le compte), `statut` |
 | `importe` | booléen, facultatif | `true` pour un message repris d'une boîte Markdown par `migrate` ; son historique est vide |
 
-Noms de comptes : minuscules, chiffres, `.`, `_`, `-` ; 32 caractères au plus.
+### Les adresses
+
+Une adresse (`de`, `a`, `nom` d'un compte, `par` d'une transition) est `nom` ou
+`nom@projet` : minuscules, chiffres, `.`, `_`, `-`, 32 caractères au plus de
+chaque côté.
+
+- `claude-windows@cortex` et `claude-windows@talos` sont deux comptes : la même IA
+  a une boîte par projet.
+- Un compte sans projet (`owner`) est commun à tous les projets.
+- Dans la boîte, les adresses sont toujours écrites en entier. Un nom court n'existe
+  qu'à la saisie : `messenger.py` le résout d'abord dans le projet de l'expéditeur,
+  puis parmi les comptes communs.
+- Un message « touche » un projet si son expéditeur ou l'un de ses destinataires
+  en fait partie : la discussion entre projets apparaît dans chacun d'eux.
+
+Le projet d'un dépôt est déclaré dans un `.messenger.json` à sa racine
+(`{"project": "cortex"}`), versionné avec le dépôt ; la boîte, elle, est propre
+à chaque poste (`~/.arkalabs-messenger.json`).
 
 ### Ce qui change après l'envoi
 
@@ -97,7 +114,7 @@ sans changer `version`. Un changement incompatible incrémentera `version`.
 
 | Champ | Règle |
 |---|---|
-| `nom` | unique dans la boîte ; c'est l'adresse utilisée dans `de` et `a` |
+| `nom` | unique dans la boîte ; c'est l'adresse utilisée dans `de` et `a` (`nom` ou `nom@projet`) |
 | `hote` | l'outil de l'agent : `claude-code`, `kimi-code`, `codex`, `hermes`, `humain`… |
 | `role` | obligatoire ; une ligne qui dit quand écrire à ce compte |
 | `machine`, `modele`, `humain`, `releve` | facultatifs, informatifs |
@@ -122,7 +139,7 @@ python3 messenger.py agents --json                 # le manifeste
 L'interface locale (`npm run dev`, ou `messenger.py ui`) expose aussi une API sur
 127.0.0.1 : `GET /api/boite` rend les messages, enrichis pour le compte de
 l'interface de `suite` (le statut qu'il peut donner, ou `null`) et de
-`pj_presente`.
+`pj_presente`, ainsi que la liste des `projets` et l'état des `notifications`.
 
 Quelques lectures utiles :
 

@@ -2,6 +2,10 @@
 
 Tout ici est pur : aucune lecture de fichier, aucune horloge. Les dates sont
 fournies par l'appelant, déjà formatées en ISO 8601.
+
+Une adresse est `nom` ou `nom@projet`, comme un courriel : la même IA a une
+adresse par projet (`claude-windows@cortex`, `claude-windows@talos`), et un
+compte sans projet (`owner`) est commun à tous.
 """
 from __future__ import annotations
 
@@ -25,14 +29,34 @@ STATUTS: Tuple[str, ...] = ("nouveau", "lu", "traité")
 CORPS_MAX = 2
 """Nombre maximal de lignes de corps : le détail va en pièce jointe."""
 
-_RE_NOM = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,31}$")
+_NOM = r"[a-z0-9][a-z0-9_.-]{0,31}"
+_RE_NOM = re.compile(rf"^{_NOM}$")
+_RE_ADRESSE = re.compile(rf"^{_NOM}(@{_NOM})?$")
 
 
-def valider_nom(nom: Optional[str], quoi: str = "nom d'agent") -> str:
+def valider_nom(nom: Optional[str], quoi: str = "nom") -> str:
     """Rend le nom s'il est valide : minuscules, chiffres, `.`, `_`, `-`, 32 au plus."""
     if not nom or not _RE_NOM.match(nom):
         raise NomInvalide(f"{quoi} invalide « {nom} » : minuscules, chiffres, . _ - (32 max)")
     return nom
+
+
+def valider_adresse(adresse: Optional[str], quoi: str = "adresse") -> str:
+    """Rend l'adresse si elle est valide : `nom`, ou `nom@projet`."""
+    if not adresse or not _RE_ADRESSE.match(adresse):
+        raise NomInvalide(f"{quoi} invalide « {adresse} » : nom ou nom@projet — minuscules, chiffres, . _ - "
+                          "(32 max de chaque côté)")
+    return adresse
+
+
+def projet_de(adresse: str) -> Optional[str]:
+    """Le projet d'une adresse, ou None pour un compte commun à tous les projets."""
+    return adresse.partition("@")[2] or None
+
+
+def qualifier(nom: str, projet: Optional[str]) -> str:
+    """`nom` rattaché à `projet`, sauf s'il porte déjà son projet."""
+    return nom if "@" in nom or not projet else f"{nom}@{projet}"
 
 
 def _une_ligne(texte: str) -> str:
@@ -80,6 +104,10 @@ class Message:
     def concerne(self, compte: str) -> bool:
         return compte == self.de or compte in self.a
 
+    def touche_le_projet(self, projet: str) -> bool:
+        """Écrit ou reçu par un compte du projet : la discussion entre projets en fait partie."""
+        return any(projet_de(x) == projet for x in (self.de, *self.a))
+
     def suite_pour(self, compte: str) -> Optional[str]:
         """Le statut que `compte` peut donner à ce message, ou None s'il ne peut rien."""
         if not self.est_pour(compte) or self.statut not in STATUTS[:-1]:
@@ -112,12 +140,12 @@ class Brouillon:
     @classmethod
     def rediger(cls, de: str, a: Iterable[str], objet: str, corps: Iterable[str] = (),
                 re: Optional[str] = None) -> "Brouillon":
-        valider_nom(de, "expéditeur")
+        valider_adresse(de, "expéditeur")
         destinataires = tuple(dict.fromkeys(d.strip() for d in a if d and d.strip()))
         if not destinataires:
             raise MessageInvalide("aucun destinataire")
         for d in destinataires:
-            valider_nom(d, "destinataire")
+            valider_adresse(d, "destinataire")
         objet = _une_ligne(objet)
         if not objet:
             raise MessageInvalide("objet vide")
@@ -206,9 +234,13 @@ class Compte:
     actif: bool = True
     autres: Dict[str, Any] = field(default_factory=dict, compare=False, hash=False)
 
+    @property
+    def projet(self) -> Optional[str]:
+        return projet_de(self.nom)
+
     @classmethod
     def ouvrir(cls, nom: str, hote: str, role: str, **infos: Optional[str]) -> "Compte":
-        valider_nom(nom)
+        valider_adresse(nom)
         role = _une_ligne(role)
         if not role:
             raise MessageInvalide("rôle vide : dis en une ligne ce que fait cet agent")
@@ -230,6 +262,24 @@ class Annuaire:
 
     def actifs(self) -> List[str]:
         return sorted(c.nom for c in self.comptes if c.actif)
+
+    def projets(self) -> List[str]:
+        return sorted({c.projet for c in self.comptes if c.projet})
+
+    def resoudre(self, nom: str, projet: Optional[str]) -> str:
+        """L'adresse désignée par `nom` depuis `projet`.
+
+        `nom@projet` est pris tel quel. Un nom court désigne d'abord le compte du
+        même projet, puis le compte commun du même nom (`owner`). S'il n'existe ni
+        l'un ni l'autre, il est rattaché au projet : la vérification dira qu'il manque.
+        """
+        valider_adresse(nom)
+        if "@" in nom or not projet:
+            return nom
+        local = qualifier(nom, projet)
+        if self.compte(local) is None and self.compte(nom) is not None:
+            return nom
+        return local
 
     def inscrire(self, compte: Compte, mise_a_jour: bool = False) -> bool:
         """Ajoute le compte, ou met à jour le sien. Rend True s'il est créé."""

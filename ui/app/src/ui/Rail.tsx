@@ -1,9 +1,20 @@
-import { Inbox, type LucideIcon, Paperclip, Reply, UserRound } from 'lucide-react';
-import { type Agent, type Classement, type Compteurs, type Filtre, cleJour, heure, horodatage } from '../domain/boite.ts';
+import { FolderGit2, Inbox, Layers, type LucideIcon, Paperclip, Reply, UserRound } from 'lucide-react';
+import {
+  type Agent,
+  type Classement,
+  type Compteurs,
+  type Filtre,
+  type Projet,
+  adresseCourte,
+  cleJour,
+  heure,
+  horodatage,
+} from '../domain/boite.ts';
 
 interface Props {
   compte: string;
   compteurs: Compteurs;
+  projets: readonly Projet[];
   agents: readonly Agent[];
   filtre: Filtre;
   onFiltre: (f: Filtre) => void;
@@ -11,7 +22,7 @@ interface Props {
   constat: string;
 }
 
-export function Rail({ compte, compteurs, agents, filtre, onFiltre, derniereReleve, constat }: Props) {
+export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, derniereReleve, constat }: Props) {
   const boites: [Classement, string, LucideIcon, number][] = [
     ['toutes', 'Tous les messages', Inbox, compteurs.total],
     ['fils', 'Réponses', Reply, compteurs.fils],
@@ -37,6 +48,36 @@ export function Rail({ compte, compteurs, agents, filtre, onFiltre, derniereRele
         ))}
       </nav>
 
+      {projets.length > 0 && (
+        <div className="rail__section">
+          <span className="eyebrow">Projets</span>
+          <button
+            type="button"
+            className={`rail-boite${filtre.projet === null ? ' rail-boite--actif' : ''}`}
+            onClick={() => onFiltre({ ...filtre, projet: null })}
+          >
+            <Layers className="ic" size={15} />
+            <span className="rail-boite__libelle">Tous les projets</span>
+            <span className="compteur">{compteurs.total}</span>
+          </button>
+          {projets.map((p) => (
+            <button
+              key={p.nom}
+              type="button"
+              className={`rail-boite${filtre.projet === p.nom ? ' rail-boite--actif' : ''}`}
+              title={`${p.messages} message${p.messages > 1 ? 's' : ''}, dont les échanges avec les autres projets`}
+              // Changer de projet libère le filtre d'agent : ses agents ne sont pas ceux d'un autre projet.
+              onClick={() => onFiltre({ ...filtre, projet: filtre.projet === p.nom ? null : p.nom, agent: null })}
+            >
+              <FolderGit2 className="ic" size={15} />
+              <span className="rail-boite__libelle rail-boite__libelle--mono">{p.nom}</span>
+              {p.nouveaux > 0 && <span className="point-rond attente" title={`${p.nouveaux} nouveau(x)`} />}
+              <span className="compteur">{p.messages}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="rail__section">
         <span className="eyebrow">Agents</span>
         {agents.map((a) => {
@@ -53,7 +94,7 @@ export function Rail({ compte, compteurs, agents, filtre, onFiltre, derniereRele
               onClick={() => onFiltre({ ...filtre, agent: actif ? null : a.nom })}
             >
               <span className={`point-rond ${a.enAttente ? 'attente pulse' : 'ok'}`} />
-              <span className="rail-agent__nom">{a.nom}</span>
+              <span className="rail-agent__nom">{adresseCourte(a.nom, filtre.projet)}</span>
               <span className="rail-agent__dernier">{dernier}</span>
             </button>
           );

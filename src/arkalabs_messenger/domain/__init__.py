@@ -18,12 +18,15 @@ from .modele import (
     Compte,
     Message,
     Transition,
+    projet_de,
+    qualifier,
+    valider_adresse,
     valider_nom,
 )
 
 __all__ = [
     "Annuaire", "Boite", "Brouillon", "Compte", "Message", "Transition",
-    "CORPS_MAX", "STATUTS", "valider_nom",
+    "CORPS_MAX", "STATUTS", "valider_nom", "valider_adresse", "projet_de", "qualifier",
     "ErreurMessenger", "CompteExistant", "CompteInconnu", "MessageIntrouvable",
     "MessageInvalide", "NomInvalide", "TransitionRefusee",
 ]

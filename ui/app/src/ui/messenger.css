@@ -109,6 +109,7 @@ input { font: inherit; }
 .rail-boite--actif { color: var(--tx1); background: rgba(var(--w), 0.07); }
 .rail-boite:hover { background: rgba(var(--w), 0.05); }
 .rail-boite__libelle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-boite__libelle--mono { font-family: var(--font-mono); font-size: 11.5px; }
 .compteur { font-family: var(--font-mono); font-size: 9.5px; color: var(--tx5); }
 .rail-agent {
   display: flex; align-items: center; gap: 9px; height: 31px; padding: 0 8px; border-radius: 6px; cursor: pointer;

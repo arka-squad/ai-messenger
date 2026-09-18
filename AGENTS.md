@@ -12,6 +12,8 @@ chaque étape et les règles de la section 7.
 ## Ce que l'humain doit t'avoir donné
 
 - **le chemin de la boîte** : un fichier `.json` dans un dossier partagé ;
+- **le projet du dépôt** où tu travailles (`cortex`, `talos`…), si la boîte sert
+  à plusieurs projets ;
 - **ton nom d'agent**, s'il en a un en tête — sinon tu le choisis à l'étape 3.
 
 S'il manque le chemin de la boîte, demande-le avant d'aller plus loin. Si on te
@@ -54,6 +56,19 @@ Le chemin est écrit dans `~/.arkalabs-messenger.json`. Ton nom, lui, ne
 l'est **pas** : plusieurs agents peuvent partager un même poste. Tu le passes à
 chaque commande (`--agent <nom>`) ou par la variable `MESSENGER_AGENT`.
 
+**Si la boîte sert à plusieurs projets**, attache le projet au dépôt où tu
+travailles, depuis sa racine :
+
+```bash
+python3 <messenger>/messenger.py setup --project <projet>
+```
+
+Cela écrit un `.messenger.json` à la racine du dépôt : ajoute-le au dépôt (git),
+il vaut pour toutes les machines. Toute commande lancée depuis ce dépôt, ou l'un
+de ses sous-dossiers, se rattache alors au projet — tes hooks n'ont rien à
+changer. Pour agir ailleurs : `--project <autre>`, ou `--project ""` pour un
+compte commun.
+
 Vérification :
 
 ```bash
@@ -81,7 +96,11 @@ plusieurs Kimi, plusieurs Claude, plusieurs Codex. Convention :
 | `codex-mac` | Codex sur le Mac |
 | `claude-mac-2` | une seconde session Claude Code sur le même Mac |
 
-Minuscules, chiffres, `.`, `_`, `-`, 32 caractères au plus. Regarde d'abord qui
+Minuscules, chiffres, `.`, `_`, `-`, 32 caractères au plus. Dans un dépôt
+attaché à un projet, ton adresse devient `<nom>@<projet>` : `claude-windows`
+inscrit dans le dépôt `cortex` est `claude-windows@cortex`, et la même IA a une
+autre boîte dans chaque dépôt. Un humain, lui, a en général un compte commun à
+tous les projets (`owner`, inscrit avec `--project ""`). Regarde d'abord qui
 existe :
 
 ```bash
@@ -188,10 +207,16 @@ python3 messenger.py send --agent <nom> --to <destinataire>[,<autre>] \
 La pièce jointe est copiée dans le dossier de la boîte si elle n'y est pas déjà,
 et liée au message. La commande affiche l'identifiant du message créé.
 
+**Écrire à un autre projet.** Un nom court désigne un agent de ton projet, ou à
+défaut un compte commun (`owner`). Pour un autre projet, écris l'adresse
+complète : `--to codex-mac@talos`. `agents` liste les comptes de tous les
+projets.
+
 **Répondre** : un nouveau message, relié à celui auquel tu réponds.
 
 ```bash
-python3 messenger.py send --agent <nom> --to <expéditeur> --reply-to <id> \n  --subject "Bien reçu" --body "…"
+python3 messenger.py send --agent <nom> --to <expéditeur> --reply-to <id> \
+  --subject "Bien reçu" --body "…"
 ```
 
 **Exploiter.** La boîte est un fichier JSON : tu peux la lire directement, ou

@@ -14,7 +14,7 @@ from typing import Optional, Protocol, Sequence
 
 from ... import __version__
 from ...application import Annonceur, Messagerie, Notificateur, SourceAncienne
-from ...domain import STATUTS, Annuaire, ErreurMessenger, Message, valider_nom
+from ...domain import STATUTS, Annuaire, ErreurMessenger, Message, qualifier, valider_adresse, valider_nom
 from ..codec import annuaire_vers_dict, en_json, message_vers_dict
 from . import poste
 
@@ -68,16 +68,22 @@ def _init(args: argparse.Namespace, usine: Usine) -> int:
 
 
 def _setup(args: argparse.Namespace, usine: Usine) -> int:
-    messagerie = usine.ouvrir(_boite(args))
-    messagerie.instantane()  # refuse une boîte illisible
-    config = poste.memoriser_boite(messagerie.emplacement)
-    print(f"boîte mémorisée pour ce poste dans {config} : {messagerie.emplacement}")
+    if args.box is None and args.project is None:
+        raise _Refus("rien à mémoriser : passe --box (la boîte de ce poste) et/ou --project (le projet de ce dépôt)")
+    if args.box is not None:
+        messagerie = usine.ouvrir(args.box)
+        messagerie.instantane()  # refuse une boîte illisible
+        config = poste.memoriser_boite(messagerie.emplacement)
+        print(f"boîte mémorisée pour ce poste dans {config} : {messagerie.emplacement}")
+    if args.project:
+        fichier = poste.attacher_projet(os.getcwd(), valider_nom(args.project, "projet"))
+        print(f"projet « {args.project} » attaché à ce dépôt : {fichier} (à versionner)")
     return 0
 
 
 def _register(args: argparse.Namespace, usine: Usine) -> int:
     compte, cree = usine.ouvrir(_boite(args)).inscrire(
-        _agent(args), args.host, args.role,
+        qualifier(_nom_agent(args), _projet(args)), args.host, args.role,
         machine=args.machine or (None if args.update else platform.node()),
         modele=args.model, humain=args.human, releve=args.wake, mise_a_jour=args.update)
     print(f"compte {'créé' if cree else 'mis à jour'} : {compte.nom} ({compte.hote}, {compte.machine})")
@@ -90,27 +96,29 @@ def _agents(args: argparse.Namespace, usine: Usine) -> int:
     if not messagerie.annuaire_present():
         print(f"pas de manifeste pour cette boîte ({racine}.manifest.json) : aucun compte")
         return 0
-    comptes = messagerie.comptes(tous=True)
+    comptes = messagerie.comptes(tous=True, projet=args.project or None)
     if args.json:
         print(en_json(annuaire_vers_dict(Annuaire(comptes), os.path.basename(messagerie.emplacement))), end="")
         return 0
     for c in comptes:
         if c.actif or args.all:
             etat = "" if c.actif else "  [désactivé]"
-            print(f"{c.nom:18} {c.hote:12} {c.machine or '?':22} {c.role}{etat}")
+            print(f"{c.nom:28} {c.hote:12} {c.machine or '?':22} {c.role}{etat}")
     return 0
 
 
 def _deactivate(args: argparse.Namespace, usine: Usine) -> int:
-    nom = _agent(args)
-    usine.ouvrir(_boite(args)).desactiver(nom)
+    messagerie = usine.ouvrir(_boite(args))
+    nom = _agent(args, messagerie)
+    messagerie.desactiver(nom)
     print(f"compte désactivé : {nom} (conservé dans le manifeste, réactivable par register --update)")
     return 0
 
 
 def _send(args: argparse.Namespace, usine: Usine) -> int:
-    envoi = usine.ouvrir(_boite(args)).envoyer(
-        _agent(args), args.to.split(","), args.subject, args.body or "", args.attach, args.reply_to)
+    messagerie = usine.ouvrir(_boite(args))
+    envoi = messagerie.envoyer(
+        _agent(args, messagerie), args.to.split(","), args.subject, args.body or "", args.attach, args.reply_to)
     if not envoi.adresses_verifiees:
         sys.stderr.write("(boîte sans manifeste : destinataires non vérifiés — crée les comptes avec `register`)\n")
     print(envoi.message.id)
@@ -120,10 +128,11 @@ def _send(args: argparse.Namespace, usine: Usine) -> int:
 def _check(args: argparse.Namespace, usine: Usine) -> int:
     """Silencieuse, en code 0, si la boîte est injoignable : une relève ne bloque jamais une session."""
     try:
-        chemin, agent = poste.resoudre_boite(args.box), poste.resoudre_agent(args.agent)
-        if not chemin or not agent:
+        chemin, nom = poste.resoudre_boite(args.box), poste.resoudre_agent(args.agent)
+        if not chemin or not nom:
             return 0
         messagerie = usine.ouvrir(chemin)
+        agent = messagerie.adresse(nom, _projet(args))
         trouves = messagerie.releve(agent)
     except (ErreurMessenger, OSError):
         return 0
@@ -144,13 +153,16 @@ def _check(args: argparse.Namespace, usine: Usine) -> int:
 
 
 def _mark(args: argparse.Namespace, usine: Usine) -> int:
-    usine.ouvrir(_boite(args)).marquer(_agent(args), args.id, args.status)
+    messagerie = usine.ouvrir(_boite(args))
+    messagerie.marquer(_agent(args, messagerie), args.id, args.status)
     print(f"{args.id} → {args.status}")
     return 0
 
 
 def _list(args: argparse.Namespace, usine: Usine) -> int:
-    messages = usine.ouvrir(_boite(args)).lister(args.agent, args.status, args.limit)
+    messagerie = usine.ouvrir(_boite(args))
+    agent = messagerie.adresse(args.agent, _projet(args)) if args.agent else None
+    messages = messagerie.lister(agent, args.status, args.limit, args.project or None)
     if args.json:
         print(en_json([message_vers_dict(m) for m in messages]), end="")
     else:
@@ -160,8 +172,9 @@ def _list(args: argparse.Namespace, usine: Usine) -> int:
 
 
 def _watch(args: argparse.Namespace, usine: Usine) -> int:
-    agent = _agent(args)
-    recus = usine.ouvrir(_boite(args)).guetter(agent, args.interval, args.max_hours)
+    messagerie = usine.ouvrir(_boite(args))
+    agent = _agent(args, messagerie)
+    recus = messagerie.guetter(agent, args.interval, args.max_hours)
     if not recus:
         print(f"aucun message pour {agent} en {args.max_hours:g} h")
         return SORTIE_ECHEANCE
@@ -226,11 +239,21 @@ def _boite(args: argparse.Namespace) -> str:
     return chemin
 
 
-def _agent(args: argparse.Namespace) -> str:
+def _nom_agent(args: argparse.Namespace) -> str:
     agent = poste.resoudre_agent(getattr(args, "agent", None))
     if not agent:
         raise _Refus("agent inconnu : passe --agent <nom>, ou MESSENGER_AGENT")
-    return valider_nom(agent)
+    return valider_adresse(agent)
+
+
+def _agent(args: argparse.Namespace, messagerie: Messagerie) -> str:
+    """L'adresse de l'agent : son nom, rattaché au projet du dépôt s'il y en a un."""
+    return messagerie.adresse(_nom_agent(args), _projet(args))
+
+
+def _projet(args: argparse.Namespace) -> Optional[str]:
+    projet = poste.resoudre_projet(getattr(args, "project", None))
+    return valider_nom(projet, "projet") if projet else None
 
 
 def _resume(m: Message) -> str:
@@ -250,16 +273,19 @@ def _parseur() -> argparse.ArgumentParser:
     p.add_argument("--version", action="version", version=__version__)
     s = p.add_subparsers(dest="nom", required=True, parser_class=_Parseur)
 
-    def commande(nom: str, aide: str, fonction, agent: bool = True) -> argparse.ArgumentParser:
+    def commande(nom: str, aide: str, fonction, agent: bool = True, projet: bool = True) -> argparse.ArgumentParser:
         sp = s.add_parser(nom, help=aide, description=aide)
         sp.add_argument("--box", help="chemin de la boîte .json (sinon MESSENGER_BOX, sinon setup)")
         if agent:
             sp.add_argument("--agent", help="ton nom d'agent (sinon MESSENGER_AGENT)")
+        if projet:
+            sp.add_argument("--project", help="le projet (sinon MESSENGER_PROJECT, sinon le .messenger.json du dépôt)")
         sp.set_defaults(commande=fonction)
         return sp
 
-    commande("init", "crée une boîte vide, son manifeste et sa vue", _init, agent=False)
-    commande("setup", "mémorise la boîte pour ce poste", _setup, agent=False)
+    commande("init", "crée une boîte vide, son manifeste et sa vue", _init, agent=False, projet=False)
+    commande("setup", "mémorise la boîte de ce poste (--box) et/ou le projet de ce dépôt (--project)", _setup,
+             agent=False)
 
     x = commande("register", "crée ou met à jour ton compte", _register)
     x.add_argument("--host", required=True, help="ton hôte : claude-code, kimi-code, codex, hermes, humain…")
@@ -300,10 +326,10 @@ def _parseur() -> argparse.ArgumentParser:
     x.add_argument("--interval", type=float, default=10.0, help="secondes entre deux relèves")
     x.add_argument("--max-hours", type=float, default=12.0)
 
-    x = commande("migrate", "importe une ancienne boîte Markdown", _migrate, agent=False)
+    x = commande("migrate", "importe une ancienne boîte Markdown", _migrate, agent=False, projet=False)
     x.add_argument("--from", dest="source", required=True, help="la boîte Markdown à importer")
 
-    x = commande("ui", "ouvre l'interface web locale (et son API)", _ui)
+    x = commande("ui", "ouvre l'interface web locale (et son API)", _ui, projet=False)
     x.add_argument("--port", type=int, default=8765)
     x.add_argument("--api", action="store_true", help="API seule, sans interface (utilisé par `npm run dev`)")
     x.add_argument("--front", help="dossier de l'interface construite (défaut : ui/app/dist)")
@@ -313,6 +339,6 @@ def _parseur() -> argparse.ArgumentParser:
     x.add_argument("--no-notify", action="store_true", help="sans notifications système")
     x.add_argument("--link", help="adresse de l'interface, ouverte au clic sur une notification")
 
-    x = commande("notify", "notifie chaque message qui passe, sans interface", _notify)
+    x = commande("notify", "notifie chaque message qui passe, sans interface", _notify, projet=False)
     x.add_argument("--interval", type=float, default=5.0, help="secondes entre deux relèves")
     return p
