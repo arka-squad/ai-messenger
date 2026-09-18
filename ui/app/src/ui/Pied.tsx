@@ -8,7 +8,10 @@ export function Pied({ compteurs, source }: { compteurs: Compteurs; source: Sour
         {compteurs.total} messages · {compteurs.nouveau} nouveau{compteurs.nouveau > 1 ? 'x' : ''} · {compteurs.pj} pièce{compteurs.pj > 1 ? 's' : ''} jointe{compteurs.pj > 1 ? 's' : ''}
       </span>
       <span className="vide" />
-      {source && (
+      {source?.demonstration && (
+        <span>Démonstration — ta boîte : MESSENGER_BOX dans ui/app/.env.local</span>
+      )}
+      {source && !source.demonstration && (
         <span title={source.chemin}>
           Source : {source.nom}{source.format === 'markdown' ? ' · converti en JSON · lecture seule' : ''}
         </span>

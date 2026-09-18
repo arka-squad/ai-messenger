@@ -6,6 +6,9 @@ __pycache__/
 node_modules/
 ui/app/dist/
 
+# Boîte de démonstration, régénérée au besoin par l'interface
+.demo/
+
 # Configuration locale (chemin de la boîte, compte)
 .env.local
 .env.*.local

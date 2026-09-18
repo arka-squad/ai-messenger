@@ -13,8 +13,8 @@ function message(id: string): Message {
 
 class BoiteFactice implements PortBoite {
   etat: Etat = {
-    source: { chemin: '/b.json', nom: 'b.json', format: 'json', lecture_seule: false },
-    compte: 'owner', version: 'v1', messages: [message('a')], comptes: [],
+    source: { chemin: '/b.json', nom: 'b.json', format: 'json', lecture_seule: false, demonstration: false },
+    compte: 'owner', notifications: true, version: 'v1', messages: [message('a')], comptes: [],
   };
   chargements = 0;
   panne = false;
@@ -33,6 +33,10 @@ class BoiteFactice implements PortBoite {
     m.statut = statut;
     this.etat.version += '+';
     return m;
+  }
+  async notifications(actives: boolean): Promise<boolean> {
+    this.etat.notifications = actives;
+    return actives;
   }
   lienPieceJointe(nom: string): string {
     return `/pj/${nom}`;
@@ -74,6 +78,15 @@ describe('veille', () => {
     await veille.recharger();
     await veille.marquer('a', 'lu');
     assert.equal(veille.lire().etat?.messages[0]?.statut, 'lu');
+  });
+
+  it('coupe puis rétablit les notifications système', async () => {
+    const veille = new Veille(new BoiteFactice());
+    await veille.recharger();
+    await veille.basculerNotifications();
+    assert.equal(veille.lire().etat?.notifications, false);
+    await veille.basculerNotifications();
+    assert.equal(veille.lire().etat?.notifications, true);
   });
 
   it('prévient ses abonnés', async () => {

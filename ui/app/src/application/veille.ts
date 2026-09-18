@@ -91,6 +91,14 @@ export class Veille {
     await this.recharger();
   }
 
+  /** Coupe ou rétablit les notifications système du poste. */
+  async basculerNotifications(): Promise<void> {
+    const etat = this.#etat.etat;
+    if (!etat || etat.notifications === null) return;
+    const notifications = await this.#boite.notifications(!etat.notifications);
+    this.#publier({ etat: { ...etat, notifications } });
+  }
+
   lienPieceJointe(nom: string): string {
     return this.#boite.lienPieceJointe(nom);
   }

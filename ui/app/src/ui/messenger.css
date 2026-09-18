@@ -86,6 +86,7 @@ input { font: inherit; }
 .veille__libelle { font-size: 12px; color: var(--tx3); white-space: nowrap; }
 .entete__outil { margin-left: 14px; color: var(--tx4); cursor: pointer; display: flex; }
 .entete__outil--actif { color: var(--tx2); }
+.entete__outil:disabled { cursor: default; opacity: 0.45; }
 .avatar {
   width: 24px; height: 24px; border-radius: 9999px; border: 1px solid rgba(var(--w), 0.14); margin-left: 14px;
   display: flex; align-items: center; justify-content: center; box-sizing: border-box;

@@ -13,15 +13,18 @@ from .adapters.driven import (
     DepotBoiteJson,
     DepotBoiteMarkdown,
     HorlogeSysteme,
+    NotificationsSysteme,
     PiecesDossier,
     SourceMarkdown,
     VueMarkdown,
 )
+from . import demonstration
 from .adapters.driving.cli import executer
-from .application import BoiteIndisponible, Messagerie, SourceAncienne
+from .application import BoiteIndisponible, Messagerie, Notificateur, SourceAncienne
 
 DEPOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 INTERFACE = os.path.join(DEPOT, "ui", "app", "dist")
+DEMONSTRATION = os.path.join(DEPOT, ".demo")
 
 
 class Usine:
@@ -43,6 +46,13 @@ class Usine:
 
     def ancienne_boite(self, chemin: str) -> SourceAncienne:
         return SourceMarkdown(_absolu(chemin))
+
+    def demonstration(self) -> str:
+        """La boîte de démonstration du dépôt, créée au premier appel."""
+        return demonstration.preparer(DEMONSTRATION)
+
+    def notificateur(self) -> Notificateur:
+        return NotificationsSysteme()
 
     def interface(self) -> Optional[str]:
         """L'interface construite par `npm run build`, si elle existe."""

@@ -26,6 +26,15 @@ export class ApiHttp implements PortBoite {
     return reponse.message;
   }
 
+  async notifications(actives: boolean): Promise<boolean> {
+    const reponse = await this.#demander<{ notifications: boolean }>('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actives }),
+    });
+    return reponse.notifications;
+  }
+
   lienPieceJointe(nom: string): string {
     return `${this.#base}/pj/${encodeURIComponent(nom)}`;
   }

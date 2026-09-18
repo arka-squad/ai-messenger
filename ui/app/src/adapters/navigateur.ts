@@ -1,21 +1,5 @@
-/** Les services du navigateur : notifications système et préférences locales. */
-import type { PortNotifications, PortPreferences } from '../application/ports.ts';
-
-export class NotificationsNavigateur implements PortNotifications {
-  autorisees(): boolean {
-    return typeof Notification !== 'undefined' && Notification.permission === 'granted';
-  }
-
-  async demander(): Promise<boolean> {
-    if (typeof Notification === 'undefined') return false;
-    if (Notification.permission === 'granted') return true;
-    return (await Notification.requestPermission()) === 'granted';
-  }
-
-  notifier(titre: string, corps: string): void {
-    if (this.autorisees()) new Notification(titre, { body: corps, tag: titre });
-  }
-}
+/** Les services du navigateur : les préférences de ce poste. */
+import type { PortPreferences } from '../application/ports.ts';
 
 /** localStorage peut être indisponible (navigation privée, stockage bloqué) : on s'en passe. */
 export class PreferencesLocales implements PortPreferences {

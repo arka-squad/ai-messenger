@@ -40,12 +40,16 @@ export interface Source {
   nom: string;
   format: 'json' | 'markdown';
   lecture_seule: boolean;
+  /** Aucune boîte n'est configurée : l'interface montre la démonstration du dépôt. */
+  demonstration: boolean;
 }
 
 export interface Etat {
   source: Source;
   /** Le compte au nom duquel l'interface agit. */
   compte: string;
+  /** Notifications système du poste : actives, coupées, ou null si indisponibles. */
+  notifications: boolean | null;
   version: string;
   messages: Message[];
   comptes: Compte[];

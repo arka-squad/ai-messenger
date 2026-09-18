@@ -8,7 +8,10 @@ import urllib.error
 import urllib.request
 
 from arkalabs_messenger.adapters.driving.web import creer_serveur
+from arkalabs_messenger.application import Annonceur
 from arkalabs_messenger.bootstrap import Usine
+
+from .test_annonces import NotificateurMemoire
 
 ANCIENNE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "donnees", "ancienne-boite.md")
 
@@ -28,7 +31,8 @@ class Api(unittest.TestCase):
         self.demarrer(self.messagerie)
 
     def demarrer(self, messagerie):
-        self.serveur = creer_serveur(messagerie, "owner", port=0)
+        self.annonceur = Annonceur(messagerie, NotificateurMemoire(), "owner")
+        self.serveur = creer_serveur(messagerie, "owner", port=0, annonceur=self.annonceur)
         self.base = f"http://127.0.0.1:{self.serveur.server_address[1]}"
         threading.Thread(target=self.serveur.serve_forever, daemon=True).start()
 
@@ -41,11 +45,11 @@ class Api(unittest.TestCase):
         with urllib.request.urlopen(self.base + chemin) as r:
             return r.status, r.headers, r.read()
 
-    def post(self, corps, origine=True, type_="application/json"):
+    def post(self, corps, origine=True, type_="application/json", chemin="/api/statut"):
         entetes = {"Content-Type": type_}
         if origine:
             entetes["Origin"] = self.base
-        req = urllib.request.Request(self.base + "/api/statut", data=json.dumps(corps).encode(), headers=entetes)
+        req = urllib.request.Request(self.base + chemin, data=json.dumps(corps).encode(), headers=entetes)
         try:
             with urllib.request.urlopen(req) as r:
                 return r.status, json.loads(r.read())
@@ -89,6 +93,14 @@ class Api(unittest.TestCase):
                     self.get(chemin)
                 self.assertEqual(e.exception.code, 404)
 
+    def test_couper_et_retablir_les_notifications(self):
+        self.assertTrue(json.loads(self.get("/api/boite")[2])["notifications"])
+        self.assertEqual(self.post({"actives": False}, chemin="/api/notifications"), (200, {"notifications": False}))
+        self.assertFalse(self.annonceur.actif)
+        self.assertFalse(json.loads(self.get("/api/boite")[2])["notifications"])
+        self.assertEqual(self.post({"actives": "oui"}, chemin="/api/notifications")[0], 400)
+        self.assertEqual(self.post({"actives": True}, origine=False, chemin="/api/notifications")[0], 403)
+
     def test_la_version_change_a_chaque_ecriture(self):
         avant = json.loads(self.get("/api/version")[2])["version"]
         self.post({"id": self.pour_owner.message.id, "statut": "lu"})
@@ -104,6 +116,7 @@ class AncienneBoite(unittest.TestCase):
             with urllib.request.urlopen(base + "/api/boite") as r:
                 etat = json.loads(r.read())
             self.assertTrue(etat["source"]["lecture_seule"])
+            self.assertIsNone(etat["notifications"])
             self.assertTrue(all(m["suite"] is None for m in etat["messages"]))
             req = urllib.request.Request(base + "/api/statut", method="POST",
                                          data=b'{"id": "20260917-2250-mac", "statut": "lu"}',

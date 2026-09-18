@@ -1,4 +1,4 @@
-import { Bell, BellRing, Inbox, Moon, Sun } from 'lucide-react';
+import { Bell, BellOff, BellRing, Inbox, Moon, Sun } from 'lucide-react';
 import { initiales } from '../domain/boite.ts';
 import type { Source } from '../domain/types.ts';
 import type { Theme } from './App.tsx';
@@ -7,8 +7,9 @@ interface Props {
   nouveaux: number;
   veilleActive: boolean;
   onVeille: () => void;
-  alertes: boolean;
-  onAlertes: () => void;
+  /** Notifications système : actives, coupées, ou null si indisponibles. */
+  notifications: boolean | null;
+  onNotifications: () => void;
   theme: Theme;
   onTheme: () => void;
   compte: string;
@@ -28,7 +29,7 @@ export function Entete(p: Props) {
       <span className="entete__sep">/</span>
       <div className="entete__boite" title={p.source?.chemin}>
         <Inbox className="ic" size={14} />
-        <span className="entete__boite-nom">Boîte partagée</span>
+        <span className="entete__boite-nom">{p.source?.demonstration ? 'Boîte de démonstration' : 'Boîte partagée'}</span>
         <span className="badge-nouveau">{p.nouveaux} NOUVEAU{p.nouveaux > 1 ? 'X' : ''}</span>
       </div>
 
@@ -45,13 +46,16 @@ export function Entete(p: Props) {
       </button>
       <button
         type="button"
-        className={`entete__outil${p.alertes ? ' entete__outil--actif' : ''}`}
-        onClick={p.onAlertes}
-        title={p.alertes
-          ? `Notifications actives : un message pour ${p.compte} vous est signalé quand l'onglet est en arrière-plan`
-          : `Être notifié des messages pour ${p.compte}`}
+        className={`entete__outil${p.notifications ? ' entete__outil--actif' : ''}`}
+        onClick={p.onNotifications}
+        disabled={p.notifications === null}
+        title={p.notifications === null
+          ? 'Notifications système indisponibles'
+          : p.notifications
+            ? 'Notifications système actives : chaque message qui passe est signalé — cliquer pour couper'
+            : 'Notifications système coupées — cliquer pour les rétablir'}
       >
-        {p.alertes ? <BellRing size={16} /> : <Bell size={16} />}
+        {p.notifications === null ? <Bell size={16} /> : p.notifications ? <BellRing size={16} /> : <BellOff size={16} />}
       </button>
       <button type="button" className="entete__outil" onClick={p.onTheme} title={clair ? 'Passer en sombre' : 'Passer en clair'}>
         {clair ? <Moon size={16} /> : <Sun size={16} />}

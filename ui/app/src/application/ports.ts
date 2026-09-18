@@ -8,14 +8,9 @@ export interface PortBoite {
   version(): Promise<string>;
   /** Fait avancer un statut au nom du compte courant ; le refus arrive en erreur lisible. */
   marquer(id: string, statut: Statut): Promise<Message>;
+  /** Active ou coupe les notifications système du poste ; rend l'état obtenu. */
+  notifications(actives: boolean): Promise<boolean>;
   lienPieceJointe(nom: string): string;
-}
-
-/** Les notifications du système. */
-export interface PortNotifications {
-  autorisees(): boolean;
-  demander(): Promise<boolean>;
-  notifier(titre: string, corps: string): void;
 }
 
 /** Les préférences de ce navigateur (thème…) — jamais une donnée partagée. */

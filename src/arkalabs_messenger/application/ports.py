@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import ContextManager, List, Optional
+from typing import ContextManager, List, Optional, Sequence
 
 from ..domain import Annuaire, Boite, ErreurMessenger, Message
 
@@ -99,6 +99,14 @@ class Horloge(ABC):
 
     @abstractmethod
     def dormir(self, secondes: float) -> None: ...
+
+
+class Notificateur(ABC):
+    """Les notifications du système d'exploitation."""
+
+    @abstractmethod
+    def notifier(self, titre: str, lignes: Sequence[str], lien: Optional[str] = None) -> None:
+        """Affiche une notification ; ne lève jamais : une notification ne bloque rien."""
 
 
 class SourceAncienne(ABC):

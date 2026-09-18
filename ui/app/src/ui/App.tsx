@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import type { PortNotifications, PortPreferences } from '../application/ports.ts';
+import type { PortPreferences } from '../application/ports.ts';
 import type { Veille } from '../application/veille.ts';
-import { FILTRE_INITIAL, type Filtre, agents, compter, filtrer, recents, titre } from '../domain/boite.ts';
+import { FILTRE_INITIAL, type Filtre, agents, compter, filtrer, recents } from '../domain/boite.ts';
 import type { Message, Statut } from '../domain/types.ts';
 import { Detail } from './Detail.tsx';
 import { Entete } from './Entete.tsx';
@@ -15,16 +15,15 @@ export type Theme = 'dark' | 'light';
 
 interface Props {
   veille: Veille;
-  notifications: PortNotifications;
   preferences: PortPreferences;
 }
 
-export function App({ veille, notifications, preferences }: Props) {
+export function App({ veille, preferences }: Props) {
   const v = useSyncExternalStore(veille.abonner, veille.lire);
   const [theme, setTheme] = useState<Theme>(() => (preferences.lire('theme') === 'light' ? 'light' : 'dark'));
-  const [alertes, setAlertes] = useState(() => preferences.lire('alertes') === '1' && notifications.autorisees());
   const [filtre, setFiltreBrut] = useState<Filtre>(FILTRE_INITIAL);
-  const [choix, setChoix] = useState<string | null>(null);
+  // Une notification système ouvre l'interface sur son message : /?message=<id>
+  const [choix, setChoix] = useState<string | null>(() => new URLSearchParams(window.location.search).get('message'));
   // Un nouveau filtre choisit son premier message ; un clic (liste, trafic, fil) choisit librement.
   const setFiltre = useCallback((f: Filtre) => {
     setFiltreBrut(f);
@@ -57,20 +56,6 @@ export function App({ veille, notifications, preferences }: Props) {
     return [...noms, ...sansCompte(tous, noms)];
   }, [listeAgents, tous]);
 
-  useEffect(() => {
-    if (!alertes || !etat) return;
-    if (document.visibilityState === 'visible') return;
-    for (const m of v.arrivees) {
-      if (m.a.includes(etat.compte)) notifications.notifier(`${m.de} → ${etat.compte}`, titre(m));
-    }
-  }, [v.arrivees, alertes, etat, notifications]);
-
-  const basculerAlertes = useCallback(async () => {
-    const actives = !alertes && (await notifications.demander());
-    setAlertes(actives);
-    preferences.ecrire('alertes', actives ? '1' : '0');
-  }, [alertes, notifications, preferences]);
-
   const marquer = useCallback((id: string, statut: Statut) => veille.marquer(id, statut), [veille]);
 
   useNavigationClavier(idsVisibles, choisi?.id ?? null, setChoix);
@@ -82,8 +67,8 @@ export function App({ veille, notifications, preferences }: Props) {
         nouveaux={compteurs.nouveau}
         veilleActive={v.active}
         onVeille={() => veille.basculer()}
-        alertes={alertes}
-        onAlertes={() => void basculerAlertes()}
+        notifications={etat?.notifications ?? null}
+        onNotifications={() => void veille.basculerNotifications()}
         theme={theme}
         onTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
         compte={compte}

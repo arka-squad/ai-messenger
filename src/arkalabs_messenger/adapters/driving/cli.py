@@ -9,10 +9,11 @@ import argparse
 import os
 import platform
 import sys
+import time
 from typing import Optional, Protocol, Sequence
 
 from ... import __version__
-from ...application import Messagerie, SourceAncienne
+from ...application import Annonceur, Messagerie, Notificateur, SourceAncienne
 from ...domain import STATUTS, Annuaire, ErreurMessenger, Message, valider_nom
 from ..codec import annuaire_vers_dict, en_json, message_vers_dict
 from . import poste
@@ -26,6 +27,8 @@ class Usine(Protocol):
     def ouvrir(self, chemin: str) -> Messagerie: ...
     def ancienne_boite(self, chemin: str) -> SourceAncienne: ...
     def interface(self) -> Optional[str]: ...
+    def demonstration(self) -> str: ...
+    def notificateur(self) -> Notificateur: ...
 
 
 class _Refus(ErreurMessenger):
@@ -183,8 +186,36 @@ def _ui(args: argparse.Namespace, usine: Usine) -> int:
 
     compte = valider_nom(poste.resoudre_agent(args.agent) or "owner")
     front = None if args.api else (args.front or usine.interface())
-    return servir(usine.ouvrir(_boite(args)), compte, args.port, front,
-                  ouvrir_navigateur=not args.no_browser, lie_au_parent=args.exit_with_parent)
+    # Sans boîte configurée, l'interface — et elle seule — ouvre la démonstration du dépôt.
+    chemin = poste.resoudre_boite(args.box)
+    demo = chemin is None
+    if demo:
+        chemin = usine.demonstration()
+        print("aucune boîte configurée : ouverture de la boîte de démonstration "
+              "(MESSENGER_BOX, ou `messenger.py setup --box <chemin>`, pour la tienne)", flush=True)
+    messagerie = usine.ouvrir(chemin)
+    adresse = args.link or (f"http://127.0.0.1:{args.port}/" if front else None)
+    annonceur = None if args.no_notify else Annonceur(
+        messagerie, usine.notificateur(), compte,
+        lien=(lambda m: f"{adresse}?message={m.id}") if adresse else None)
+    return servir(messagerie, compte, args.port, front, ouvrir_navigateur=not args.no_browser,
+                  lie_au_parent=args.exit_with_parent, demonstration=demo, annonceur=annonceur)
+
+
+def _notify(args: argparse.Namespace, usine: Usine) -> int:
+    compte = valider_nom(poste.resoudre_agent(args.agent) or "owner")
+    messagerie = usine.ouvrir(_boite(args))
+    annonceur = Annonceur(messagerie, usine.notificateur(), compte)
+    annonceur.relever()
+    print(f"notifications système pour {messagerie.emplacement} — Ctrl+C pour arrêter", flush=True)
+    while True:
+        time.sleep(args.interval)
+        try:
+            arrives = annonceur.relever()
+        except (ErreurMessenger, OSError):
+            continue  # boîte momentanément injoignable : on réessaie au tour suivant
+        for m in arrives:
+            print(_resume(m), flush=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -279,4 +310,9 @@ def _parseur() -> argparse.ArgumentParser:
     x.add_argument("--no-browser", action="store_true", help="ne pas ouvrir le navigateur")
     x.add_argument("--exit-with-parent", action="store_true",
                    help="s'arrêter quand l'entrée standard se ferme (utilisé par `npm run dev`)")
+    x.add_argument("--no-notify", action="store_true", help="sans notifications système")
+    x.add_argument("--link", help="adresse de l'interface, ouverte au clic sur une notification")
+
+    x = commande("notify", "notifie chaque message qui passe, sans interface", _notify)
+    x.add_argument("--interval", type=float, default=5.0, help="secondes entre deux relèves")
     return p
