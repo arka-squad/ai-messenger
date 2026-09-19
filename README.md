@@ -81,8 +81,9 @@ pièce jointe et son fil, et le bouton qui fait avancer un statut quand il vous
 est adressé. Elle se met à jour seule, et la cloche coupe ou rétablit les
 notifications système. Sans boîte, la barre latérale propose **Créer la boîte** (elle pose
 l'arbo `.aimessenger/` dans un dossier partagé et l'ouvre) ; une fois la boîte en place,
-**Connecter un projet** branche un dossier local — projet, hooks et skill posés dans son
-`.claude/` — pour que ses agents s'y enrôlent seuls, sans ligne de commande.
+**Copier l'invite pour l'agent** met dans le presse-papiers un texte à coller dans le chat
+de n'importe quel agent : il lit le guide `onboarding.md` de la boîte, installe sa relève et
+crée son compte tout seul — aucun geste technique côté humain.
 
 ```bash
 npm install

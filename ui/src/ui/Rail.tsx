@@ -11,7 +11,7 @@ import {
   horodatage,
 } from '../domain/boite.ts';
 import type { Activation, Creation } from '../domain/types.ts';
-import { ConnecterProjet, CreerBoite } from './AjoutDepot.tsx';
+import { ConnecterProjet, CreerBoite, InviterAgent } from './AjoutDepot.tsx';
 
 interface Props {
   compte: string;
@@ -24,6 +24,8 @@ interface Props {
   activable: boolean;
   /** Quand il n'y a pas de boîte inscriptible : le motif (boîte Markdown…), ou null pour offrir la création. */
   motifCreation: string | null;
+  /** Le texte d'invite à copier pour un agent, si une vraie boîte est ouverte. */
+  invite: string | null;
   onActiver: (dossier: string, projet: string) => Promise<Activation>;
   onCreer: (dossier: string) => Promise<Creation>;
   derniereReleve: Date | null;
@@ -31,7 +33,7 @@ interface Props {
 }
 
 export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, activable, motifCreation,
-  onActiver, onCreer, derniereReleve, constat }: Props) {
+  invite, onActiver, onCreer, derniereReleve, constat }: Props) {
   const boites: [Classement, string, LucideIcon, number][] = [
     ['toutes', 'Tous les messages', Inbox, compteurs.total],
     ['fils', 'Réponses', Reply, compteurs.fils],
@@ -86,6 +88,7 @@ export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, act
               <span className="compteur">{p.messages}</span>
             </button>
           ))}
+          {activable && <InviterAgent invite={invite} />}
           {activable && <ConnecterProjet onConnecter={onActiver} />}
         </div>
       )}

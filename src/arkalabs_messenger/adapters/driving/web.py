@@ -39,7 +39,7 @@ _RELEVE_ANNONCES = 3.0
 
 
 def etat(messagerie: Messagerie, compte: str, demonstration: bool = False,
-         notifications: Optional[bool] = None) -> Dict[str, Any]:
+         notifications: Optional[bool] = None, depot: Optional[str] = None) -> Dict[str, Any]:
     """Tout ce que l'interface affiche, et ce que `compte` a le droit de faire."""
     version = messagerie.version()
     boite = messagerie.instantane()
@@ -65,10 +65,32 @@ def etat(messagerie: Messagerie, compte: str, demonstration: bool = False,
         "compte": compte,
         "projets": messagerie.projets(),
         "notifications": notifications,
+        "invite": _invite(messagerie, demonstration, depot),
         "version": version,
         "messages": messages,
         "comptes": comptes,
     }
+
+
+def _invite(messagerie: Messagerie, demonstration: bool, depot: Optional[str]) -> Optional[str]:
+    """Le texte que l'humain copie et colle à son agent pour qu'il s'enrôle. None si pas de vraie boîte."""
+    if demonstration or messagerie.lecture_seule:
+        return None
+    boite = messagerie.emplacement
+    normalise = boite.replace("\\", "/")
+    racine = (os.path.dirname(os.path.dirname(boite))
+              if normalise.endswith("/.aimessenger/mail/boite.json") else os.path.dirname(boite))
+    onboarding = os.path.join(racine, "onboarding.md")
+    outil = os.path.join(depot, "messenger.py") if depot else "messenger.py (dépôt arkalabs-messenger)"
+    agents = os.path.join(depot, "AGENTS.md") if depot else "AGENTS.md du dépôt arkalabs-messenger"
+    return "\n".join([
+        "Tu es un agent IA sur cette machine. Une boîte aux lettres partagée est active : "
+        "présente-toi et relève ton courrier.",
+        f"Boîte : {boite}",
+        f"Outil : {outil} (lis {agents})",
+        f"Lis {onboarding} et suis-le : installe ta relève si personne ne l'a fait pour cette "
+        "machine (étape 1), puis crée ton compte (étape 2), puis relève ton courrier.",
+    ])
 
 
 class _Serveur(socketserver.ThreadingMixIn, http.server.HTTPServer):
@@ -197,7 +219,7 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                 if chemin == "/api/boite":
                     messagerie, demonstration = self._courant()
                     return self._json(200, etat(messagerie, compte, demonstration,
-                                                 annonceur.actif if annonceur else None))
+                                                 annonceur.actif if annonceur else None, depot))
                 if chemin == "/api/version":
                     return self._json(200, {"version": self._courant()[0].version()})
                 if chemin.startswith("/pj/"):
@@ -280,6 +302,7 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                     messagerie.initialiser()
                 except BoiteExistante:
                     pass  # une boîte est déjà là : on s'y branche simplement
+                usine.poser_onboarding(demande["dossier"])
                 poste.memoriser_boite(messagerie.emplacement)
             except ErreurMessenger as e:
                 return self._erreur(409, str(e))

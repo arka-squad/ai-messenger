@@ -18,6 +18,7 @@ from .adapters.driven import (
     SourceMarkdown,
     VueMarkdown,
 )
+from .adapters.driven.disposition import poser_onboarding as _poser_onboarding
 from .adapters.driven.disposition import resoudre as _disposition
 from . import demonstration
 from .adapters.driving.cli import executer
@@ -58,6 +59,10 @@ class Usine:
     def depot(self) -> str:
         """La racine du dépôt arkalabs-messenger (où vivent `messenger.py` et `skills/`)."""
         return DEPOT
+
+    def poser_onboarding(self, chemin: str) -> str:
+        """Pose `onboarding.md` à la racine de la boîte (guide d'accueil des agents)."""
+        return _poser_onboarding(_disposition(_absolu(chemin)).racine)
 
 
 def main(argv: Optional[List[str]] = None) -> int:

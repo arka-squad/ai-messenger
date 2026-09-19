@@ -1,6 +1,27 @@
-import { FolderPlus, Inbox, LoaderCircle } from 'lucide-react';
+import { Check, Copy, FolderPlus, Inbox, LoaderCircle } from 'lucide-react';
 import { useState } from 'react';
 import type { Activation, Creation } from '../domain/types.ts';
+
+/** Copier l'invite à coller dans le chat de son agent : il lit l'onboarding et s'enrôle seul. */
+export function InviterAgent({ invite }: { invite: string | null }) {
+  const [copie, setCopie] = useState(false);
+  if (!invite) return null;
+  const copier = async () => {
+    try {
+      await navigator.clipboard.writeText(invite);
+      setCopie(true);
+      setTimeout(() => setCopie(false), 2500);
+    } catch {
+      // presse-papiers indisponible (contexte non sécurisé) : on ne casse rien
+    }
+  };
+  return (
+    <button type="button" className="rail-boite" onClick={() => void copier()} title="Colle ce texte dans le chat de ton agent">
+      {copie ? <Check className="ic" size={15} /> : <Copy className="ic" size={15} />}
+      <span className="rail-boite__libelle">{copie ? 'Invite copiée — colle-la à ton agent' : "Copier l'invite pour l'agent"}</span>
+    </button>
+  );
+}
 
 /** Connecter un projet (un dépôt local) à la boîte : hooks et skill posés, ses agents s'enrôlent. */
 export function ConnecterProjet({ onConnecter }: {
@@ -53,7 +74,7 @@ export function ConnecterProjet({ onConnecter }: {
             <span>Connecter</span>
           </button>
           <span className="ajout__aide">
-            Pose les hooks et la skill dans <code>.claude/</code> : chaque agent qui l’ouvrira sera invité à s’enrôler.
+            Rattache un dossier de projet à la boîte. Ensuite, « Copier l’invite pour l’agent » et colle-la dans son chat : il s’installe et crée son compte tout seul.
           </span>
           {succes && <span className="ajout__succes" role="status">{succes}</span>}
           {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}

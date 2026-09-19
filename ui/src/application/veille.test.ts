@@ -15,7 +15,8 @@ class BoiteFactice implements PortBoite {
   etat: Etat = {
     source: { chemin: '/b.json', nom: 'b.json', format: 'json', lecture_seule: false, demonstration: false,
       activable: true },
-    compte: 'owner', projets: [], notifications: true, version: 'v1', messages: [message('a')], comptes: [],
+    compte: 'owner', projets: [], invite: 'invite de test', notifications: true, version: 'v1',
+    messages: [message('a')], comptes: [],
   };
   chargements = 0;
   panne = false;

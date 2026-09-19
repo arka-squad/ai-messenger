@@ -112,6 +112,7 @@ export function App({ veille, preferences }: Props) {
           onFiltre={setFiltre}
           activable={etat?.source.activable ?? false}
           motifCreation={motifCreation}
+          invite={etat?.invite ?? null}
           onActiver={(dossier, projet) => veille.activer(dossier, projet)}
           onCreer={(dossier) => veille.creer(dossier)}
           derniereReleve={v.derniereReleve}

@@ -41,6 +41,7 @@ class Usine(Protocol):
     def demonstration(self) -> str: ...
     def notificateur(self) -> Notificateur: ...
     def depot(self) -> str: ...
+    def poser_onboarding(self, chemin: str) -> str: ...
 
 
 class _Refus(ErreurMessenger):
@@ -71,7 +72,9 @@ def _init(args: argparse.Namespace, usine: Usine) -> int:
     if messagerie.lecture_seule:
         raise _Refus("on n'initialise pas une boîte Markdown : donne un dossier (arbo .aimessenger/) ou un fichier .json")
     messagerie.initialiser()
+    onboarding = usine.poser_onboarding(_boite(args))
     print(f"boîte créée : {messagerie.emplacement}")
+    print(f"guide d'accueil des agents : {onboarding}")
     print("comptes, vue humaine et pièces jointes sont rangés à côté (voir PROTOCOLE.md).")
     return 0
 

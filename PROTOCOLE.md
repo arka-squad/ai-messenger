@@ -15,6 +15,7 @@ machines :
 | `.aimessenger/mail/boite.json` | les messages — **la source de vérité** | `send`, `mark` |
 | `.aimessenger/manifest.json` | les comptes des agents | `register`, `enroll`, `deactivate` |
 | `.aimessenger/boite.md` | vue lisible pour les humains, régénérée à chaque écriture | l'outil seul — **ne pas éditer** |
+| `.aimessenger/onboarding.md` | guide d'accueil d'un agent invité (relève puis compte) ; les agents le cochent | `init`, puis les agents |
 | `.aimessenger/pj/` | les pièces jointes, une par fichier | `send --attach` |
 
 `init <dossier>` crée cette arbo ; l'interface aussi (bouton « Créer la boîte »). Tout est

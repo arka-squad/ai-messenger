@@ -69,6 +69,8 @@ export interface Etat {
   compte: string;
   /** Les projets connus : une adresse est `nom` (commun) ou `nom@projet`. */
   projets: string[];
+  /** Le texte à copier-coller à un agent pour qu'il s'enrôle ; null s'il n'y a pas de vraie boîte. */
+  invite: string | null;
   /** Notifications système du poste : actives, coupées, ou null si indisponibles. */
   notifications: boolean | null;
   version: string;
