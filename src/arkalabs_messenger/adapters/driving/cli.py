@@ -67,15 +67,12 @@ def executer(argv: Optional[Sequence[str]], usine: Usine) -> int:
 # Commandes
 # --------------------------------------------------------------------------- #
 def _init(args: argparse.Namespace, usine: Usine) -> int:
-    chemin = _boite(args)
-    if not chemin.lower().endswith(".json"):
-        raise _Refus(f"la boîte est un fichier .json : {chemin}")
-    messagerie = usine.ouvrir(chemin)
+    messagerie = usine.ouvrir(_boite(args))
+    if messagerie.lecture_seule:
+        raise _Refus("on n'initialise pas une boîte Markdown : donne un dossier (arbo .aimessenger/) ou un fichier .json")
     messagerie.initialiser()
-    racine = os.path.splitext(messagerie.emplacement)[0]
-    print(f"boîte créée     : {messagerie.emplacement}")
-    print(f"comptes         : {racine}.manifest.json")
-    print(f"vue (lecture)   : {racine}.md")
+    print(f"boîte créée : {messagerie.emplacement}")
+    print("comptes, vue humaine et pièces jointes sont rangés à côté (voir PROTOCOLE.md).")
     return 0
 
 
@@ -279,11 +276,11 @@ def _watch(args: argparse.Namespace, usine: Usine) -> int:
 
 
 def _migrate(args: argparse.Namespace, usine: Usine) -> int:
-    cible = _boite(args)
-    if not cible.lower().endswith(".json"):
-        raise _Refus(f"la boîte cible est un fichier .json : {cible}")
-    resultat = usine.ouvrir(cible).importer(usine.ancienne_boite(args.source))
-    print(f"{resultat.messages} messages importés dans {usine.ouvrir(cible).emplacement}")
+    cible = usine.ouvrir(_boite(args))
+    if cible.lecture_seule:
+        raise _Refus("la boîte cible ne peut pas être une boîte Markdown : donne un dossier ou un fichier .json")
+    resultat = cible.importer(usine.ancienne_boite(args.source))
+    print(f"{resultat.messages} messages importés dans {cible.emplacement}")
     print(f"comptes importés, à compléter par chaque agent : {', '.join(resultat.comptes)}")
     return 0
 
@@ -293,21 +290,29 @@ def _ui(args: argparse.Namespace, usine: Usine) -> int:
 
     compte = valider_nom(poste.resoudre_agent(args.agent) or "owner")
     front = None if args.api else (args.front or usine.interface())
-    # Sans boîte configurée, l'interface — et elle seule — ouvre la démonstration du dépôt.
-    chemin = poste.resoudre_boite(args.box)
-    demo = chemin is None
+
+    def resolveur():
+        # La boîte est résolue à chaque requête : elle peut apparaître en cours de route
+        # (création depuis l'interface). Sans boîte configurée, on ouvre la démonstration.
+        chemin = poste.resoudre_boite(args.box)
+        if chemin:
+            try:
+                return usine.ouvrir(chemin), False
+            except ErreurMessenger:
+                pass
+        return usine.ouvrir(usine.demonstration()), True
+
+    messagerie, demo = resolveur()
     if demo:
-        chemin = usine.demonstration()
         print("aucune boîte configurée : ouverture de la boîte de démonstration "
-              "(MESSENGER_BOX, ou `messenger.py setup --box <chemin>`, pour la tienne)", flush=True)
-    messagerie = usine.ouvrir(chemin)
+              "(crée la tienne depuis l'interface, ou `messenger.py setup --box <chemin>`)", flush=True)
     adresse = args.link or (f"http://127.0.0.1:{args.port}/" if front else None)
     annonceur = None if args.no_notify else Annonceur(
         messagerie, usine.notificateur(), compte,
         lien=(lambda m: f"{adresse}?message={m.id}") if adresse else None)
     return servir(messagerie, compte, args.port, front, ouvrir_navigateur=not args.no_browser,
                   lie_au_parent=args.exit_with_parent, demonstration=demo, annonceur=annonceur,
-                  depot=usine.depot())
+                  depot=usine.depot(), resolveur=resolveur, usine=usine)
 
 
 def _notify(args: argparse.Namespace, usine: Usine) -> int:

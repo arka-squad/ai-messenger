@@ -60,17 +60,16 @@ export function App({ veille, preferences }: Props) {
   const listeAgents = useMemo(() => agents(etat?.comptes ?? [], tous, filtre.projet), [etat, tous, filtre.projet]);
   const listeProjets = useMemo(() => projets(etat?.projets ?? [], tous), [etat, tous]);
   const affichages = useMemo(() => affichagesDe(etat?.comptes ?? []), [etat]);
-  const motifActivation = useMemo(() => {
+  // Quand il n'y a pas de boîte inscriptible : null → on propose « Créer la boîte » (cas démo/rien) ;
+  // un texte → on explique pourquoi la création n'est pas la bonne action (boîte Markdown à migrer).
+  const motifCreation = useMemo(() => {
     const s = etat?.source;
-    if (!s || s.activable) return null;
-    if (s.demonstration) {
-      return 'Boîte de démonstration — configure ta boîte (messenger.py setup --box <chemin>) pour activer des dépôts.';
-    }
+    if (!s || s.activable || s.demonstration) return null;
     if (s.lecture_seule) {
       return 'Boîte en lecture seule (ancienne boîte Markdown) — migre-la en JSON '
-        + '(messenger.py migrate) pour activer des dépôts et voir les projets.';
+        + '(messenger.py migrate) pour créer des projets.';
     }
-    return 'Activation de dépôt indisponible pour cette boîte.';
+    return 'Création indisponible pour cette boîte.';
   }, [etat]);
   // Le trafic suit le projet choisi, pas les autres filtres : il montre la journée du projet.
   const duProjet = useMemo(
@@ -112,8 +111,9 @@ export function App({ veille, preferences }: Props) {
           filtre={filtre}
           onFiltre={setFiltre}
           activable={etat?.source.activable ?? false}
-          motifActivation={motifActivation}
+          motifCreation={motifCreation}
           onActiver={(dossier, projet) => veille.activer(dossier, projet)}
+          onCreer={(dossier) => veille.creer(dossier)}
           derniereReleve={v.derniereReleve}
           constat={v.constat}
         />

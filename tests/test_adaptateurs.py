@@ -155,12 +155,14 @@ class AncienneBoite(unittest.TestCase):
 
 
 class Assemblage(Dossier):
-    def test_choisit_l_adaptateur_selon_l_extension(self):
+    def test_choisit_l_adaptateur_selon_l_emplacement(self):
         usine = Usine()
-        self.assertFalse(usine.ouvrir(self.boite).lecture_seule)
-        self.assertTrue(usine.ouvrir(ANCIENNE).lecture_seule)
-        with self.assertRaises(BoiteIndisponible):
-            usine.ouvrir(os.path.join(self.dossier, "boite.txt"))
+        self.assertFalse(usine.ouvrir(self.boite).lecture_seule)   # .json à plat : inscriptible (héritage)
+        self.assertTrue(usine.ouvrir(ANCIENNE).lecture_seule)      # .md : lecture seule (première version)
+        # un dossier impose l'arbo .aimessenger/
+        arbo = usine.ouvrir(self.dossier)
+        self.assertFalse(arbo.lecture_seule)
+        self.assertTrue(arbo.emplacement.replace("\\", "/").endswith(".aimessenger/mail/boite.json"))
 
 
 if __name__ == "__main__":

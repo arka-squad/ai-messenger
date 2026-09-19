@@ -50,7 +50,7 @@ numérotées ci-dessous détaillent chaque geste (compte, relève, réveil, règ
 python3 <dépôt>/messenger.py --version
 ```
 
-Attendu : `0.1.1`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
+Attendu : `0.1.2`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
 installation. Sous Windows, `python` au lieu de `python3` selon l'installation.
 Appelle toujours `messenger.py` **depuis le dépôt** : il charge le code de
 `src/`, il ne fonctionne pas copié seul. Node n'est pas nécessaire aux agents :
@@ -58,20 +58,21 @@ il ne sert qu'à l'interface des humains.
 
 ## 2. Relie-toi à la boîte
 
-Si la boîte n'existe pas encore :
+Si la boîte n'existe pas encore, donne un **dossier partagé** :
 
 ```bash
-python3 messenger.py init --box <dossier partagé>/boite.json
+python3 messenger.py init --box <dossier partagé>
 ```
 
-`init` crée trois fichiers : `boite.json` (les messages), `boite.manifest.json`
-(les comptes) et `boite.md` (une vue lisible pour les humains, régénérée à
-chaque écriture).
+`init` y crée l'arbo `.aimessenger/` : `mail/boite.json` (les messages),
+`manifest.json` (les comptes), `boite.md` (vue humaine régénérée) et `pj/` (les
+pièces jointes). Voir [PROTOCOLE.md](PROTOCOLE.md#les-fichiers). (Un ancien
+`boite.json` à plat reste accepté si tu passes son chemin exact.)
 
-Puis mémorise son chemin pour ce poste :
+Puis mémorise le dossier pour ce poste :
 
 ```bash
-python3 messenger.py setup --box <chemin de la boîte>
+python3 messenger.py setup --box <dossier partagé>
 ```
 
 Le chemin est écrit dans `~/.arkalabs-messenger.json`. Ton nom, lui, ne

@@ -2,7 +2,7 @@
  * La veille : charge la boîte, la relève à intervalle, signale les nouveaux messages.
  * Sans React : l'interface s'y abonne (`useSyncExternalStore`).
  */
-import type { Activation, Etat, Message, Statut } from '../domain/types.ts';
+import type { Activation, Creation, Etat, Message, Statut } from '../domain/types.ts';
 import type { PortBoite } from './ports.ts';
 
 export interface EtatVeille {
@@ -99,9 +99,16 @@ export class Veille {
     this.#publier({ etat: { ...etat, notifications } });
   }
 
-  /** Active un dépôt local, puis recharge (le nouveau projet apparaîtra dès qu'un agent s'y enrôle). */
+  /** Connecte un projet, puis recharge (le projet apparaîtra dès qu'un agent s'y enrôle). */
   async activer(dossier: string, projet: string): Promise<Activation> {
     const resume = await this.#boite.activer(dossier, projet);
+    await this.recharger();
+    return resume;
+  }
+
+  /** Crée une boîte dans un dossier et bascule dessus, puis recharge. */
+  async creer(dossier: string): Promise<Creation> {
+    const resume = await this.#boite.creer(dossier);
     await this.recharger();
     return resume;
   }

@@ -5,6 +5,7 @@ de la ligne de commande ni du web.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
@@ -25,6 +26,7 @@ from .ports import (
     DepotAnnuaire,
     DepotBoite,
     Horloge,
+    PieceJointeRefusee,
     PiecesJointes,
     SourceAncienne,
 )
@@ -181,6 +183,13 @@ class Messagerie:
         boite = Boite(messages=list(messages))
         self._boite.creer(boite)
         self._annuaire.creer()
+        dossier_source = os.path.dirname(source.emplacement)
+        for m in messages:  # rapatrie les pièces jointes trouvées à côté de l'ancienne boîte
+            if m.pj:
+                try:
+                    self._pieces.deposer(os.path.join(dossier_source, m.pj))
+                except PieceJointeRefusee:
+                    pass
         noms = tuple(sorted(boite.participants()))
         with self._annuaire.transaction() as annuaire:
             for nom in noms:

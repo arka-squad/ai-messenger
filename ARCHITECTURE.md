@@ -51,11 +51,12 @@ grep -rn "import" src/arkalabs_messenger/adapters/driving | grep "driven"
 | `application/messagerie.py` | les cas d'usage : initialiser, inscrire, envoyer, relever, marquer, lister, guetter, importer |
 | `application/annonces.py` | `Annonceur` : une notification pour chaque message qui passe, résumée en rafale |
 | `adapters/codec.py` | le format d'échange JSON de [PROTOCOLE.md](PROTOCOLE.md) ; conserve les champs inconnus |
+| `adapters/driven/disposition.py` | où vivent les fichiers d'une boîte : l'arbo imposée `.aimessenger/` (`mail/boite.json`, `manifest.json`, `boite.md`, `pj/`), et la lecture des anciennes boîtes (`.json` à plat, `.md`) |
 | `adapters/driven/` | boîte et annuaire en fichiers JSON (verrou, écriture atomique), vue Markdown, ancienne boîte Markdown en lecture seule, pièces jointes, notifications système natives (toast Windows à la marque, macOS, Linux), horloge |
 | `adapters/driving/cli.py` | la ligne de commande des agents |
-| `adapters/driving/web.py` | l'API locale de l'interface (et l'interface construite), et la relève des annonces |
-| `adapters/driving/poste.py` | la boîte du poste (`setup --box`), le projet du dépôt (`.messenger.json`), l'identité d'une session (`enroll --session`), l'environnement |
-| `bootstrap.py` | l'assemblage : choisit les adaptateurs selon l'extension de la boîte |
+| `adapters/driving/web.py` | l'API locale de l'interface (et l'interface construite) : lecture, avancée de statut, création de boîte (`/api/creer`) et connexion d'un projet (`/api/activer`), boîte résolue à chaque requête |
+| `adapters/driving/poste.py` | la boîte du poste (`setup --box`), le projet du dépôt (`.messenger.json`), l'identité d'une session (`enroll --session`), l'activation d'un dépôt (hooks + skill), l'environnement |
+| `bootstrap.py` | l'assemblage : choisit les adaptateurs selon la disposition de la boîte |
 | `demonstration.py` | la boîte de démonstration, écrite par les cas d'usage eux-mêmes |
 
 `messenger.py`, à la racine, ne fait que rendre `src/` importable et appeler

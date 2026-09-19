@@ -1,5 +1,5 @@
 /** Les ports du front : ce dont l'application a besoin, implémenté dans `adapters/`. */
-import type { Activation, Etat, Message, Statut } from '../domain/types.ts';
+import type { Activation, Creation, Etat, Message, Statut } from '../domain/types.ts';
 
 /** La boîte, vue à travers l'API locale. */
 export interface PortBoite {
@@ -10,8 +10,10 @@ export interface PortBoite {
   marquer(id: string, statut: Statut): Promise<Message>;
   /** Active ou coupe les notifications système du poste ; rend l'état obtenu. */
   notifications(actives: boolean): Promise<boolean>;
-  /** Active un dépôt local (hooks + skill) pour que ses agents s'enrôlent ; rend le résumé. */
+  /** Connecte un projet (dépôt local) à la boîte : hooks + skill posés ; rend le résumé. */
   activer(dossier: string, projet: string): Promise<Activation>;
+  /** Crée une boîte (arbo `.aimessenger/`) dans un dossier et s'y branche ; rend le résumé. */
+  creer(dossier: string): Promise<Creation>;
   lienPieceJointe(nom: string): string;
 }
 

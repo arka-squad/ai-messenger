@@ -1,6 +1,6 @@
 /** La boîte à travers l'API locale (`messenger.py ui`), relayée par Vite en développement. */
 import type { PortBoite } from '../application/ports.ts';
-import type { Activation, Etat, Message, Statut } from '../domain/types.ts';
+import type { Activation, Creation, Etat, Message, Statut } from '../domain/types.ts';
 
 export class ApiHttp implements PortBoite {
   readonly #base: string;
@@ -40,6 +40,14 @@ export class ApiHttp implements PortBoite {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dossier, projet }),
+    });
+  }
+
+  async creer(dossier: string): Promise<Creation> {
+    return this.#demander<Creation>('/api/creer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dossier }),
     });
   }
 

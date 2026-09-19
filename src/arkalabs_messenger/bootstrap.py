@@ -18,6 +18,7 @@ from .adapters.driven import (
     SourceMarkdown,
     VueMarkdown,
 )
+from .adapters.driven.disposition import resoudre as _disposition
 from . import demonstration
 from .adapters.driving.cli import executer
 from .application import BoiteIndisponible, Messagerie, Notificateur, SourceAncienne
@@ -31,18 +32,14 @@ class Usine:
     """Fabrique les objets dont les adaptateurs pilotes ont besoin."""
 
     def ouvrir(self, chemin: str) -> Messagerie:
-        chemin = _absolu(chemin)
-        racine, extension = os.path.splitext(chemin)
-        extension = extension.lower()
-        if extension == ".json":
-            boite = DepotBoiteJson(chemin, vue=VueMarkdown.pour(chemin))
-        elif extension == ".md":
-            boite = DepotBoiteMarkdown(chemin)
+        d = _disposition(_absolu(chemin))
+        if d.markdown:
+            boite = DepotBoiteMarkdown(d.boite)
         else:
-            raise BoiteIndisponible(
-                f"la boîte est un fichier .json (ou une ancienne boîte .md, en lecture seule) : {chemin}")
-        annuaire = DepotAnnuaireJson(racine + ".manifest.json", os.path.basename(chemin))
-        return Messagerie(boite, annuaire, PiecesDossier(os.path.dirname(chemin)), HorlogeSysteme())
+            boite = DepotBoiteJson(d.boite, vue=VueMarkdown(d.vue, os.path.basename(d.boite),
+                                                            os.path.basename(d.manifeste)))
+        annuaire = DepotAnnuaireJson(d.manifeste, os.path.basename(d.boite))
+        return Messagerie(boite, annuaire, PiecesDossier(d.pieces), HorlogeSysteme())
 
     def ancienne_boite(self, chemin: str) -> SourceAncienne:
         return SourceMarkdown(_absolu(chemin))

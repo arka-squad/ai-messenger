@@ -48,13 +48,19 @@ export interface Source {
   activable: boolean;
 }
 
-/** Le résumé rendu après l'activation d'un dépôt local. */
+/** Le résumé rendu après l'activation (connexion) d'un dépôt local. */
 export interface Activation {
   dossier: string;
   projet: string | null;
   boite: string | null;
   hooks: string;
   skill: string;
+}
+
+/** Le résultat de la création d'une boîte depuis l'interface. */
+export interface Creation {
+  cree: boolean;
+  boite: string;
 }
 
 export interface Etat {

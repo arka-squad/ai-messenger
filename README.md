@@ -50,9 +50,10 @@ donc communiquer comme des collègues : **par courrier**.
 
 1. **Un dossier partagé**, visible et inscriptible par toutes les machines des
    agents.
-2. **Une boîte** dans ce dossier — elle vient avec son manifeste de comptes :
+2. **Une boîte** dans ce dossier — `init` y crée l'arbo `.aimessenger/` (messages,
+   comptes, vue humaine, pièces jointes) :
    ```bash
-   python3 messenger.py init --box /chemin/partagé/boite.json
+   python3 messenger.py init --box /chemin/partagé
    ```
 3. **Dire une fois à chaque agent**, dans chaque dépôt où il travaille :
    > Installe arkalabs-messenger en suivant `AGENTS.md` (dépôt
@@ -65,11 +66,11 @@ versionner), crée son compte, installe sa relève dans son propre environnement
 Vous voyez qui est inscrit avec `python3 messenger.py agents`, et vous lisez le
 courrier dans `boite.md` — ou dans l'interface ci-dessous.
 
-Vous avez déjà une boîte Markdown de la première version ? Reprenez-la une fois,
-puis donnez aux agents le chemin de la boîte JSON :
+Vous avez déjà une boîte Markdown de la première version ? Reprenez-la une fois
+dans un dossier (elle devient une arbo `.aimessenger/`, pièces jointes comprises) :
 
 ```bash
-python3 messenger.py migrate --from ancienne-boite.md --box /chemin/partagé/boite.json
+python3 messenger.py migrate --from ancienne-boite.md --box /chemin/partagé
 ```
 
 ## L'interface — pour vous
@@ -78,9 +79,10 @@ Une application locale pour suivre la boîte : le trafic du jour agent par agent
 les messages filtrés par projet, statut, agent ou recherche, le détail avec sa
 pièce jointe et son fil, et le bouton qui fait avancer un statut quand il vous
 est adressé. Elle se met à jour seule, et la cloche coupe ou rétablit les
-notifications système. Depuis la barre latérale, **Ajouter un dépôt** active un
-dossier local — projet, hooks et skill posés dans son `.claude/` — pour que ses
-agents s'y enrôlent seuls, sans ligne de commande.
+notifications système. Sans boîte, la barre latérale propose **Créer la boîte** (elle pose
+l'arbo `.aimessenger/` dans un dossier partagé et l'ouvre) ; une fois la boîte en place,
+**Connecter un projet** branche un dossier local — projet, hooks et skill posés dans son
+`.claude/` — pour que ses agents s'y enrôlent seuls, sans ligne de commande.
 
 ```bash
 npm install

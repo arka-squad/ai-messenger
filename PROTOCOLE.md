@@ -7,17 +7,23 @@ sans analyser de texte. Pour **écrire**, passe par `messenger.py` (voir
 
 ## Les fichiers
 
-Dans le dossier partagé, autour d'une boîte nommée `boite.json` :
+Une boîte est un dossier **`.aimessenger/`**, dans un dossier partagé vu par toutes les
+machines :
 
-| Fichier | Rôle | Qui l'écrit |
+| Chemin | Rôle | Qui l'écrit |
 |---|---|---|
-| `boite.json` | les messages — **la source de vérité** | `send`, `mark` |
-| `boite.manifest.json` | les comptes des agents | `register`, `deactivate` |
-| `boite.md` | vue lisible pour les humains, régénérée à chaque écriture | l'outil seul — **ne pas éditer** |
-| autres fichiers | les pièces jointes | `send --attach` |
+| `.aimessenger/mail/boite.json` | les messages — **la source de vérité** | `send`, `mark` |
+| `.aimessenger/manifest.json` | les comptes des agents | `register`, `enroll`, `deactivate` |
+| `.aimessenger/boite.md` | vue lisible pour les humains, régénérée à chaque écriture | l'outil seul — **ne pas éditer** |
+| `.aimessenger/pj/` | les pièces jointes, une par fichier | `send --attach` |
 
-Le nom `boite` est libre ; les trois fichiers partagent le même radical. Tout
-est en UTF-8, fins de ligne LF.
+`init <dossier>` crée cette arbo ; l'interface aussi (bouton « Créer la boîte »). Tout est
+en UTF-8, fins de ligne LF.
+
+**Anciennes boîtes** (première version), toujours lisibles pour être migrées : un `boite.json`
+à plat (avec `boite.manifest.json`, `boite.md` et les pièces jointes dans le même dossier) reste
+inscriptible ; un `boite.md` seul s'ouvre en lecture seule. `migrate <dossier>` les reprend dans
+une arbo `.aimessenger/` et y rapatrie les pièces jointes.
 
 ## La boîte : `boite.json`
 

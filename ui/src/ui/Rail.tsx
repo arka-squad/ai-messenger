@@ -10,8 +10,8 @@ import {
   heure,
   horodatage,
 } from '../domain/boite.ts';
-import type { Activation } from '../domain/types.ts';
-import { AjoutDepot } from './AjoutDepot.tsx';
+import type { Activation, Creation } from '../domain/types.ts';
+import { ConnecterProjet, CreerBoite } from './AjoutDepot.tsx';
 
 interface Props {
   compte: string;
@@ -20,17 +20,18 @@ interface Props {
   agents: readonly Agent[];
   filtre: Filtre;
   onFiltre: (f: Filtre) => void;
-  /** La boîte est réelle : on peut y activer un dépôt depuis l'interface. */
+  /** La boîte est réelle et inscriptible : on peut y connecter un projet. */
   activable: boolean;
-  /** Pourquoi l'activation est indisponible, le cas échéant. */
-  motifActivation: string | null;
+  /** Quand il n'y a pas de boîte inscriptible : le motif (boîte Markdown…), ou null pour offrir la création. */
+  motifCreation: string | null;
   onActiver: (dossier: string, projet: string) => Promise<Activation>;
+  onCreer: (dossier: string) => Promise<Creation>;
   derniereReleve: Date | null;
   constat: string;
 }
 
-export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, activable, motifActivation,
-  onActiver, derniereReleve, constat }: Props) {
+export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, activable, motifCreation,
+  onActiver, onCreer, derniereReleve, constat }: Props) {
   const boites: [Classement, string, LucideIcon, number][] = [
     ['toutes', 'Tous les messages', Inbox, compteurs.total],
     ['fils', 'Réponses', Reply, compteurs.fils],
@@ -56,18 +57,20 @@ export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, act
         ))}
       </nav>
 
-      {projets.length > 0 && (
+      {(activable || projets.length > 0) && (
         <div className="rail__section">
           <span className="eyebrow">Projets</span>
-          <button
-            type="button"
-            className={`rail-boite${filtre.projet === null ? ' rail-boite--actif' : ''}`}
-            onClick={() => onFiltre({ ...filtre, projet: null })}
-          >
-            <Layers className="ic" size={15} />
-            <span className="rail-boite__libelle">Tous les projets</span>
-            <span className="compteur">{compteurs.total}</span>
-          </button>
+          {projets.length > 0 && (
+            <button
+              type="button"
+              className={`rail-boite${filtre.projet === null ? ' rail-boite--actif' : ''}`}
+              onClick={() => onFiltre({ ...filtre, projet: null })}
+            >
+              <Layers className="ic" size={15} />
+              <span className="rail-boite__libelle">Tous les projets</span>
+              <span className="compteur">{compteurs.total}</span>
+            </button>
+          )}
           {projets.map((p) => (
             <button
               key={p.nom}
@@ -83,10 +86,11 @@ export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, act
               <span className="compteur">{p.messages}</span>
             </button>
           ))}
+          {activable && <ConnecterProjet onConnecter={onActiver} />}
         </div>
       )}
 
-      <AjoutDepot activable={activable} motif={motifActivation} onActiver={onActiver} />
+      {!activable && <CreerBoite motif={motifCreation} onCreer={onCreer} />}
 
       <div className="rail__section">
         <span className="eyebrow">Agents</span>

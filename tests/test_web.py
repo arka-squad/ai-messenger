@@ -153,6 +153,62 @@ class Activation(unittest.TestCase):
         self.assertIn("introuvable", rep["erreur"])
 
 
+class CreationDepuisLInterface(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.dossier = self._tmp.name
+        self._config = poste.CONFIG
+        poste.CONFIG = os.path.join(self.dossier, "poste.json")  # ne pas toucher au vrai config du poste
+        self.usine = Usine()
+        repli = os.path.join(self.dossier, "repli")  # tient lieu de démonstration
+        self.usine.ouvrir(repli).initialiser()
+
+        def resolveur():
+            chemin = poste.resoudre_boite(None)
+            if chemin:
+                return self.usine.ouvrir(chemin), False
+            return self.usine.ouvrir(repli), True
+
+        self.serveur = creer_serveur(None, "owner", port=0, depot=self.usine.depot(),
+                                     resolveur=resolveur, usine=self.usine)
+        self.base = f"http://127.0.0.1:{self.serveur.server_address[1]}"
+        threading.Thread(target=self.serveur.serve_forever, daemon=True).start()
+
+    def tearDown(self):
+        poste.CONFIG = self._config
+        self.serveur.shutdown()
+        self.serveur.server_close()
+        self._tmp.cleanup()
+
+    def get_boite(self):
+        with urllib.request.urlopen(self.base + "/api/boite") as r:
+            return json.loads(r.read())
+
+    def post_creer(self, dossier):
+        req = urllib.request.Request(self.base + "/api/creer", data=json.dumps({"dossier": dossier}).encode(),
+                                     headers={"Content-Type": "application/json", "Origin": self.base})
+        try:
+            with urllib.request.urlopen(req) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    def test_creer_une_boite_puis_basculer_dessus(self):
+        avant = self.get_boite()["source"]
+        self.assertTrue(avant["demonstration"])
+        self.assertFalse(avant["activable"])
+
+        cible = os.path.join(self.dossier, "partage")
+        code, rep = self.post_creer(cible)
+        self.assertEqual(code, 200)
+        self.assertTrue(rep["cree"])
+        self.assertTrue(os.path.isfile(os.path.join(cible, ".aimessenger", "mail", "boite.json")))
+
+        apres = self.get_boite()["source"]
+        self.assertFalse(apres["demonstration"])
+        self.assertTrue(apres["activable"])
+
+
 class AncienneBoite(unittest.TestCase):
     def test_lecture_seule(self):
         serveur = creer_serveur(Usine().ouvrir(ANCIENNE), "windows", port=0)

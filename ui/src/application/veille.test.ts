@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { Activation, Etat, Message, Statut } from '../domain/types.ts';
+import type { Activation, Creation, Etat, Message, Statut } from '../domain/types.ts';
 import type { PortBoite } from './ports.ts';
 import { Veille } from './veille.ts';
 
@@ -41,6 +41,9 @@ class BoiteFactice implements PortBoite {
   }
   async activer(dossier: string, projet: string): Promise<Activation> {
     return { dossier, projet: projet || null, boite: this.etat.source.chemin, hooks: '.claude/settings.local.json', skill: '.claude/skills/arkalabs-messenger' };
+  }
+  async creer(dossier: string): Promise<Creation> {
+    return { cree: true, boite: `${dossier}/.aimessenger/mail/boite.json` };
   }
   lienPieceJointe(nom: string): string {
     return `/pj/${nom}`;

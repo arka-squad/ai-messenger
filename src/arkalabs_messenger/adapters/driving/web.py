@@ -22,7 +22,7 @@ import urllib.parse
 import webbrowser
 from typing import Any, Dict, Optional, Tuple
 
-from ...application import Annonceur, BoiteIndisponible, Messagerie
+from ...application import Annonceur, BoiteExistante, BoiteIndisponible, Messagerie
 from ...domain import ErreurMessenger, valider_nom
 from ..codec import compte_vers_dict, message_vers_dict
 from . import poste
@@ -78,16 +78,20 @@ class _Serveur(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 def creer_serveur(messagerie: Messagerie, compte: str, port: int = 0, front: Optional[str] = None,
                   demonstration: bool = False, annonceur: Optional[Annonceur] = None,
-                  depot: Optional[str] = None) -> http.server.HTTPServer:
-    """Un serveur prêt à `serve_forever()`. Port 0 : un port libre est choisi."""
-    serveur = _Serveur(("127.0.0.1", port),
-                       _gestionnaire(messagerie, compte, front, demonstration, annonceur, depot))
+                  depot: Optional[str] = None, resolveur=None, usine=None) -> http.server.HTTPServer:
+    """Un serveur prêt à `serve_forever()`. Port 0 : un port libre est choisi.
+
+    `resolveur()` rend `(messagerie, demonstration)` à chaque requête : la boîte peut ainsi
+    changer en cours de route (création depuis l'interface). Sans lui, la boîte donnée est fixe.
+    """
+    resolveur = resolveur or (lambda: (messagerie, demonstration))
+    serveur = _Serveur(("127.0.0.1", port), _gestionnaire(resolveur, compte, front, depot, annonceur, usine))
     return serveur
 
 
 def servir(messagerie: Messagerie, compte: str, port: int, front: Optional[str],
            ouvrir_navigateur: bool = True, lie_au_parent: bool = False, demonstration: bool = False,
-           annonceur: Optional[Annonceur] = None, depot: Optional[str] = None) -> int:
+           annonceur: Optional[Annonceur] = None, depot: Optional[str] = None, resolveur=None, usine=None) -> int:
     """Sert jusqu'à Ctrl+C — ou, avec `lie_au_parent`, jusqu'à la fermeture de l'entrée standard.
 
     Lancée par `npm run dev`, l'API lit son entrée standard : si Vite s'arrête, même
@@ -95,7 +99,7 @@ def servir(messagerie: Messagerie, compte: str, port: int, front: Optional[str],
     """
     messagerie.instantane()  # échoue tôt si la boîte est illisible
     try:
-        serveur = creer_serveur(messagerie, compte, port, front, demonstration, annonceur, depot)
+        serveur = creer_serveur(messagerie, compte, port, front, demonstration, annonceur, depot, resolveur, usine)
     except OSError:
         raise BoiteIndisponible(f"le port {port} est occupé : relance avec --port <autre>") from None
     url = f"http://127.0.0.1:{serveur.server_address[1]}/"
@@ -139,13 +143,17 @@ def _attendre_la_fin_du_parent(serveur: http.server.HTTPServer) -> None:
         serveur.shutdown()
 
 
-def _gestionnaire(messagerie: Messagerie, compte: str, front: Optional[str], demonstration: bool,
-                  annonceur: Optional[Annonceur], depot: Optional[str] = None):
+def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[str] = None,
+                  annonceur: Optional[Annonceur] = None, usine=None):
     class Gestionnaire(http.server.BaseHTTPRequestHandler):
         server_version = "arkalabs-messenger"
 
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 — silence
             pass
+
+        def _courant(self):
+            """La boîte du moment et si c'est la démonstration : résolue à chaque requête."""
+            return resolveur()
 
         # -- Garde ------------------------------------------------------------
         def _hotes(self) -> Tuple[str, ...]:
@@ -187,10 +195,11 @@ def _gestionnaire(messagerie: Messagerie, compte: str, front: Optional[str], dem
             chemin = urllib.parse.urlsplit(self.path).path
             try:
                 if chemin == "/api/boite":
+                    messagerie, demonstration = self._courant()
                     return self._json(200, etat(messagerie, compte, demonstration,
                                                  annonceur.actif if annonceur else None))
                 if chemin == "/api/version":
-                    return self._json(200, {"version": messagerie.version()})
+                    return self._json(200, {"version": self._courant()[0].version()})
                 if chemin.startswith("/pj/"):
                     return self._piece_jointe(urllib.parse.unquote(chemin[len("/pj/"):]))
                 if front and not chemin.startswith("/api/"):
@@ -205,7 +214,7 @@ def _gestionnaire(messagerie: Messagerie, compte: str, front: Optional[str], dem
             if not self._hote_admis() or not self._meme_origine():
                 return self._erreur(403, "requête refusée : origine inconnue")
             chemin = urllib.parse.urlsplit(self.path).path
-            if chemin not in ("/api/statut", "/api/notifications", "/api/activer"):
+            if chemin not in ("/api/statut", "/api/notifications", "/api/activer", "/api/creer"):
                 return self._erreur(404, "introuvable")
             if not self.headers.get("Content-Type", "").startswith("application/json"):
                 return self._erreur(415, "JSON attendu")
@@ -218,6 +227,9 @@ def _gestionnaire(messagerie: Messagerie, compte: str, front: Optional[str], dem
                     return self._notifications(demande)
                 if chemin == "/api/activer":
                     return self._activer(demande)
+                if chemin == "/api/creer":
+                    return self._creer(demande)
+                messagerie = self._courant()[0]
                 message = messagerie.marquer(compte, str(demande["id"]), str(demande["statut"]))
             except (ValueError, KeyError, TypeError):
                 return self._erreur(400, "demande illisible : {\"id\", \"statut\"} attendus")
@@ -230,10 +242,10 @@ def _gestionnaire(messagerie: Messagerie, compte: str, front: Optional[str], dem
             return self._json(200, {"message": message_vers_dict(message), "version": messagerie.version()})
 
         def _activer(self, demande: Any) -> None:
-            """Active un dépôt local : attache le projet, pose hooks et skill dans son .claude/."""
+            """Connecte un projet : attache le dépôt, pose hooks et skill dans son .claude/."""
+            messagerie, demonstration = self._courant()
             if demonstration or messagerie.lecture_seule:
-                return self._erreur(409, "boîte de démonstration ou en lecture seule : "
-                                         "configure d'abord une vraie boîte (setup --box)")
+                return self._erreur(409, "aucune boîte inscriptible : crée d'abord la boîte")
             if not depot:
                 return self._erreur(409, "activation indisponible : dépôt de l'outil introuvable")
             if not isinstance(demande, dict) or not isinstance(demande.get("dossier"), str) \
@@ -253,6 +265,28 @@ def _gestionnaire(messagerie: Messagerie, compte: str, front: Optional[str], dem
                 return self._erreur(500, f"activation impossible : {e.strerror or e}")
             return self._json(200, resume)
 
+        def _creer(self, demande: Any) -> None:
+            """Crée une boîte (arbo .aimessenger/) dans un dossier et s'y branche pour ce poste."""
+            if usine is None:
+                return self._erreur(409, "création indisponible pour cette interface")
+            if not isinstance(demande, dict) or not isinstance(demande.get("dossier"), str) \
+                    or not demande["dossier"].strip():
+                return self._erreur(400, 'demande illisible : {"dossier": "<dossier partagé>"}')
+            try:
+                messagerie = usine.ouvrir(demande["dossier"])
+                if messagerie.lecture_seule:
+                    return self._erreur(409, "ce dossier pointe une boîte Markdown en lecture seule")
+                try:
+                    messagerie.initialiser()
+                except BoiteExistante:
+                    pass  # une boîte est déjà là : on s'y branche simplement
+                poste.memoriser_boite(messagerie.emplacement)
+            except ErreurMessenger as e:
+                return self._erreur(409, str(e))
+            except OSError as e:
+                return self._erreur(500, f"création impossible : {e.strerror or e}")
+            return self._json(200, {"cree": True, "boite": messagerie.emplacement})
+
         def _notifications(self, demande: Any) -> None:
             if annonceur is None:
                 return self._erreur(409, "notifications système indisponibles pour cette interface")
@@ -262,7 +296,7 @@ def _gestionnaire(messagerie: Messagerie, compte: str, front: Optional[str], dem
             return self._json(200, {"notifications": annonceur.actif})
 
         def _piece_jointe(self, nom: str) -> None:
-            chemin = messagerie.piece_jointe(nom)
+            chemin = self._courant()[0].piece_jointe(nom)
             if not chemin:
                 return self._erreur(404, f"pièce jointe introuvable : {nom}")
             extension = os.path.splitext(nom)[1].lower()
