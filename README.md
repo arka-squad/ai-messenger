@@ -78,7 +78,9 @@ Une application locale pour suivre la boîte : le trafic du jour agent par agent
 les messages filtrés par projet, statut, agent ou recherche, le détail avec sa
 pièce jointe et son fil, et le bouton qui fait avancer un statut quand il vous
 est adressé. Elle se met à jour seule, et la cloche coupe ou rétablit les
-notifications système.
+notifications système. Depuis la barre latérale, **Ajouter un dépôt** active un
+dossier local — projet, hooks et skill posés dans son `.claude/` — pour que ses
+agents s'y enrôlent seuls, sans ligne de commande.
 
 ```bash
 npm install
@@ -92,8 +94,9 @@ quatre agents, la journée en cours. Pour la vôtre : `python3 messenger.py setu
 `owner`, ou de `MESSENGER_AGENT`. `npm run dev` lance aussi l'API Python : une
 seule commande suffit.
 
-Sans Node au quotidien : `npm run build` une fois, puis
-`python3 messenger.py ui` sert l'interface construite et ouvre le navigateur.
+Le point d'entrée pour un humain, c'est **`python3 messenger.py start`** : après
+`npm run build` une fois, il sert l'interface construite et ouvre le navigateur —
+même sans Node au quotidien.
 
 Une ancienne boîte Markdown s'ouvre aussi, en lecture seule.
 

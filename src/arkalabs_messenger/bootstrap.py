@@ -58,6 +58,10 @@ class Usine:
         """L'interface construite par `npm run build`, si elle existe."""
         return INTERFACE if os.path.isfile(os.path.join(INTERFACE, "index.html")) else None
 
+    def depot(self) -> str:
+        """La racine du dépôt arkalabs-messenger (où vivent `messenger.py` et `skills/`)."""
+        return DEPOT
+
 
 def main(argv: Optional[List[str]] = None) -> int:
     return executer(argv, Usine())

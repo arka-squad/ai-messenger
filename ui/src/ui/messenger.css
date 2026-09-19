@@ -127,6 +127,25 @@ input { font: inherit; }
 }
 .rail-agent--actif .rail-agent__nom { color: var(--tx1); }
 .rail-agent__dernier { font-size: 10px; color: var(--tx5); white-space: nowrap; }
+.ajout { display: flex; flex-direction: column; gap: 7px; padding: 4px 8px 6px; }
+.ajout__champ {
+  height: 28px; padding: 0 9px; border-radius: 6px; box-sizing: border-box; width: 100%;
+  border: 1px solid rgba(var(--w), 0.12); background: rgba(var(--w), 0.03); color: var(--tx2);
+  font-family: var(--font-mono); font-size: 11px;
+}
+.ajout__champ::placeholder { color: var(--tx5); }
+.ajout__champ:focus { outline: none; border-color: rgba(var(--w), 0.28); background: rgba(var(--w), 0.05); }
+.ajout__valider {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 29px; border-radius: 6px;
+  cursor: pointer; border: 1px solid rgba(var(--w), 0.14); color: var(--tx2); font-size: 12px;
+}
+.ajout__valider:hover:not(:disabled) { background: rgba(var(--w), 0.06); }
+.ajout__valider:disabled { cursor: default; opacity: 0.45; }
+.ajout__aide { font-size: 10.5px; color: var(--tx5); line-height: 1.5; }
+.ajout__aide code { font-family: var(--font-mono); font-size: 9.5px; }
+.ajout__succes { font-size: 11px; color: var(--pass-tx); line-height: 1.5; word-break: break-all; }
+.ajout__erreur { font-size: 11px; color: var(--fail-tx); line-height: 1.5; }
+
 .rail__releve { border-top: 1px solid rgba(var(--w), 0.06); padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 8px; }
 .rail__releve-texte { font-size: 11.5px; color: var(--tx4); line-height: 1.5; }
 .rail__releve-constat { font-family: var(--font-mono); font-size: 10px; color: var(--tx5); }

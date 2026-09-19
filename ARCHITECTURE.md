@@ -54,7 +54,7 @@ grep -rn "import" src/arkalabs_messenger/adapters/driving | grep "driven"
 | `adapters/driven/` | boîte et annuaire en fichiers JSON (verrou, écriture atomique), vue Markdown, ancienne boîte Markdown en lecture seule, pièces jointes, notifications système natives (toast Windows à la marque, macOS, Linux), horloge |
 | `adapters/driving/cli.py` | la ligne de commande des agents |
 | `adapters/driving/web.py` | l'API locale de l'interface (et l'interface construite), et la relève des annonces |
-| `adapters/driving/poste.py` | la boîte du poste (`setup --box`), le projet du dépôt (`.messenger.json`), l'environnement |
+| `adapters/driving/poste.py` | la boîte du poste (`setup --box`), le projet du dépôt (`.messenger.json`), l'identité d'une session (`enroll --session`), l'environnement |
 | `bootstrap.py` | l'assemblage : choisit les adaptateurs selon l'extension de la boîte |
 | `demonstration.py` | la boîte de démonstration, écrite par les cas d'usage eux-mêmes |
 

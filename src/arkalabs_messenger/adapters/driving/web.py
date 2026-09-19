@@ -23,8 +23,9 @@ import webbrowser
 from typing import Any, Dict, Optional, Tuple
 
 from ...application import Annonceur, BoiteIndisponible, Messagerie
-from ...domain import ErreurMessenger
+from ...domain import ErreurMessenger, valider_nom
 from ..codec import compte_vers_dict, message_vers_dict
+from . import poste
 
 _TEXTE = {".md", ".txt", ".log", ".csv", ".yml", ".yaml", ".toml", ".py", ".ps1", ".sh",
           ".rs", ".ts", ".js", ".html", ".svg", ".xml"}
@@ -59,6 +60,7 @@ def etat(messagerie: Messagerie, compte: str, demonstration: bool = False,
             "format": "markdown" if messagerie.lecture_seule else "json",
             "lecture_seule": messagerie.lecture_seule,
             "demonstration": demonstration,
+            "activable": not messagerie.lecture_seule and not demonstration,
         },
         "compte": compte,
         "projets": messagerie.projets(),
@@ -75,15 +77,17 @@ class _Serveur(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 
 def creer_serveur(messagerie: Messagerie, compte: str, port: int = 0, front: Optional[str] = None,
-                  demonstration: bool = False, annonceur: Optional[Annonceur] = None) -> http.server.HTTPServer:
+                  demonstration: bool = False, annonceur: Optional[Annonceur] = None,
+                  depot: Optional[str] = None) -> http.server.HTTPServer:
     """Un serveur prêt à `serve_forever()`. Port 0 : un port libre est choisi."""
-    serveur = _Serveur(("127.0.0.1", port), _gestionnaire(messagerie, compte, front, demonstration, annonceur))
+    serveur = _Serveur(("127.0.0.1", port),
+                       _gestionnaire(messagerie, compte, front, demonstration, annonceur, depot))
     return serveur
 
 
 def servir(messagerie: Messagerie, compte: str, port: int, front: Optional[str],
            ouvrir_navigateur: bool = True, lie_au_parent: bool = False, demonstration: bool = False,
-           annonceur: Optional[Annonceur] = None) -> int:
+           annonceur: Optional[Annonceur] = None, depot: Optional[str] = None) -> int:
     """Sert jusqu'à Ctrl+C — ou, avec `lie_au_parent`, jusqu'à la fermeture de l'entrée standard.
 
     Lancée par `npm run dev`, l'API lit son entrée standard : si Vite s'arrête, même
@@ -91,7 +95,7 @@ def servir(messagerie: Messagerie, compte: str, port: int, front: Optional[str],
     """
     messagerie.instantane()  # échoue tôt si la boîte est illisible
     try:
-        serveur = creer_serveur(messagerie, compte, port, front, demonstration, annonceur)
+        serveur = creer_serveur(messagerie, compte, port, front, demonstration, annonceur, depot)
     except OSError:
         raise BoiteIndisponible(f"le port {port} est occupé : relance avec --port <autre>") from None
     url = f"http://127.0.0.1:{serveur.server_address[1]}/"
@@ -136,7 +140,7 @@ def _attendre_la_fin_du_parent(serveur: http.server.HTTPServer) -> None:
 
 
 def _gestionnaire(messagerie: Messagerie, compte: str, front: Optional[str], demonstration: bool,
-                  annonceur: Optional[Annonceur]):
+                  annonceur: Optional[Annonceur], depot: Optional[str] = None):
     class Gestionnaire(http.server.BaseHTTPRequestHandler):
         server_version = "arkalabs-messenger"
 
@@ -201,7 +205,7 @@ def _gestionnaire(messagerie: Messagerie, compte: str, front: Optional[str], dem
             if not self._hote_admis() or not self._meme_origine():
                 return self._erreur(403, "requête refusée : origine inconnue")
             chemin = urllib.parse.urlsplit(self.path).path
-            if chemin not in ("/api/statut", "/api/notifications"):
+            if chemin not in ("/api/statut", "/api/notifications", "/api/activer"):
                 return self._erreur(404, "introuvable")
             if not self.headers.get("Content-Type", "").startswith("application/json"):
                 return self._erreur(415, "JSON attendu")
@@ -212,6 +216,8 @@ def _gestionnaire(messagerie: Messagerie, compte: str, front: Optional[str], dem
                 demande = json.loads(self.rfile.read(taille) or b"{}")
                 if chemin == "/api/notifications":
                     return self._notifications(demande)
+                if chemin == "/api/activer":
+                    return self._activer(demande)
                 message = messagerie.marquer(compte, str(demande["id"]), str(demande["statut"]))
             except (ValueError, KeyError, TypeError):
                 return self._erreur(400, "demande illisible : {\"id\", \"statut\"} attendus")
@@ -222,6 +228,30 @@ def _gestionnaire(messagerie: Messagerie, compte: str, front: Optional[str], dem
             except OSError as e:
                 return self._erreur(503, f"boîte injoignable : {e.strerror or e}")
             return self._json(200, {"message": message_vers_dict(message), "version": messagerie.version()})
+
+        def _activer(self, demande: Any) -> None:
+            """Active un dépôt local : attache le projet, pose hooks et skill dans son .claude/."""
+            if demonstration or messagerie.lecture_seule:
+                return self._erreur(409, "boîte de démonstration ou en lecture seule : "
+                                         "configure d'abord une vraie boîte (setup --box)")
+            if not depot:
+                return self._erreur(409, "activation indisponible : dépôt de l'outil introuvable")
+            if not isinstance(demande, dict) or not isinstance(demande.get("dossier"), str) \
+                    or not demande["dossier"].strip():
+                return self._erreur(400, 'demande illisible : {"dossier": "<chemin local>", "projet": "<nom?>"}')
+            projet = None
+            if demande.get("projet"):
+                try:
+                    projet = valider_nom(str(demande["projet"]), "projet")
+                except ErreurMessenger as e:
+                    return self._erreur(400, str(e))
+            try:
+                resume = poste.activer_depot(demande["dossier"], projet, depot, box=messagerie.emplacement)
+            except poste.ActivationRefusee as e:
+                return self._erreur(400, str(e))
+            except OSError as e:
+                return self._erreur(500, f"activation impossible : {e.strerror or e}")
+            return self._json(200, resume)
 
         def _notifications(self, demande: Any) -> None:
             if annonceur is None:

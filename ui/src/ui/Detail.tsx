@@ -1,6 +1,6 @@
 import { ArrowRight, CheckCheck, ExternalLink, FileText, LoaderCircle, Lock } from 'lucide-react';
 import { useState } from 'react';
-import { adresseCourte, fil, horodatage, instant, projetsDe, titre } from '../domain/boite.ts';
+import { fil, horodatage, instant, nomAffiche, projetsDe, titre } from '../domain/boite.ts';
 import { type Message, STATUTS, type Statut } from '../domain/types.ts';
 import { EtiquettesProjet } from './EtiquettesProjet.tsx';
 
@@ -9,6 +9,8 @@ interface Props {
   tous: readonly Message[];
   /** Le projet affiché : ses adresses se lisent sans leur projet. */
   projet: string | null;
+  /** Adresse → nom lisible, pour les comptes enrôlés. */
+  affichages: ReadonlyMap<string, string>;
   lectureSeule: boolean;
   lienPieceJointe: (nom: string) => string;
   onMarquer: (id: string, statut: Statut) => Promise<void>;
@@ -30,7 +32,7 @@ export function Detail({ message, ...reste }: Props) {
   );
 }
 
-function Contenu({ message: m, tous, projet, lectureSeule, lienPieceJointe, onMarquer, onChoix }: Props & { message: Message }) {
+function Contenu({ message: m, tous, projet, affichages, lectureSeule, lienPieceJointe, onMarquer, onChoix }: Props & { message: Message }) {
   const lies = fil(tous, m);
   const fuseau = Intl.DateTimeFormat().resolvedOptions().timeZone === 'Europe/Paris' ? ' Paris' : '';
   return (
@@ -38,9 +40,9 @@ function Contenu({ message: m, tous, projet, lectureSeule, lienPieceJointe, onMa
       <div className="detail__bloc detail__bloc--serre">
         <span className="detail__objet">{titre(m)}</span>
         <div className="detail__adresse">
-          <span className="adresse-de">{adresseCourte(m.de, projet)}</span>
+          <span className="adresse-de">{nomAffiche(m.de, affichages, projet)}</span>
           <ArrowRight className="ic" size={11} />
-          <span className="adresse-a">{m.a.map((x) => adresseCourte(x, projet)).join(', ')}</span>
+          <span className="adresse-a">{m.a.map((x) => nomAffiche(x, affichages, projet)).join(', ')}</span>
           <span className="detail__point-median">·</span>
           <span className="detail__date">{horodatage(instant(m))}{fuseau}</span>
           {/* La portée du message : tous les projets qu'il touche, la discussion inter-projet comprise. */}

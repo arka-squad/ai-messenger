@@ -4,6 +4,7 @@ import type { Veille } from '../application/veille.ts';
 import {
   FILTRE_INITIAL,
   type Filtre,
+  affichagesDe,
   agents,
   compter,
   filtrer,
@@ -58,6 +59,7 @@ export function App({ veille, preferences }: Props) {
   const compteurs = useMemo(() => compter(tous, compte), [tous, compte]);
   const listeAgents = useMemo(() => agents(etat?.comptes ?? [], tous, filtre.projet), [etat, tous, filtre.projet]);
   const listeProjets = useMemo(() => projets(etat?.projets ?? [], tous), [etat, tous]);
+  const affichages = useMemo(() => affichagesDe(etat?.comptes ?? []), [etat]);
   // Le trafic suit le projet choisi, pas les autres filtres : il montre la journée du projet.
   const duProjet = useMemo(
     () => (filtre.projet ? tous.filter((m) => toucheLeProjet(m, filtre.projet as string)) : tous),
@@ -97,6 +99,8 @@ export function App({ veille, preferences }: Props) {
           agents={listeAgents}
           filtre={filtre}
           onFiltre={setFiltre}
+          activable={etat?.source.activable ?? false}
+          onActiver={(dossier, projet) => veille.activer(dossier, projet)}
           derniereReleve={v.derniereReleve}
           constat={v.constat}
         />
@@ -107,6 +111,7 @@ export function App({ veille, preferences }: Props) {
             messages={duProjet}
             ordre={ordre}
             projet={filtre.projet}
+            affichages={affichages}
             choisi={choisi}
             agentFiltre={filtre.agent}
             onChoix={setChoix}
@@ -118,6 +123,7 @@ export function App({ veille, preferences }: Props) {
               erreur={etat ? null : v.erreur}
               messages={visibles}
               projet={filtre.projet}
+              affichages={affichages}
               arrivees={arrivees}
               total={tous.length}
               choisi={choisi?.id ?? null}
@@ -127,6 +133,7 @@ export function App({ veille, preferences }: Props) {
               message={choisi}
               tous={tous}
               projet={filtre.projet}
+              affichages={affichages}
               lectureSeule={etat?.source.lecture_seule ?? true}
               lienPieceJointe={(nom) => veille.lienPieceJointe(nom)}
               onMarquer={marquer}

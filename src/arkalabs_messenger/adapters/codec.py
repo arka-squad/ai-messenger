@@ -14,7 +14,7 @@ from ..domain import Annuaire, Boite, Compte, Message, Transition
 FORMAT = 1
 
 _CHAMPS_MESSAGE = ("id", "date", "de", "a", "objet", "corps", "pj", "re", "statut", "historique", "importe")
-_CHAMPS_COMPTE = ("nom", "hote", "modele", "machine", "role", "humain", "releve", "cree", "actif")
+_CHAMPS_COMPTE = ("nom", "hote", "modele", "machine", "role", "affichage", "humain", "releve", "cree", "actif")
 
 
 def en_json(data: Any) -> str:
@@ -105,6 +105,7 @@ def compte_depuis_dict(d: Any) -> Compte:
         modele=d.get("modele"),
         humain=d.get("humain"),
         releve=d.get("releve"),
+        affichage=d.get("affichage"),
         cree=d.get("cree"),
         actif=bool(d.get("actif", True)),
         autres={k: v for k, v in d.items() if k not in _CHAMPS_COMPTE},

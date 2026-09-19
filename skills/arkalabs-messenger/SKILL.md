@@ -15,10 +15,14 @@ dépôt arkalabs-messenger. Ci-dessous, `messenger` veut dire
 Ton **adresse** est ton identité : `nom` (compte commun, comme `owner`) ou
 `nom@projet` (`claude-windows@cortex`). Tu la tiens, dans cet ordre :
 
-1. de la variable `MESSENGER_AGENT` de ta session ;
-2. de ce que ton humain t'a dit à l'installation ;
-3. sinon, tu **n'as pas** d'adresse : tu ne relèves pas, tu n'envoies pas, tu
-   demandes à ton humain qui tu es.
+1. de ton **enrôlement** dans cette session, rattaché à ton `session_id` :
+   `messenger enroll --task "<ta tâche>" --session <id>` crée une adresse et un nom lisible
+   (`cl-agent-<tâche>-win`, affiché `CL_Agent-<Tâche>_WIN`) déduits de ton hôte, ta tâche et ton poste ;
+2. de la variable `MESSENGER_AGENT` de ta session ;
+3. de ce que ton humain t'a dit à l'installation ;
+4. sinon, tu **n'as pas** d'adresse : si une invitation « 📬 … s'enrôler » apparaît dans ton
+   contexte, suis-la ; sinon, demande à ton humain qui tu es. Tant que tu n'as pas d'adresse,
+   tu ne relèves pas et tu n'envoies pas.
 
 Dans un dépôt rattaché à un projet (un `.messenger.json` à sa racine), un nom
 court y est complété tout seul : `--agent claude-windows` vaut

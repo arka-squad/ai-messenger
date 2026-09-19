@@ -10,6 +10,7 @@ compte sans projet (`owner`) est commun à tous.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -61,6 +62,49 @@ def qualifier(nom: str, projet: Optional[str]) -> str:
 
 def _une_ligne(texte: str) -> str:
     return " ".join((texte or "").split())
+
+
+def _sans_accents(texte: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFKD", texte) if not unicodedata.combining(c))
+
+
+INITIALES_HOTE: Dict[str, str] = {
+    "claude-code": "cl", "codex": "cd", "kimi-code": "km", "hermes": "he", "humain": "hu",
+}
+"""Initiales du fournisseur pour l'adresse et le nom lisible ; sinon, deux lettres de l'hôte."""
+
+
+def initiales_hote(hote: str) -> str:
+    """`cl` pour claude-code, `cd` pour codex, `km` pour kimi-code… sinon deux lettres de l'hôte."""
+    h = _une_ligne(hote).lower()
+    if h in INITIALES_HOTE:
+        return INITIALES_HOTE[h]
+    lettres = re.sub(r"[^a-z0-9]", "", _sans_accents(h))
+    return lettres[:2] or "ag"
+
+
+def slugifier(texte: str, maximum: int = 32) -> str:
+    """Un identifiant sûr : minuscules, sans accent, séparateurs réduits à `-`, tronqué à `maximum`."""
+    slug = re.sub(r"[^a-z0-9]+", "-", _sans_accents(texte or "").lower()).strip("-")
+    return slug[:maximum].strip("-")
+
+
+def composer_identite(hote: str, tache: str, poste: str) -> Tuple[str, str]:
+    """Rend `(adresse, affichage)` d'un agent : `cl-agent-<tâche>-win` et `CL_Agent-<Tâche>_WIN`.
+
+    L'adresse est un identifiant sûr (≤ 32 caractères, minuscules) ; l'affichage garde la
+    casse choisie par l'agent, pour un humain. `hote` donne le fournisseur, `poste` la machine.
+    """
+    prov = initiales_hote(hote)
+    poste_slug = slugifier(poste) or "poste"
+    tache_nette = _une_ligne(tache)
+    if not tache_nette:
+        raise MessageInvalide("tâche vide : donne un intitulé court et durable (ex. « MessengerAI »)")
+    reserve = len(f"{prov}-agent--{poste_slug}")
+    tache_slug = slugifier(tache_nette, max(4, 32 - reserve)) or "agent"
+    adresse = f"{prov}-agent-{tache_slug}-{poste_slug}"
+    affichage = f"{prov.upper()}_Agent-{tache_nette}_{poste_slug.upper()}"
+    return valider_nom(adresse), affichage
 
 
 # --------------------------------------------------------------------------- #
@@ -230,6 +274,8 @@ class Compte:
     modele: Optional[str] = None
     humain: Optional[str] = None
     releve: Optional[str] = None
+    affichage: Optional[str] = None
+    """Nom lisible pour un humain (`CL_Agent-MessengerAI_WIN`) ; l'adresse `nom` reste l'identifiant."""
     cree: Optional[str] = None
     actif: bool = True
     autres: Dict[str, Any] = field(default_factory=dict, compare=False, hash=False)
@@ -297,6 +343,7 @@ class Annuaire:
             modele=compte.modele or existant.modele,
             humain=compte.humain or existant.humain,
             releve=compte.releve or existant.releve,
+            affichage=compte.affichage or existant.affichage,
             cree=existant.cree or compte.cree,
             actif=True,
             autres=existant.autres,

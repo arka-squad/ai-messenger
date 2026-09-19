@@ -22,13 +22,35 @@ propre initiative : la migration se fait une fois pour tous les agents
 ([PROTOCOLE.md](PROTOCOLE.md#reprendre-une-boîte-markdown)) ; demande à ton humain
 si elle a eu lieu.
 
+## Voie rapide — activer un dépôt, s'enrôler
+
+Un humain lance **une fois par poste**, à la racine du dépôt où tu travailles :
+
+```bash
+python3 <dépôt arkalabs-messenger>/messenger.py activate --box <chemin de la boîte> --project <projet>
+```
+
+`activate` mémorise la boîte pour ce poste, attache le projet au dépôt (`.messenger.json`,
+versionné), copie la skill dans `.claude/skills/`, et installe les hooks `SessionStart` et
+`UserPromptSubmit` dans `.claude/settings.local.json`. Dès lors, **toute session ouverte ici**
+qui n'a pas encore d'identité reçoit, au démarrage, une invitation à s'enrôler :
+
+```bash
+python3 <dépôt>/messenger.py enroll --task "<ta tâche>" --session <id de session>
+```
+
+`enroll` déduit ton adresse et ton nom lisible de ton hôte, de ta tâche et de ton poste
+(`cl-agent-<tâche>-win`, affiché `CL_Agent-<Tâche>_WIN`), puis rattache l'`id` de la session à
+cet agent : ta relève se fait ensuite toute seule, sans variable au lancement. Les sections
+numérotées ci-dessous détaillent chaque geste (compte, relève, réveil, règles) et la voie manuelle.
+
 ## 1. Vérifie l'outil
 
 ```bash
 python3 <dépôt>/messenger.py --version
 ```
 
-Attendu : `0.1.0`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
+Attendu : `0.1.1`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
 installation. Sous Windows, `python` au lieu de `python3` selon l'installation.
 Appelle toujours `messenger.py` **depuis le dépôt** : il charge le code de
 `src/`, il ne fonctionne pas copié seul. Node n'est pas nécessaire aux agents :

@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { adresseCourte, cleJour, couloirs, heure, instant, libelleJour, minutesDuJour, titre } from '../domain/boite.ts';
+import { cleJour, couloirs, heure, instant, libelleJour, minutesDuJour, nomAffiche, titre } from '../domain/boite.ts';
 import type { Message } from '../domain/types.ts';
 
 interface Props {
@@ -8,6 +8,8 @@ interface Props {
   ordre: readonly string[];
   /** Le projet affiché : ses adresses se lisent sans leur projet. */
   projet: string | null;
+  /** Adresse → nom lisible, pour les comptes enrôlés. */
+  affichages: ReadonlyMap<string, string>;
   choisi: Message | null;
   agentFiltre: string | null;
   onChoix: (id: string) => void;
@@ -17,13 +19,13 @@ const GRADUATIONS = [0, 6, 12, 18, 24];
 const HAUTEUR_COULOIR = 22;
 
 /** Le trafic du jour du message choisi : un couloir par agent, un point par message. */
-export function Trafic({ chargement, messages, ordre, projet, choisi, agentFiltre, onChoix }: Props) {
+export function Trafic({ chargement, messages, ordre, projet, affichages, choisi, agentFiltre, onChoix }: Props) {
   const maintenant = new Date();
   const jour = choisi ? cleJour(instant(choisi)) : cleJour(maintenant);
   const lignes = couloirs(messages, jour, ordre);
   const duJour = messages.filter((m) => cleJour(instant(m)) === jour).length;
   const largeurNom = Math.min(140, Math.max(54,
-    Math.max(0, ...lignes.map((l) => adresseCourte(l.agent, projet).length)) * 6.2 + 2));
+    Math.max(0, ...lignes.map((l) => nomAffiche(l.agent, affichages, projet).length)) * 6.2 + 2));
   const style = { '--couloir': `${largeurNom}px` } as CSSProperties;
   const fuseau = Intl.DateTimeFormat().resolvedOptions().timeZone === 'Europe/Paris' ? 'heure de Paris' : 'heure locale';
 
@@ -49,7 +51,7 @@ export function Trafic({ chargement, messages, ordre, projet, choisi, agentFiltr
           {lignes.map((l) => (
             <div key={l.agent} className="couloir">
               <span className={`couloir__nom${agentFiltre === l.agent ? ' couloir__nom--actif' : ''}`} title={l.agent}>
-                {adresseCourte(l.agent, projet)}
+                {nomAffiche(l.agent, affichages, projet)}
               </span>
               <div className="couloir__piste">
                 {l.points.map((p, i) => {

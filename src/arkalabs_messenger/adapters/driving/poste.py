@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, Optional
+import shutil
+import sys
+from typing import Any, Dict, List, Optional
 
 CONFIG = os.path.join(os.path.expanduser("~"), ".arkalabs-messenger.json")
 FICHIER_PROJET = ".messenger.json"
@@ -37,9 +39,34 @@ def resoudre_boite(explicite: Optional[str]) -> Optional[str]:
     return explicite or os.environ.get("MESSENGER_BOX") or lire_config().get("box")
 
 
-def resoudre_agent(explicite: Optional[str]) -> Optional[str]:
-    """`--agent`, sinon MESSENGER_AGENT. Jamais mémorisé : un poste peut porter plusieurs agents."""
-    return explicite or os.environ.get("MESSENGER_AGENT")
+def resoudre_agent(explicite: Optional[str], session: Optional[str] = None) -> Optional[str]:
+    """`--agent`, sinon MESSENGER_AGENT, sinon l'agent enrôlé dans cette session (`enroll --session`).
+
+    L'identité d'une session est mémorisée par `session_id` : chaque session de l'hôte porte la
+    sienne, sans variable au lancement.
+    """
+    return explicite or os.environ.get("MESSENGER_AGENT") or agent_de_session(session)
+
+
+def agent_de_session(session: Optional[str]) -> Optional[str]:
+    """L'agent enrôlé pour ce `session_id`, ou None."""
+    if not session:
+        return None
+    valeur = lire_config().get("sessions", {}).get(session)
+    return valeur if isinstance(valeur, str) and valeur else None
+
+
+def memoriser_session(session: str, agent: str) -> str:
+    """Rattache un `session_id` à un agent, dans la config du poste. Rend le chemin de la config."""
+    conf = lire_config()
+    sessions = conf.get("sessions")
+    if not isinstance(sessions, dict):
+        sessions = {}
+    sessions[session] = agent
+    conf["sessions"] = sessions
+    with open(CONFIG, "w", encoding="utf-8") as f:
+        json.dump(conf, f, ensure_ascii=False, indent=2)
+    return CONFIG
 
 
 def resoudre_projet(explicite: Optional[str], dossier: Optional[str] = None) -> Optional[str]:
@@ -82,3 +109,75 @@ def attacher_projet(dossier: str, projet: str) -> str:
         json.dump({"project": projet}, f, ensure_ascii=False, indent=2)
         f.write("\n")
     return chemin
+
+
+# --------------------------------------------------------------------------- #
+# Activer un dépôt : hooks et skill dans .claude/, pour que ses agents s'enrôlent
+# --------------------------------------------------------------------------- #
+class ActivationRefusee(Exception):
+    """Une activation impossible (dossier absent, réglages illisibles, skill introuvable)."""
+
+
+def activer_depot(dossier: str, projet: Optional[str], depot: str, box: Optional[str] = None) -> Dict[str, Any]:
+    """Rend un dépôt prêt : mémorise sa boîte pour le poste, l'attache au projet, pose hooks et skill.
+
+    `depot` est la racine d'arkalabs-messenger (où vivent `messenger.py` et `skills/`).
+    Rend un résumé des chemins écrits. Lève `ActivationRefusee` si le dossier n'existe pas.
+    """
+    dossier = os.path.abspath(os.path.expanduser(dossier))
+    if not os.path.isdir(dossier):
+        raise ActivationRefusee(f"dossier introuvable : {dossier}")
+    if box:
+        memoriser_boite(box)
+    if projet:
+        attacher_projet(dossier, projet)
+    reglages = _installer_hooks(dossier, depot)
+    skill = _copier_skill(dossier, depot)
+    return {"dossier": dossier, "projet": resoudre_projet(None, dossier),
+            "boite": box, "hooks": reglages, "skill": skill}
+
+
+def _installer_hooks(dossier: str, depot: str) -> str:
+    """Fusionne les hooks SessionStart et UserPromptSubmit dans `.claude/settings.local.json`."""
+    chemin = os.path.join(dossier, ".claude", "settings.local.json")
+    os.makedirs(os.path.dirname(chemin), exist_ok=True)
+    reglages: Dict[str, Any] = {}
+    if os.path.isfile(chemin):
+        try:
+            with open(chemin, encoding="utf-8") as f:
+                reglages = json.load(f)
+        except ValueError:
+            raise ActivationRefusee(f"{chemin} n'est pas un JSON valide : corrige-le avant d'activer") from None
+    if not isinstance(reglages, dict):
+        reglages = {}
+    hooks = reglages.setdefault("hooks", {})
+    messenger_py = os.path.join(depot, "messenger.py")
+    base = {"type": "command", "command": sys.executable, "args": [messenger_py, "check", "--hook"], "timeout": 20}
+    for evenement, extra in (("SessionStart", {"statusMessage": "Relève du courrier"}), ("UserPromptSubmit", {})):
+        liste = hooks.setdefault(evenement, [])
+        if isinstance(liste, list) and not _hook_present(liste, messenger_py):
+            liste.append({"hooks": [{**base, **extra}]})
+    with open(chemin, "w", encoding="utf-8") as f:
+        json.dump(reglages, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    return chemin
+
+
+def _hook_present(liste: List[Any], messenger_py: str) -> bool:
+    for groupe in liste:
+        for h in (groupe.get("hooks", []) if isinstance(groupe, dict) else []):
+            args = h.get("args") if isinstance(h, dict) else None
+            if isinstance(args, list) and messenger_py in args and "--hook" in args:
+                return True
+    return False
+
+
+def _copier_skill(dossier: str, depot: str) -> str:
+    """Copie la skill dans `.claude/skills/` du dépôt, pour que les agents la chargent d'eux-mêmes."""
+    source = os.path.join(depot, "skills", "arkalabs-messenger")
+    cible = os.path.join(dossier, ".claude", "skills", "arkalabs-messenger")
+    if not os.path.isdir(source):
+        raise ActivationRefusee(f"skill introuvable dans le dépôt de l'outil : {source}")
+    if os.path.abspath(source) != os.path.abspath(cible):
+        shutil.copytree(source, cible, dirs_exist_ok=True)
+    return cible

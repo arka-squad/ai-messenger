@@ -10,6 +10,8 @@ import {
   heure,
   horodatage,
 } from '../domain/boite.ts';
+import type { Activation } from '../domain/types.ts';
+import { AjoutDepot } from './AjoutDepot.tsx';
 
 interface Props {
   compte: string;
@@ -18,11 +20,15 @@ interface Props {
   agents: readonly Agent[];
   filtre: Filtre;
   onFiltre: (f: Filtre) => void;
+  /** La boîte est réelle : on peut y activer un dépôt depuis l'interface. */
+  activable: boolean;
+  onActiver: (dossier: string, projet: string) => Promise<Activation>;
   derniereReleve: Date | null;
   constat: string;
 }
 
-export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, derniereReleve, constat }: Props) {
+export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, activable, onActiver,
+  derniereReleve, constat }: Props) {
   const boites: [Classement, string, LucideIcon, number][] = [
     ['toutes', 'Tous les messages', Inbox, compteurs.total],
     ['fils', 'Réponses', Reply, compteurs.fils],
@@ -78,6 +84,8 @@ export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, der
         </div>
       )}
 
+      {activable && <AjoutDepot onActiver={onActiver} />}
+
       <div className="rail__section">
         <span className="eyebrow">Agents</span>
         {agents.map((a) => {
@@ -94,7 +102,7 @@ export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, der
               onClick={() => onFiltre({ ...filtre, agent: actif ? null : a.nom })}
             >
               <span className={`point-rond ${a.enAttente ? 'attente pulse' : 'ok'}`} />
-              <span className="rail-agent__nom">{adresseCourte(a.nom, filtre.projet)}</span>
+              <span className="rail-agent__nom">{a.affichage ?? adresseCourte(a.nom, filtre.projet)}</span>
               <span className="rail-agent__dernier">{dernier}</span>
             </button>
           );

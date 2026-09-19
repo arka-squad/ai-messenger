@@ -7,6 +7,7 @@ import unittest
 import urllib.error
 import urllib.request
 
+from arkalabs_messenger.adapters.driving import poste
 from arkalabs_messenger.adapters.driving.web import creer_serveur
 from arkalabs_messenger.application import Annonceur
 from arkalabs_messenger.bootstrap import Usine
@@ -105,6 +106,51 @@ class Api(unittest.TestCase):
         avant = json.loads(self.get("/api/version")[2])["version"]
         self.post({"id": self.pour_owner.message.id, "statut": "lu"})
         self.assertNotEqual(json.loads(self.get("/api/version")[2])["version"], avant)
+
+
+class Activation(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.dossier = self._tmp.name
+        self._config = poste.CONFIG
+        poste.CONFIG = os.path.join(self.dossier, "poste.json")  # ne pas toucher au vrai config du poste
+        os.makedirs(os.path.join(self.dossier, "partage"))
+        self.messagerie = Usine().ouvrir(os.path.join(self.dossier, "partage", "boite.json"))
+        self.messagerie.initialiser()
+        self.serveur = creer_serveur(self.messagerie, "owner", port=0, depot=Usine().depot())
+        self.base = f"http://127.0.0.1:{self.serveur.server_address[1]}"
+        threading.Thread(target=self.serveur.serve_forever, daemon=True).start()
+
+    def tearDown(self):
+        poste.CONFIG = self._config
+        self.serveur.shutdown()
+        self.serveur.server_close()
+        self._tmp.cleanup()
+
+    def post(self, corps):
+        req = urllib.request.Request(self.base + "/api/activer", data=json.dumps(corps).encode(),
+                                     headers={"Content-Type": "application/json", "Origin": self.base})
+        try:
+            with urllib.request.urlopen(req) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    def test_activer_un_depot_depuis_l_interface(self):
+        repo = os.path.join(self.dossier, "repo")
+        os.makedirs(repo)
+        code, rep = self.post({"dossier": repo, "projet": "demo"})
+        self.assertEqual(code, 200)
+        self.assertEqual(rep["projet"], "demo")
+        self.assertTrue(os.path.isfile(os.path.join(repo, ".claude", "settings.local.json")))
+        self.assertTrue(os.path.isfile(
+            os.path.join(repo, ".claude", "skills", "arkalabs-messenger", "SKILL.md")))
+        self.assertTrue(os.path.isfile(os.path.join(repo, ".messenger.json")))
+
+    def test_activer_refuse_un_dossier_absent(self):
+        code, rep = self.post({"dossier": os.path.join(self.dossier, "absent"), "projet": "demo"})
+        self.assertEqual(code, 400)
+        self.assertIn("introuvable", rep["erreur"])
 
 
 class AncienneBoite(unittest.TestCase):

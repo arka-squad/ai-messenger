@@ -1,6 +1,6 @@
 import { ArrowRight, Paperclip } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { adresseCourte, heure, instant, projetsDe, titre } from '../domain/boite.ts';
+import { heure, instant, nomAffiche, projetsDe, titre } from '../domain/boite.ts';
 import type { Message } from '../domain/types.ts';
 import { EtiquettesProjet } from './EtiquettesProjet.tsx';
 import { IconeStatut } from './IconeStatut.tsx';
@@ -13,6 +13,8 @@ interface Props {
   messages: readonly Message[];
   /** Le projet affiché : ses adresses se lisent sans leur projet. */
   projet: string | null;
+  /** Adresse → nom lisible, pour les comptes enrôlés. */
+  affichages: ReadonlyMap<string, string>;
   /** Les messages arrivés à la dernière relève : ils s'animent en entrant. */
   arrivees: ReadonlySet<string>;
   total: number;
@@ -35,7 +37,7 @@ export function Liste(p: Props) {
   );
 }
 
-function Lignes({ messages, projet, arrivees, choisi, onChoix, total }: Props) {
+function Lignes({ messages, projet, affichages, arrivees, choisi, onChoix, total }: Props) {
   // Comme la maquette : les douze premières lignes entrent au montage, puis chaque arrivée.
   const [entrees] = useState(() => new Set(messages.slice(0, 12).map((m) => m.id)));
   const choisie = useRef<HTMLButtonElement | null>(null);
@@ -66,9 +68,9 @@ function Lignes({ messages, projet, arrivees, choisi, onChoix, total }: Props) {
           >
             <span className="ligne__tete">
               <span className="ligne__heure">{heure(instant(m))}</span>
-              <span className="adresse-de">{adresseCourte(m.de, projet)}</span>
+              <span className="adresse-de">{nomAffiche(m.de, affichages, projet)}</span>
               <ArrowRight className="ic" size={11} />
-              <span className="adresse-a">{m.a.map((x) => adresseCourte(x, projet)).join(', ')}</span>
+              <span className="adresse-a">{m.a.map((x) => nomAffiche(x, affichages, projet)).join(', ')}</span>
               <span className="vide" />
               {/* Le projet filtré est déjà implicite : on ne montre que les autres qu'un message touche. */}
               <EtiquettesProjet projets={projetsDe(m).filter((p) => p !== projet)} />

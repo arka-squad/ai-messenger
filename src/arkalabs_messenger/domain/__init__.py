@@ -18,8 +18,11 @@ from .modele import (
     Compte,
     Message,
     Transition,
+    composer_identite,
+    initiales_hote,
     projet_de,
     qualifier,
+    slugifier,
     valider_adresse,
     valider_nom,
 )
@@ -27,6 +30,7 @@ from .modele import (
 __all__ = [
     "Annuaire", "Boite", "Brouillon", "Compte", "Message", "Transition",
     "CORPS_MAX", "STATUTS", "valider_nom", "valider_adresse", "projet_de", "qualifier",
+    "composer_identite", "initiales_hote", "slugifier",
     "ErreurMessenger", "CompteExistant", "CompteInconnu", "MessageIntrouvable",
     "MessageInvalide", "NomInvalide", "TransitionRefusee",
 ]

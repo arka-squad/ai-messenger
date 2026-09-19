@@ -33,6 +33,8 @@ export interface Compte {
   hote?: string;
   machine?: string;
   role?: string;
+  /** Nom lisible pour un humain (`CL_Agent-MessengerAI_WIN`) ; `nom` reste l'adresse. */
+  affichage?: string;
 }
 
 export interface Source {
@@ -42,6 +44,17 @@ export interface Source {
   lecture_seule: boolean;
   /** Aucune boîte n'est configurée : l'interface montre la démonstration du dépôt. */
   demonstration: boolean;
+  /** La boîte est réelle et inscriptible : on peut y activer un dépôt depuis l'interface. */
+  activable: boolean;
+}
+
+/** Le résumé rendu après l'activation d'un dépôt local. */
+export interface Activation {
+  dossier: string;
+  projet: string | null;
+  boite: string | null;
+  hooks: string;
+  skill: string;
 }
 
 export interface Etat {

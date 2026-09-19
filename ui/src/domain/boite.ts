@@ -35,6 +35,18 @@ export function adresseCourte(adresse: string, projet: string | null): string {
   return projet && projetDe(adresse) === projet ? adresse.slice(0, adresse.indexOf('@')) : adresse;
 }
 
+/** Le nom lisible d'une adresse si son compte s'est enrôlé (`CL_Agent-…_WIN`), sinon l'adresse courte. */
+export function nomAffiche(adresse: string, affichages: ReadonlyMap<string, string>, projet: string | null): string {
+  return affichages.get(adresse) ?? adresseCourte(adresse, projet);
+}
+
+/** La table adresse → nom lisible, pour les comptes qui en ont un. */
+export function affichagesDe(comptes: readonly Compte[]): Map<string, string> {
+  const table = new Map<string, string>();
+  for (const c of comptes) if (c.affichage) table.set(c.nom, c.affichage);
+  return table;
+}
+
 /** Les projets que ce message touche (émetteur et destinataires), sans doublon, dans l'ordre d'apparition.
  *  Un message entre comptes communs (`owner`) n'en touche aucun. */
 export function projetsDe(m: Message): string[] {
@@ -133,6 +145,8 @@ export interface Agent {
   nom: string;
   projet: string | null;
   role: string | undefined;
+  /** Nom lisible pour un humain, si l'agent s'est enrôlé ; sinon l'adresse fait foi. */
+  affichage: string | undefined;
   envois: number;
   dernierEnvoi: Date | null;
   /** Messages « nouveau » qui lui sont adressés. */
@@ -154,6 +168,7 @@ export function agents(comptes: readonly Compte[], messages: readonly Message[],
         nom: c.nom,
         projet: projetDe(c.nom),
         role: c.role,
+        affichage: c.affichage,
         envois: envoyes.length,
         dernierEnvoi: dernier,
         enAttente: messages.filter((m) => m.a.includes(c.nom) && m.statut === 'nouveau').length,

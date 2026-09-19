@@ -98,10 +98,11 @@ class Messagerie:
 
     def inscrire(self, nom: str, hote: str, role: str, *, machine: Optional[str] = None,
                  modele: Optional[str] = None, humain: Optional[str] = None,
-                 releve: Optional[str] = None, mise_a_jour: bool = False) -> Tuple[Compte, bool]:
+                 releve: Optional[str] = None, affichage: Optional[str] = None,
+                 mise_a_jour: bool = False) -> Tuple[Compte, bool]:
         """Crée le compte, ou met à jour le sien. Rend le compte et s'il vient d'être créé."""
         compte = Compte.ouvrir(nom, hote, role, machine=machine, modele=modele, humain=humain,
-                               releve=releve, cree=self._horodatage())
+                               releve=releve, affichage=affichage, cree=self._horodatage())
         with self._annuaire.transaction() as annuaire:
             cree = annuaire.inscrire(compte, mise_a_jour)
             return annuaire.compte(nom), cree

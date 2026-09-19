@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   FILTRE_INITIAL,
   adresseCourte,
+  affichagesDe,
   agents,
   cleJour,
   compter,
@@ -11,6 +12,7 @@ import {
   filtrer,
   initiales,
   libelleJour,
+  nomAffiche,
   projets,
   projetsDe,
   recents,
@@ -114,6 +116,18 @@ describe('projets', () => {
     assert.deepEqual(projetsDe(P[1]!), ['cortex', 'talos']);
     assert.deepEqual(projetsDe(P[2]!), ['talos']);
     assert.deepEqual(projetsDe(message('x', '2026-09-18T09:00:00', 'owner', ['owner'])), []);
+  });
+});
+
+describe('nom affiché', () => {
+  const table = affichagesDe([
+    { nom: 'cl-agent-x-win@demo', actif: true, affichage: 'CL_Agent-X_WIN' },
+    { nom: 'kimi@demo', actif: true },
+  ]);
+  it('préfère le nom lisible enrôlé, sinon l’adresse courte', () => {
+    assert.equal(nomAffiche('cl-agent-x-win@demo', table, 'demo'), 'CL_Agent-X_WIN');
+    assert.equal(nomAffiche('kimi@demo', table, 'demo'), 'kimi');
+    assert.equal(nomAffiche('owner', table, 'demo'), 'owner');
   });
 });
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { Etat, Message, Statut } from '../domain/types.ts';
+import type { Activation, Etat, Message, Statut } from '../domain/types.ts';
 import type { PortBoite } from './ports.ts';
 import { Veille } from './veille.ts';
 
@@ -13,7 +13,8 @@ function message(id: string): Message {
 
 class BoiteFactice implements PortBoite {
   etat: Etat = {
-    source: { chemin: '/b.json', nom: 'b.json', format: 'json', lecture_seule: false, demonstration: false },
+    source: { chemin: '/b.json', nom: 'b.json', format: 'json', lecture_seule: false, demonstration: false,
+      activable: true },
     compte: 'owner', projets: [], notifications: true, version: 'v1', messages: [message('a')], comptes: [],
   };
   chargements = 0;
@@ -37,6 +38,9 @@ class BoiteFactice implements PortBoite {
   async notifications(actives: boolean): Promise<boolean> {
     this.etat.notifications = actives;
     return actives;
+  }
+  async activer(dossier: string, projet: string): Promise<Activation> {
+    return { dossier, projet: projet || null, boite: this.etat.source.chemin, hooks: '.claude/settings.local.json', skill: '.claude/skills/arkalabs-messenger' };
   }
   lienPieceJointe(nom: string): string {
     return `/pj/${nom}`;
