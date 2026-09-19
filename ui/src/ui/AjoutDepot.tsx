@@ -2,14 +2,31 @@ import { FolderPlus, LoaderCircle } from 'lucide-react';
 import { useState } from 'react';
 import type { Activation } from '../domain/types.ts';
 
+interface Props {
+  /** La boîte est réelle et inscriptible : on peut y activer un dépôt. */
+  activable: boolean;
+  /** Pourquoi l'activation est indisponible, quand elle l'est (boîte de démo, lecture seule). */
+  motif: string | null;
+  onActiver: (dossier: string, projet: string) => Promise<Activation>;
+}
+
 /** Un dépôt local qu'un humain ajoute à la boîte : hooks et skill y sont posés, ses agents s'enrôlent. */
-export function AjoutDepot({ onActiver }: { onActiver: (dossier: string, projet: string) => Promise<Activation> }) {
+export function AjoutDepot({ activable, motif, onActiver }: Props) {
   const [ouvert, setOuvert] = useState(false);
   const [dossier, setDossier] = useState('');
   const [projet, setProjet] = useState('');
   const [envoi, setEnvoi] = useState(false);
   const [succes, setSucces] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+
+  if (!activable) {
+    return (
+      <div className="rail__section">
+        <span className="eyebrow">Dépôts</span>
+        <span className="ajout__aide">{motif ?? 'Activation de dépôt indisponible pour cette boîte.'}</span>
+      </div>
+    );
+  }
 
   const soumettre = async () => {
     if (!dossier.trim() || envoi) return;

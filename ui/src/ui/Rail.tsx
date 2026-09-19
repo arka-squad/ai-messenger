@@ -22,13 +22,15 @@ interface Props {
   onFiltre: (f: Filtre) => void;
   /** La boîte est réelle : on peut y activer un dépôt depuis l'interface. */
   activable: boolean;
+  /** Pourquoi l'activation est indisponible, le cas échéant. */
+  motifActivation: string | null;
   onActiver: (dossier: string, projet: string) => Promise<Activation>;
   derniereReleve: Date | null;
   constat: string;
 }
 
-export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, activable, onActiver,
-  derniereReleve, constat }: Props) {
+export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, activable, motifActivation,
+  onActiver, derniereReleve, constat }: Props) {
   const boites: [Classement, string, LucideIcon, number][] = [
     ['toutes', 'Tous les messages', Inbox, compteurs.total],
     ['fils', 'Réponses', Reply, compteurs.fils],
@@ -84,7 +86,7 @@ export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, act
         </div>
       )}
 
-      {activable && <AjoutDepot onActiver={onActiver} />}
+      <AjoutDepot activable={activable} motif={motifActivation} onActiver={onActiver} />
 
       <div className="rail__section">
         <span className="eyebrow">Agents</span>

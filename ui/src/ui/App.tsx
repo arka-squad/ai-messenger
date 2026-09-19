@@ -60,6 +60,18 @@ export function App({ veille, preferences }: Props) {
   const listeAgents = useMemo(() => agents(etat?.comptes ?? [], tous, filtre.projet), [etat, tous, filtre.projet]);
   const listeProjets = useMemo(() => projets(etat?.projets ?? [], tous), [etat, tous]);
   const affichages = useMemo(() => affichagesDe(etat?.comptes ?? []), [etat]);
+  const motifActivation = useMemo(() => {
+    const s = etat?.source;
+    if (!s || s.activable) return null;
+    if (s.demonstration) {
+      return 'Boîte de démonstration — configure ta boîte (messenger.py setup --box <chemin>) pour activer des dépôts.';
+    }
+    if (s.lecture_seule) {
+      return 'Boîte en lecture seule (ancienne boîte Markdown) — migre-la en JSON '
+        + '(messenger.py migrate) pour activer des dépôts et voir les projets.';
+    }
+    return 'Activation de dépôt indisponible pour cette boîte.';
+  }, [etat]);
   // Le trafic suit le projet choisi, pas les autres filtres : il montre la journée du projet.
   const duProjet = useMemo(
     () => (filtre.projet ? tous.filter((m) => toucheLeProjet(m, filtre.projet as string)) : tous),
@@ -100,6 +112,7 @@ export function App({ veille, preferences }: Props) {
           filtre={filtre}
           onFiltre={setFiltre}
           activable={etat?.source.activable ?? false}
+          motifActivation={motifActivation}
           onActiver={(dossier, projet) => veille.activer(dossier, projet)}
           derniereReleve={v.derniereReleve}
           constat={v.constat}
