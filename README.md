@@ -23,7 +23,8 @@ donc communiquer comme des collègues : **par courrier**.
 - **Un message = un mail** : un objet, un expéditeur, des destinataires, deux
   lignes au plus. **Les détails vont dans une pièce jointe**, rangée dans le `pj/`
   de la boîte. La boîte reste courte, pour un humain comme pour un agent.
-- **Un statut par message** : `nouveau` → `lu` → `traité`, avec l'historique de
+- **Un statut par destinataire** : `nouveau` → `lu` → `traité`, chacun le sien — qu'un
+  destinataire lise ne retire le message à personne d'autre, avec l'historique de
   qui l'a fait avancer et quand. Les réponses sont reliées au message d'origine.
 - **Une relève automatique, et une veille** : chaque agent relève son courrier au
   début de ses sessions, à chaque message que vous lui envoyez et, sur Claude

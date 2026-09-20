@@ -1,6 +1,6 @@
 import { ArrowRight, CheckCheck, ExternalLink, FileText, LoaderCircle, Lock } from 'lucide-react';
 import { useState } from 'react';
-import { type ProjetDe, fil, horodatage, instant, projetsDe, titre } from '../domain/boite.ts';
+import { type ProjetDe, fil, horodatage, instant, projetsDe, statutPour, titre } from '../domain/boite.ts';
 import { type Message, STATUTS, type Statut } from '../domain/types.ts';
 import { EtiquetteProjet, EtiquettesProjet } from './EtiquettesProjet.tsx';
 
@@ -52,7 +52,11 @@ function Contenu({ message: m, tous, projet, projetDe, affichages, lectureSeule,
           <Correspondant adresse={m.de} affichages={affichages} projetDe={projetDe} filtre={projet} emetteur />
           <span className="detail__sens">À</span>
           <div className="detail__destinataires">
-            {m.a.map((x) => <Correspondant key={x} adresse={x} affichages={affichages} projetDe={projetDe} filtre={projet} />)}
+            {/* Le statut est propre à chacun : la fiche dit qui a lu, et qui n'a pas encore. */}
+            {m.a.map((x) => (
+              <Correspondant key={x} adresse={x} affichages={affichages} projetDe={projetDe} filtre={projet}
+                             statut={statutPour(m, x)} />
+            ))}
           </div>
         </div>
       </div>
@@ -106,12 +110,14 @@ function Contenu({ message: m, tous, projet, projetDe, affichages, lectureSeule,
 }
 
 /** Un correspondant sur la fiche : son nom lisible, son adresse, et le projet auquel il appartient. */
-function Correspondant({ adresse, affichages, projetDe, filtre, emetteur = false }: {
+function Correspondant({ adresse, affichages, projetDe, filtre, emetteur = false, statut = null }: {
   adresse: string;
   affichages: ReadonlyMap<string, string>;
   projetDe: ProjetDe;
   filtre: string | null;
   emetteur?: boolean;
+  /** Où en est ce destinataire, s'il s'agit d'un destinataire. */
+  statut?: Statut | null;
 }) {
   const nom = adresse.split('@')[0] ?? adresse;
   const affichage = affichages.get(adresse);
@@ -121,13 +127,15 @@ function Correspondant({ adresse, affichages, projetDe, filtre, emetteur = false
       <span className={emetteur ? 'adresse-de' : 'adresse-a'}>{affichage ?? nom}</span>
       {affichage && <span className="correspondant__adresse">{nom}</span>}
       <EtiquetteProjet projet={projet} actif={projet !== null && projet === filtre} />
+      {statut && <span className={`correspondant__statut statut--${statut}`}
+                       title={statut === 'nouveau' ? 'ne l’a pas encore lu' : `l’a marqué ${statut}`}>{statut}</span>}
     </span>
   );
 }
 
-/** nouveau — lu — traité, avec au survol qui a fait avancer le statut, et quand. */
+/** nouveau — lu — traité *pour le compte courant*, avec au survol qui a fait avancer le statut, et quand. */
 function Etapes({ message: m }: { message: Message }) {
-  const courant = STATUTS.indexOf(m.statut);
+  const courant = STATUTS.indexOf(m.mien);
   return (
     <div className="etapes">
       {STATUTS.map((s, i) => {
@@ -138,7 +146,7 @@ function Etapes({ message: m }: { message: Message }) {
         const etat = i === courant ? ' etape--courante' : i < courant ? ' etape--passee' : '';
         return (
           <span key={s} className={`etape${etat}`} title={info}>
-            <span className={`etape__point${i === courant && m.statut !== 'traité' ? ' pulse' : ''}`} />
+            <span className={`etape__point${i === courant && m.mien !== 'traité' ? ' pulse' : ''}`} />
             <span className="etape__libelle">{s}</span>
             <span className="etape__trait" />
           </span>
@@ -162,7 +170,7 @@ function Action({ message: m, lectureSeule, onMarquer }: {
   let Icone = ArrowRight;
   if (lectureSeule) {
     [libelle, aide, Icone] = ['Lecture seule', 'Ancienne boîte Markdown : migre-la en JSON pour agir (messenger.py migrate).', Lock];
-  } else if (m.statut === 'traité') {
+  } else if (m.mien === 'traité') {
     [libelle, Icone] = ['Statut terminal', CheckCheck];
   } else if (!suite) {
     [libelle, aide, Icone] = [`Réservé à ${m.a.join(', ')}`, 'Seul un destinataire fait avancer le statut.', Lock];

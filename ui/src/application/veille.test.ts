@@ -7,7 +7,8 @@ import { Veille } from './veille.ts';
 function message(id: string): Message {
   return {
     id, date: '2026-09-18T10:00:00', de: 'windows', a: ['owner'], objet: id, corps: [], pj: null, re: null,
-    statut: 'nouveau', historique: [], suite: 'lu', pj_presente: false,
+    statut: 'nouveau', statuts: { owner: 'nouveau' }, mien: 'nouveau', historique: [], suite: 'lu',
+    pj_presente: false,
   };
 }
 

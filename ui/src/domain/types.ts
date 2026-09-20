@@ -18,7 +18,12 @@ export interface Message {
   corps: string[];
   pj: string | null;
   re: string | null;
+  /** La vue d'ensemble : le statut le moins avancé de ses destinataires. */
   statut: Statut;
+  /** Le statut de chaque destinataire — lire n'engage que celui qui lit. */
+  statuts: Record<string, Statut>;
+  /** Où en est ce message pour le compte courant : le sien s'il est destinataire, sinon la vue d'ensemble. */
+  mien: Statut;
   historique: Transition[];
   importe?: boolean;
   /** Le statut que le compte courant peut donner à ce message, décidé par le domaine Python. */

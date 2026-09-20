@@ -40,11 +40,17 @@ def rendre(boite: Boite, nom_boite: str, nom_manifeste: str) -> str:
     return "\n".join(lignes)
 
 
+def _statut(m: Message) -> str:
+    """La vue d'ensemble, puis qui a avancé — un statut appartient à chaque destinataire."""
+    avances = [f"{d} {s}" for d, s in m.statuts.items() if s != m.statut]
+    return m.statut + (f" (dont {', '.join(avances)})" if avances else "")
+
+
 def _bloc(m: Message) -> list:
     pj = f"[{m.pj}]({m.pj})" if m.pj else "—"
     return [
         f"### {m.id} · {m.titre}",
-        f"**De** {m.de} → **À** {', '.join(m.a)} · **Statut** {m.statut} · **PJ** {pj}",
+        f"**De** {m.de} → **À** {', '.join(m.a)} · **Statut** {_statut(m)} · **PJ** {pj}",
         *m.corps,
         "",
     ]

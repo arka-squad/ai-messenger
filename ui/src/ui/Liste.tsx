@@ -61,7 +61,7 @@ function Lignes({ messages, projet, projetDe, affichages, arrivees, choisi, onCh
             type="button"
             className={[
               'ligne',
-              m.statut === 'nouveau' ? 'ligne--nouveau' : '',
+              m.mien === 'nouveau' ? 'ligne--nouveau' : '',
               estChoisi ? 'ligne--choisie' : '',
               entrees.has(m.id) || arrivees.has(m.id) ? 'drop' : '',
             ].filter(Boolean).join(' ')}
@@ -77,7 +77,7 @@ function Lignes({ messages, projet, projetDe, affichages, arrivees, choisi, onCh
               {/* Chaque ligne dit à quel projet elle appartient ; celui qu'on filtre est en plein. */}
               <EtiquettesProjet projets={projetsDe(m, projetDe)} filtre={projet} />
               {m.pj && <Paperclip className="ic" size={12} />}
-              <IconeStatut statut={m.statut} />
+              <IconeStatut statut={m.mien} />
             </span>
             <span className="ligne__objet">{titre(m)}</span>
           </button>

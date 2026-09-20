@@ -267,7 +267,8 @@ class ServeurMcp:
                            {"id": {**texte, "description": "Le message auquel je réponds."}, **envoi},
                            ("id", "subject")),
             "mark": outil("Fait avancer le statut d'un message qui m'est adressé : « lu », puis « traité ». "
-                          "Un statut ne recule pas.", self._mark,
+                          "Un statut ne recule pas. Il n'engage que moi : les autres destinataires "
+                          "gardent le leur, et le message continue de les attendre.", self._mark,
                           {"id": texte, "status": {"type": "string", "enum": list(STATUTS[1:])}}, ("id", "status")),
             "agents": outil("Qui est qui : les comptes, leur rôle, leur nom lisible.", self._agents,
                             {"project": texte, "all": {"type": "boolean",
@@ -323,13 +324,13 @@ class ServeurMcp:
 
     def _check(self, _: Dict[str, Any], __: threading.Event) -> Dict[str, Any]:
         moi = self._moi()
-        return {"address": moi, "new": [_resume(m) for m in self._messagerie().releve(moi)]}
+        return {"address": moi, "new": [_resume(m, moi) for m in self._messagerie().releve(moi)]}
 
     def _list(self, a: Dict[str, Any], _: threading.Event) -> Dict[str, Any]:
         compte = self._moi() if a.get("mine") else None
         projet = valider_nom(a["project"], "projet") if a.get("project") else None
         messages = self._messagerie().lister(compte, a.get("status"), int(a.get("limit") or 20), projet)
-        return {"messages": [_resume(m) for m in messages]}
+        return {"messages": [_resume(m, self._identite) for m in messages]}
 
     def _read(self, a: Dict[str, Any], _: threading.Event) -> Dict[str, Any]:
         messagerie = self._messagerie()
@@ -339,7 +340,10 @@ class ServeurMcp:
         detail = message_vers_dict(message)
         detail["addressed_to_me"] = bool(moi and message.est_pour(moi))
         detail["next_status"] = message.suite_pour(moi) if moi else None
-        detail["thread"] = [_resume(m) for m in boite.messages if m.id == message.re or m.re == message.id]
+        # chaque destinataire a son statut : « status » est le mien, « status_by_recipient » les dit tous
+        detail["status"] = message.statut_vu_par([moi]) if moi else message.statut
+        detail["status_by_recipient"] = dict(message.statuts)
+        detail["thread"] = [_resume(m, moi) for m in boite.messages if m.id == message.re or m.re == message.id]
         if message.pj:
             detail["attachment"] = _piece_jointe(messagerie.piece_jointe(message.pj), message.pj)
         return detail
@@ -358,8 +362,9 @@ class ServeurMcp:
         return {"id": envoi.message.id, "to": list(envoi.message.a), "reply_to": origine.id}
 
     def _mark(self, a: Dict[str, Any], _: threading.Event) -> Dict[str, Any]:
-        message = self._messagerie().marquer(self._moi(), a["id"], a["status"])
-        return {"id": message.id, "status": message.statut}
+        moi = self._moi()
+        message = self._messagerie().marquer(moi, a["id"], a["status"])
+        return {"id": message.id, "status": message.statut_vu_par([moi]), "status_all": message.statut}
 
     def _agents(self, a: Dict[str, Any], _: threading.Event) -> Dict[str, Any]:
         projet = valider_nom(a["project"], "projet") if a.get("project") else None
@@ -457,9 +462,10 @@ class ServeurMcp:
 
 
 # --------------------------------------------------------------------------- #
-def _resume(m: Message) -> Dict[str, Any]:
+def _resume(m: Message, moi: Optional[str] = None) -> Dict[str, Any]:
+    """`status` est celui de `moi` quand il est destinataire — sinon la vue d'ensemble."""
     return {"id": m.id, "date": m.date, "from": m.de, "to": list(m.a), "subject": m.titre, "body": list(m.corps),
-            "attachment": m.pj, "status": m.statut, "reply_to": m.re}
+            "attachment": m.pj, "status": m.statut_vu_par([moi]) if moi else m.statut, "reply_to": m.re}
 
 
 def _piece_jointe(chemin: Optional[str], nom: str) -> Dict[str, Any]:

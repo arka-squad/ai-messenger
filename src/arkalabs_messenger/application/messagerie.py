@@ -210,7 +210,7 @@ class Messagerie:
         for c in annuaire.comptes:
             if c.actif and c.hote == hote and c.machine and c.machine == machine:
                 idents = annuaire.identites(c.nom)
-                n = sum(1 for m in boite.messages if m.statut == "nouveau" and any(m.est_pour(i) for i in idents))
+                n = sum(1 for m in boite.messages if any(m.est_nouveau_pour(i) for i in idents))
                 if n:
                     trouves.append((c, n))
         return trouves
@@ -262,9 +262,12 @@ class Messagerie:
         return Envoi(message, verifiees, tuple(developpes.items()))
 
     def releve(self, compte: str) -> List[Message]:
-        """Les messages au statut « nouveau » adressés à `compte` — comptes fusionnés dans le sien compris."""
+        """Ce qui attend encore `compte` — comptes fusionnés dans le sien compris.
+
+        Le statut est propre à chaque destinataire : qu'un autre ait lu ne retire rien d'ici.
+        """
         idents = self.identites(valider_adresse(compte))
-        return [m for m in self._boite.lire().messages if m.statut == "nouveau" and any(m.est_pour(i) for i in idents)]
+        return [m for m in self._boite.lire().messages if any(m.est_nouveau_pour(i) for i in idents)]
 
     def marquer(self, compte: str, mid: str, statut: str) -> Message:
         idents = self.identites(valider_adresse(compte))
@@ -277,7 +280,8 @@ class Messagerie:
         du_projet = self._dans_le_projet(projet) if projet else None
         idents = self.identites(compte) if compte else None
         messages = [m for m in self._boite.lire().recents()
-                    if (idents is None or any(m.concerne(i) for i in idents)) and (statut is None or m.statut == statut)
+                    if (idents is None or any(m.concerne(i) for i in idents))
+                    and (statut is None or (m.statut_vu_par(idents) if idents else m.statut) == statut)
                     and (du_projet is None or any(du_projet(x) for x in (m.de, *m.a)))]
         return messages if limite is None else messages[:limite]
 

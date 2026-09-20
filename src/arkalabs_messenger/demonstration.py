@@ -107,5 +107,7 @@ def preparer(dossier: str, maintenant: Optional[datetime] = None) -> str:
 
 
 def _avancees(statut: str, destinataires: Tuple[str, ...]) -> List[Tuple[str, str]]:
-    premier = destinataires[0]
-    return {"nouveau": [], "lu": [("lu", premier)], "traité": [("lu", premier), ("traité", premier)]}[statut]
+    """Le statut d'un message appartient à chaque destinataire : pour que la boîte de démonstration
+    montre un message « lu » ou « traité », il faut que tous l'aient fait avancer."""
+    etapes = {"nouveau": (), "lu": ("lu",), "traité": ("lu", "traité")}[statut]
+    return [(etape, qui) for etape in etapes for qui in destinataires]

@@ -117,6 +117,17 @@ export function horodatage(d: Date): string {
 }
 
 /** Du plus récent au plus ancien ; à date égale, le dernier écrit d'abord. */
+/** Où en est ce message pour `compte` — null s'il n'en est pas destinataire. */
+export function statutPour(m: Message, compte: string): Statut | null {
+  if (!m.a.includes(compte)) return null;
+  return m.statuts?.[compte] ?? m.statut;
+}
+
+/** Ce message attend-il encore `compte` ? C'est ce qui le fait apparaître comme du courrier à lui. */
+export function attend(m: Message, compte: string): boolean {
+  return statutPour(m, compte) === 'nouveau';
+}
+
 export function recents(messages: readonly Message[]): Message[] {
   return messages
     .map((m, i) => ({ m, i, t: instant(m).getTime() }))
@@ -127,7 +138,7 @@ export function recents(messages: readonly Message[]): Message[] {
 export function filtrer(messages: readonly Message[], filtre: Filtre, compte: string, de: ProjetDe = projetDe): Message[] {
   const cherche = filtre.recherche.trim().toLowerCase();
   return messages.filter((m) => {
-    if (filtre.statut && m.statut !== filtre.statut) return false;
+    if (filtre.statut && m.mien !== filtre.statut) return false;
     if (filtre.classement === 'fils' && !m.re) return false;
     if (filtre.classement === 'pj' && !m.pj) return false;
     if (filtre.classement === 'moi' && !m.a.includes(compte)) return false;
@@ -154,7 +165,7 @@ export interface Compteurs {
 export function compter(messages: readonly Message[], compte: string): Compteurs {
   const c: Compteurs = { total: messages.length, nouveau: 0, lu: 0, traité: 0, fils: 0, pj: 0, moi: 0 };
   for (const m of messages) {
-    c[m.statut] += 1;
+    c[m.mien] += 1;
     if (m.re) c.fils += 1;
     if (m.pj) c.pj += 1;
     if (m.a.includes(compte)) c.moi += 1;
@@ -189,7 +200,7 @@ export function agents(comptes: readonly Compte[], messages: readonly Message[],
     .filter((c) => c.actif && (!projet || de(c.nom) === projet || de(c.nom) === null))
     .map((c) => {
       const envoyes = messages.filter((m) => m.de === c.nom);
-      const attendus = messages.filter((m) => m.a.includes(c.nom) && m.statut === 'nouveau');
+      const attendus = messages.filter((m) => attend(m, c.nom));
       const dernier = envoyes.reduce<Date | null>((acc, m) => {
         const d = instant(m);
         return !acc || d > acc ? d : acc;

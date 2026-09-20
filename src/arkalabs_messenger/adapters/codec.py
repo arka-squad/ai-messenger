@@ -13,7 +13,8 @@ from ..domain import Annuaire, Boite, Compte, Contact, Message, ProjetDeclare, T
 
 FORMAT = 1
 
-_CHAMPS_MESSAGE = ("id", "date", "de", "a", "objet", "corps", "pj", "re", "statut", "historique", "importe")
+_CHAMPS_MESSAGE = ("id", "date", "de", "a", "objet", "corps", "pj", "re", "statut", "statuts", "historique",
+                   "importe")
 _CHAMPS_COMPTE = ("nom", "hote", "modele", "machine", "role", "affichage", "humain", "releve", "cree", "actif",
                   "fusionne_dans")
 _CHAMPS_CONTACT = ("alias", "adresses", "note", "cree")
@@ -43,6 +44,7 @@ def message_vers_dict(m: Message) -> Dict[str, Any]:
         "pj": m.pj,
         "re": m.re,
         "statut": m.statut,
+        "statuts": dict(m.statuts),
         "historique": [{"date": t.date, "par": t.par, "statut": t.statut} for t in m.historique],
     }
     if m.importe:
@@ -65,6 +67,8 @@ def message_depuis_dict(d: Any) -> Message:
             pj=_texte_ou_nul(d, "pj"),
             re=_texte_ou_nul(d, "re"),
             statut=_texte(d, "statut"),
+            # absent : le message est d'avant le statut par destinataire — tous héritent du statut d'ensemble
+            statuts=_table_textes(d, "statuts"),
             historique=tuple(Transition(date=_texte(t, "date"), par=_texte(t, "par"), statut=_texte(t, "statut"))
                              for t in d.get("historique") or []),
             importe=bool(d.get("importe", False)),
@@ -178,6 +182,16 @@ def _texte_ou_nul(d: Dict[str, Any], cle: str) -> Optional[str]:
     if v is not None and not isinstance(v, str):
         raise FormatInvalide(f"champ « {cle} » non textuel")
     return v or None
+
+
+def _table_textes(d: Dict[str, Any], cle: str) -> Dict[str, str]:
+    """Une table facultative de textes : absente, elle est vide ; mal formée, elle est refusée."""
+    v = d.get(cle)
+    if v is None:
+        return {}
+    if not isinstance(v, dict) or not all(isinstance(k, str) and isinstance(x, str) for k, x in v.items()):
+        raise FormatInvalide(f"champ « {cle} » : table de textes attendue")
+    return dict(v)
 
 
 def _liste(d: Dict[str, Any], cle: str) -> List[Any]:

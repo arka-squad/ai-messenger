@@ -481,7 +481,7 @@ def _list(args: argparse.Namespace, usine: Usine) -> int:
         print(en_json([message_vers_dict(m) for m in messages]), end="")
     else:
         for m in messages:
-            print(f"{m.statut:8} {_resume(m)}")
+            print(f"{(m.statut_vu_par([agent]) if agent else m.statut):8} {_resume(m)}")
     return 0
 
 

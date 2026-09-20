@@ -45,7 +45,7 @@ grep -rn "import" src/arkalabs_messenger/adapters/driving | grep "driven"
 
 | Fichier | Rôle |
 |---|---|
-| `domain/modele.py` | `Message` (immuable, seul son statut avance), `Brouillon` (un message validé, pas encore envoyé), `Boite` et `Annuaire` (les agrégats), `Compte` et son carnet d'adresses (`Contact`), les projets connectés (`ProjetDeclare`), et les règles : un compte l'emporte toujours sur un alias, adresses `nom@projet` et leur résolution, deux lignes de corps, statut qui n'avance que par un destinataire et jamais en arrière |
+| `domain/modele.py` | `Message` (immuable, seul son statut avance), `Brouillon` (un message validé, pas encore envoyé), `Boite` et `Annuaire` (les agrégats), `Compte` et son carnet d'adresses (`Contact`), les projets connectés (`ProjetDeclare`), et les règles : un compte l'emporte toujours sur un alias, adresses `nom@projet` et leur résolution, deux lignes de corps, statut **par destinataire** qui n'avance que par lui et jamais en arrière |
 | `domain/erreurs.py` | les refus, chacun avec un message qui dit quoi faire |
 | `application/ports.py` | les interfaces attendues : `DepotBoite`, `DepotAnnuaire`, `PiecesJointes`, `Horloge`, `Notificateur`, `SourceAncienne` |
 | `application/messagerie.py` | les cas d'usage : initialiser, inscrire, enrôler (identité lisible déduite), déclarer un projet, tenir son carnet d'adresses, envoyer (alias développés en adresses), relever, marquer, lister, guetter, importer |
@@ -96,6 +96,10 @@ thèmes clair et sombre) : l'écran n'écrit aucune couleur en dur.
   nécessaire que pour développer l'interface.
 - **Le fichier JSON est la source de vérité.** La vue `.md` est régénérée à
   chaque écriture et ne se relit jamais.
+- **Le statut appartient à chaque destinataire.** Qu'un destinataire lise ne retire rien aux
+  autres : leur relève et leur veille voient toujours le message. Le statut d'ensemble n'est qu'une
+  vue — le moins avancé de tous. Sans cette règle, l'humain qui ouvre un message dans l'interface
+  éteint le réveil de tous les agents en copie (constaté le 20/09/2026).
 - **Chaque écriture relit la boîte sous verrou.** Une transaction ne travaille
   jamais sur un état périmé ; une erreur en cours de route n'écrit rien.
 - **Une lecture plus courte que la précédente est refusée à l'écriture.** Le verrou protège des

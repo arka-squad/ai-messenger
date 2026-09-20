@@ -58,6 +58,8 @@ def etat(messagerie: Messagerie, compte: str, demonstration: bool = False,
         d = message_vers_dict(m)
         d["suite"] = None if messagerie.lecture_seule else next(
             (m.suite_pour(i) for i in idents if m.suite_pour(i)), None)
+        # `mien` : où en est CE message pour le compte de l'interface — c'est lui qu'elle affiche
+        d["mien"] = m.statut_vu_par(idents)
         d["pj_presente"] = bool(m.pj) and messagerie.piece_jointe(m.pj) is not None
         messages.append(d)
     if messagerie.annuaire_present():
@@ -320,7 +322,8 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                 return self._erreur(409, str(e))
             except OSError as e:
                 return self._erreur(503, f"boîte injoignable : {e.strerror or e}")
-            return self._json(200, {"message": message_vers_dict(message), "version": messagerie.version()})
+            vu = {**message_vers_dict(message), "mien": message.statut_vu_par(messagerie.identites(compte))}
+            return self._json(200, {"message": vu, "version": messagerie.version()})
 
         def _organiser(self, chemin: str, demande: Any) -> None:
             """Les gestes de l'humain qui organise sa boîte : inviter un agent dans un projet, ranger un compte

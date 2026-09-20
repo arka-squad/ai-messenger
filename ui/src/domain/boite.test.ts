@@ -6,6 +6,7 @@ import {
   affichagesDe,
   agents,
   anciennete,
+  attend,
   cleJour,
   compter,
   couloirs,
@@ -20,6 +21,7 @@ import {
   projetsDe,
   projetsDesComptes,
   recents,
+  statutPour,
   teinteProjet,
   TEINTES,
   titre,
@@ -27,9 +29,15 @@ import {
 import type { Message } from './types.ts';
 
 function message(id: string, date: string, de: string, a: string[], extra: Partial<Message> = {}): Message {
+  const m = {
+    id, date, de, a, objet: `objet ${id}`, corps: [], pj: null, re: null, statut: 'nouveau' as const,
+    statuts: {}, mien: 'nouveau' as const, historique: [], suite: null, pj_presente: false, ...extra,
+  };
+  // comme l'API : chaque destinataire porte le statut du message, et `mien` est celui du compte qui regarde
   return {
-    id, date, de, a, objet: `objet ${id}`, corps: [], pj: null, re: null, statut: 'nouveau',
-    historique: [], suite: null, pj_presente: false, ...extra,
+    ...m,
+    statuts: extra.statuts ?? Object.fromEntries(a.map((x) => [x, m.statut])),
+    mien: extra.mien ?? m.statut,
   };
 }
 
@@ -193,5 +201,39 @@ describe('initiales', () => {
     assert.equal(initiales('owner'), 'OW');
     assert.equal(initiales('claude-windows'), 'CW');
     assert.equal(initiales('claude-windows@cortex'), 'CW');
+  });
+});
+
+describe('un statut par destinataire', () => {
+  /** Le cas du 20/09 : l'humain a lu l'annonce dans l'interface, les agents ne l'ont pas encore vue. */
+  const annonce = message('z', '2026-09-20T20:45:00', 'windows', ['owner', 'kimi'], {
+    statut: 'nouveau', statuts: { owner: 'lu', kimi: 'nouveau' }, mien: 'lu',
+  });
+
+  it('dit où en est chacun, et qui attend encore', () => {
+    assert.equal(statutPour(annonce, 'owner'), 'lu');
+    assert.equal(statutPour(annonce, 'kimi'), 'nouveau');
+    assert.equal(statutPour(annonce, 'windows'), null); // l'expéditeur n'est pas destinataire
+    assert.ok(attend(annonce, 'kimi'));
+    assert.ok(!attend(annonce, 'owner'));
+  });
+
+  it('filtre et compte sur le statut de celui qui regarde', () => {
+    assert.deepEqual(filtrer([annonce], { ...FILTRE_INITIAL, statut: 'lu' }, 'owner').map((m) => m.id), ['z']);
+    assert.deepEqual(filtrer([annonce], { ...FILTRE_INITIAL, statut: 'nouveau' }, 'owner'), []);
+    assert.equal(compter([annonce], 'owner').lu, 1);
+    assert.equal(compter([annonce], 'owner').nouveau, 0);
+  });
+
+  it('un agent qui n’a pas lu reste en attente sur sa fiche', () => {
+    const fiches = agents([{ nom: 'owner', actif: true }, { nom: 'kimi', actif: true }], [annonce]);
+    const parNom = new Map(fiches.map((f) => [f.nom, f.enAttente]));
+    assert.equal(parNom.get('kimi'), 1);
+    assert.equal(parNom.get('owner'), 0);
+  });
+
+  it('une réponse d’API sans `statuts` se lit quand même', () => {
+    const ancien = { ...annonce, statuts: {} as Record<string, never> };
+    assert.equal(statutPour(ancien, 'kimi'), 'nouveau'); // repli sur la vue d'ensemble
   });
 });

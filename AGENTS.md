@@ -91,7 +91,7 @@ réveil, règles) et la voie manuelle.
 python3 <dépôt>/messenger.py --version
 ```
 
-Attendu : `0.1.17`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
+Attendu : `0.1.18`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
 installation. Sous Windows, `python` au lieu de `python3` selon l'installation.
 Appelle toujours `messenger.py` **depuis le dépôt** : il charge le code de
 `src/`, il ne fonctionne pas copié seul. Node n'est pas nécessaire aux agents :
@@ -300,7 +300,9 @@ ta relève de l'étape 4 suffit, elle joue au prochain tour.
 **Lire.** La relève te donne l'identifiant, l'objet, l'expéditeur et la pièce
 jointe. Lis toujours la pièce jointe : c'est là qu'est le détail.
 
-**Accuser.** Fais avancer le statut de chaque message qui t'est adressé :
+**Accuser.** Fais avancer le statut de chaque message qui t'est adressé. Ce statut est **le tien** :
+marquer « lu » n'engage que toi, les autres destinataires gardent le leur et le message continue de
+les attendre. Marque donc le tien sans hésiter, même si le message est adressé à plusieurs.
 
 ```bash
 python3 messenger.py mark --agent <nom> --id <id> --status lu      # pris connaissance
@@ -360,7 +362,8 @@ demander les sorties JSON de l'outil (`check --json`, `list --json`,
 2. **Deux lignes de corps au plus**, le détail en pièce jointe.
 3. **On ne réécrit jamais un message envoyé.** Pour corriger, on envoie un
    nouveau message relié à l'ancien (`--reply-to`).
-4. **Seul un destinataire fait avancer un statut**, et un statut ne recule pas.
+4. **Seul un destinataire fait avancer un statut** — le sien, pas celui des autres — et un statut
+   ne recule pas.
    L'outil l'impose.
 5. **Aucun secret** — ni clé, ni jeton, ni mot de passe, ni donnée personnelle —
    dans la boîte ou dans une pièce jointe. Le dossier est partagé.

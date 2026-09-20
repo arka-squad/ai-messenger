@@ -28,6 +28,11 @@ from .erreurs import (
 STATUTS: Tuple[str, ...] = ("nouveau", "lu", "traité")
 """Les statuts d'un message, dans l'ordre où ils avancent."""
 
+
+def rang(statut: str) -> int:
+    """Où en est ce statut dans la progression. Un statut inconnu vaut « pas encore commencé »."""
+    return STATUTS.index(statut) if statut in STATUTS else -1
+
 CORPS_MAX = 2
 """Nombre maximal de lignes de corps : le détail va en pièce jointe."""
 
@@ -131,7 +136,13 @@ class Transition:
 
 @dataclass(frozen=True)
 class Message:
-    """Un message envoyé. Immuable : seul son statut avance, par `avancer`."""
+    """Un message envoyé. Immuable : seuls ses statuts avancent, par `avancer`.
+
+    **Chaque destinataire a son propre statut.** Qu'un destinataire lise ne change rien pour les
+    autres : le message reste « nouveau » pour eux, donc leur relève et leur veille le voient
+    toujours. `statut` est la vue d'ensemble : le moins avancé de tous — le message n'est « traité »
+    que lorsque tout le monde l'a traité.
+    """
 
     id: str
     date: str
@@ -142,10 +153,29 @@ class Message:
     pj: Optional[str] = None
     re: Optional[str] = None
     statut: str = "nouveau"
+    """La vue d'ensemble, tenue à jour d'après `statuts` : le statut le moins avancé."""
+    statuts: Dict[str, str] = field(default_factory=dict, hash=False)
+    """Le statut de chaque destinataire. Un message d'avant cette version n'en a pas : tous
+    héritent alors de son statut d'ensemble, seule chose qu'il dise de vrai."""
     historique: Tuple[Transition, ...] = ()
     importe: bool = False
     autres: Dict[str, Any] = field(default_factory=dict, compare=False, hash=False)
     """Champs inconnus de cette version, conservés tels quels à la réécriture."""
+
+    def __post_init__(self) -> None:
+        """Complète les destinataires manquants, puis recalcule la vue d'ensemble."""
+        statuts = {d: self.statuts.get(d, self.statut) for d in self.a}
+        if self.statuts:
+            # Un outil d'une version antérieure fait avancer le statut d'ensemble sans toucher à
+            # celui de chacun. L'historique dit qui a agi : on remet sa case à jour, sans rien
+            # supposer des autres. Sans cela, un message marqué par une ancienne version
+            # réapparaîtrait indéfiniment dans la relève de celui qui l'a déjà traité.
+            for t in self.historique:
+                if t.par in statuts and rang(statuts[t.par]) < rang(t.statut):
+                    statuts[t.par] = t.statut
+        object.__setattr__(self, "statuts", statuts)
+        if statuts:
+            object.__setattr__(self, "statut", min(statuts.values(), key=rang))
 
     @property
     def titre(self) -> str:
@@ -162,27 +192,47 @@ class Message:
         """Écrit ou reçu par un compte du projet : la discussion entre projets en fait partie."""
         return any(projet_de(x) == projet for x in (self.de, *self.a))
 
+    def statut_de(self, compte: str) -> Optional[str]:
+        """Où en est ce message **pour `compte`**, ou None s'il n'en est pas destinataire."""
+        return self.statuts.get(compte)
+
+    def statut_vu_par(self, comptes: Iterable[str]) -> str:
+        """Le statut tel que le voit qui relève sous ces adresses : le sien s'il est destinataire
+        (le moins avancé, s'il en porte plusieurs), sinon la vue d'ensemble."""
+        siens = [s for s in (self.statuts.get(c) for c in comptes) if s is not None]
+        return min(siens, key=rang) if siens else self.statut
+
+    def est_nouveau_pour(self, compte: str) -> bool:
+        """Ce message attend-il encore `compte` ? C'est ce que relève et veille regardent."""
+        return self.statuts.get(compte) == "nouveau"
+
     def suite_pour(self, compte: str) -> Optional[str]:
         """Le statut que `compte` peut donner à ce message, ou None s'il ne peut rien."""
-        if not self.est_pour(compte) or self.statut not in STATUTS[:-1]:
+        sien = self.statuts.get(compte)
+        if sien is None or sien not in STATUTS[:-1]:
             return None
-        return STATUTS[STATUTS.index(self.statut) + 1]
+        return STATUTS[STATUTS.index(sien) + 1]
 
     def avancer(self, par: str, statut: str, date: str, aussi: Iterable[str] = ()) -> "Message":
-        """Fait avancer le statut. Seul un destinataire le peut, et jamais en arrière.
+        """Fait avancer le statut **de `par` seul**. Seul un destinataire le peut, et jamais en arrière.
 
-        `aussi` : les adresses que `par` représente (des comptes fusionnés dans le sien) —
-        l'historique enregistre `par`, celui qui agit vraiment.
+        Les autres destinataires ne bougent pas : le message continue de les attendre. `aussi` : les
+        adresses que `par` représente (des comptes fusionnés dans le sien) — elles avancent avec lui,
+        et l'historique enregistre `par`, celui qui agit vraiment.
         """
         if statut not in STATUTS[1:]:
             raise TransitionRefusee(f"statut inconnu « {statut} » : lu ou traité")
-        if not self.est_pour(par) and not any(self.est_pour(a) for a in aussi):
+        siennes = [d for d in self.a if d == par or d in set(aussi)]
+        if not siennes:
             raise TransitionRefusee(
                 f"{par} n'est pas destinataire de {self.id} : seul un destinataire fait avancer le statut")
-        actuel = STATUTS.index(self.statut) if self.statut in STATUTS else -1
-        if STATUTS.index(statut) <= actuel:
-            raise TransitionRefusee(f"{self.id} est déjà « {self.statut} » : un statut ne recule pas")
-        return replace(self, statut=statut, historique=self.historique + (Transition(date, par, statut),))
+        statuts = dict(self.statuts)
+        avance = [d for d in siennes if rang(statuts[d]) < rang(statut)]
+        if not avance:
+            sien = min((statuts[d] for d in siennes), key=rang)
+            raise TransitionRefusee(f"{self.id} est déjà « {sien} » pour {par} : un statut ne recule pas")
+        statuts.update({d: statut for d in avance})
+        return replace(self, statuts=statuts, historique=self.historique + (Transition(date, par, statut),))
 
 
 @dataclass(frozen=True)
@@ -235,7 +285,7 @@ class Boite:
         return list(reversed(self.messages))
 
     def nouveaux_pour(self, compte: str) -> List[Message]:
-        return [m for m in self.messages if m.est_pour(compte) and m.statut == "nouveau"]
+        return [m for m in self.messages if m.est_nouveau_pour(compte)]
 
     def identifiant_libre(self, de: str, instant: datetime) -> str:
         """`AAAAMMJJ-HHMM-<émetteur>`, suffixé `-2`, `-3`… s'il est déjà pris."""

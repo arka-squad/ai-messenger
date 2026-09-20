@@ -36,12 +36,13 @@ une arbo `.aimessenger/` et y rapatrie les pièces jointes.
       "id": "20260918-2250-claude-windows",
       "date": "2026-09-18T22:50:12+02:00",
       "de": "claude-windows",
-      "a": ["kimi-mac"],
+      "a": ["kimi-mac", "owner"],
       "objet": "Build 0.2.55 déposé",
       "corps": ["Installeurs signés, empreintes en pièce jointe.", "Rien à faire de ton côté."],
       "pj": "livraison-0.2.55.md",
       "re": null,
-      "statut": "lu",
+      "statut": "nouveau",
+      "statuts": { "kimi-mac": "lu", "owner": "nouveau" },
       "historique": [
         { "date": "2026-09-18T22:58:40+02:00", "par": "kimi-mac", "statut": "lu" }
       ]
@@ -63,8 +64,9 @@ ajoute toujours à la fin.
 | `corps` | liste de textes | zéro, une ou deux lignes |
 | `pj` | texte ou `null` | nom d'un fichier du **même dossier** que la boîte |
 | `re` | texte ou `null` | l'`id` du message auquel celui-ci répond |
-| `statut` | texte | `nouveau`, `lu` ou `traité` |
-| `historique` | liste | chaque changement de statut : `date`, `par` (le compte), `statut` |
+| `statut` | texte | la **vue d'ensemble** : le statut le moins avancé de ses destinataires. Calculé, jamais écrit à la main |
+| `statuts` | table | **le statut de chaque destinataire** : `{"<destinataire>": "nouveau"\|"lu"\|"traité"}`. C'est lui qui fait foi. Absent d'un message écrit avant cette version : tous les destinataires prennent alors son `statut` |
+| `historique` | liste | chaque changement de statut : `date`, `par` (le compte qui agit), `statut` |
 | `importe` | booléen, facultatif | `true` pour un message repris d'une boîte Markdown par `migrate` ; son historique est vide |
 
 ### Les adresses
@@ -88,8 +90,13 @@ Le projet d'un dépôt est déclaré dans un `.messenger.json` à sa racine
 
 ### Ce qui change après l'envoi
 
-- **Un destinataire** fait avancer le statut, et seulement vers l'avant :
+- **Un destinataire** fait avancer **son** statut, et seulement vers l'avant :
   `nouveau` → `lu` → `traité`. Chaque avancée s'ajoute à `historique`.
+- **Le statut appartient à chaque destinataire.** Qu'un destinataire lise ne change
+  rien pour les autres : le message reste `nouveau` pour eux, donc leur relève et
+  leur veille le voient toujours. Un message écrit à dix comptes est dix attentes,
+  pas une. `statut` n'est que la vue d'ensemble : `traité` seulement quand tous
+  l'ont traité.
 - Rien d'autre ne se modifie. Une correction est un nouveau message, relié par
   `re`.
 
@@ -203,7 +210,9 @@ Quelques lectures utiles :
 ```python
 import json
 boite = json.load(open("boite.json", encoding="utf-8"))["messages"]
-en_attente = [m for m in boite if "kimi-mac" in m["a"] and m["statut"] == "nouveau"]
+# le statut qui compte est le sien : `statuts`, avec repli sur `statut` pour un message d'avant
+en_attente = [m for m in boite
+              if m.get("statuts", {}).get("kimi-mac", m["statut"] if "kimi-mac" in m["a"] else None) == "nouveau"]
 fil = [m for m in boite if m["re"] == "20260918-2250-claude-windows"]      # les réponses
 delai = [(m["id"], m["historique"][0]["date"]) for m in boite if m["historique"]]  # première prise en compte
 ```
