@@ -1,14 +1,31 @@
-/** Une boîte allumée plus ancienne que cette page : elle doit s'afficher, et le dire.
- *
- * Le cas est réel (20/09/2026) : le serveur laissé allumé était en 0.1.15, la page reconstruite
- * attendait le champ `mien` arrivé en 0.1.18. Sans lui, l'interface ne s'affichait plus du tout —
- * « la boîte est down », alors que la boîte allait très bien.
- */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { Etat, Message } from '../domain/types.ts';
 import { messageDErreur, normaliser } from './api-http.ts';
 
+describe("ce qu'on dit quand l'API refuse", () => {
+  it("reprend le message de l'API, qui dit quoi faire", () => {
+    assert.equal(messageDErreur(400, 'dossier introuvable : /nulle/part'), 'dossier introuvable : /nulle/part');
+    assert.equal(messageDErreur(501, "la fenêtre de choix n'a pas pu s'ouvrir"), "la fenêtre de choix n'a pas pu s'ouvrir");
+  });
+  it("nomme une application plus ancienne que la page, au lieu d'un « introuvable » muet", () => {
+    assert.match(messageDErreur(404, 'introuvable'), /relance-la/);
+    assert.match(messageDErreur(404, null), /relance-la/);
+    // un 404 qui s'explique lui-même (pièce jointe absente…) garde son message
+    assert.equal(messageDErreur(404, 'pièce jointe introuvable : x.md'), 'pièce jointe introuvable : x.md');
+  });
+  it('sans message, renvoie au terminal', () => {
+    assert.match(messageDErreur(500, null), /HTTP 500/);
+  });
+});
+
+/** Une boîte allumée plus ancienne que cette page : elle doit s'afficher, et le dire.
+ *
+ * Le cas est réel (20/09/2026) : le serveur laissé allumé était en 0.1.15, la page reconstruite
+ * attendait le champ `mien` arrivé en 0.1.18. Sans lui, l'interface ne s'affichait plus du tout —
+ * « la boîte est down », alors que la boîte allait très bien. Le `404` ci-dessus couvre la route
+ * qui n'existe pas ; ici, la route existe et c'est sa forme qui a vieilli.
+ */
 type Brut = Omit<Message, 'mien' | 'statuts'> & Partial<Pick<Message, 'mien' | 'statuts'>>;
 
 function etat(messages: Brut[], compte = 'owner'): Parameters<typeof normaliser>[0] {
@@ -48,10 +65,5 @@ describe('une API plus ancienne que cette page', () => {
 
   it('une boîte vide ne se déclare pas obsolète', () => {
     assert.equal(normaliser(etat([])).obsolete, false);
-  });
-
-  it('une route inconnue nomme la cause : une application restée ouverte', () => {
-    assert.match(messageDErreur(404, 'introuvable'), /relance-la/);
-    assert.equal(messageDErreur(409, 'compte inconnu'), 'compte inconnu');
   });
 });
