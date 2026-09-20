@@ -13,6 +13,8 @@ import {
   fil,
   filtrer,
   groupesAgents,
+  heure,
+  horodatage,
   initiales,
   libelleJour,
   nomAffiche,
@@ -49,13 +51,25 @@ const M = [
 
 describe('titre et dates', () => {
   it('préfixe une réponse', () => {
-    assert.equal(titre(M[1]!), 'Re : a — objet b');
-    assert.equal(titre(M[0]!), 'objet a');
+    assert.equal(titre(M[1]!, 'fr'), 'Re\u202f: a — objet b');
+    assert.equal(titre(M[0]!, 'fr'), 'objet a');
+    assert.equal(titre(M[1]!, 'en'), 'Re: a — objet b');
+    assert.equal(titre(M[0]!, 'en'), 'objet a');
   });
   it('clé et libellé du jour', () => {
     assert.equal(cleJour(new Date('2026-09-18T23:59:00')), '20260918');
-    assert.equal(libelleJour('20260918', new Date('2026-01-01T00:00:00')), '18 septembre');
-    assert.equal(libelleJour('20250918', new Date('2026-01-01T00:00:00')), '18 septembre 2025');
+    const aujourdhui = new Date('2026-01-01T00:00:00');
+    assert.equal(libelleJour('20260918', aujourdhui, 'fr'), '18 septembre');
+    assert.equal(libelleJour('20250918', aujourdhui, 'fr'), '18 septembre 2025');
+    assert.equal(libelleJour('20260918', aujourdhui, 'en'), 'September 18');
+    assert.equal(libelleJour('20250918', aujourdhui, 'en'), 'September 18, 2025');
+  });
+  it('heure et horodatage suivent la langue', () => {
+    const d = new Date(2026, 8, 18, 23, 5);
+    assert.equal(heure(d, 'fr'), '23:05');
+    assert.equal(heure(d, 'en'), '11:05 PM');
+    assert.equal(horodatage(d, 'fr'), '18/09 23:05');
+    assert.equal(horodatage(d, 'en'), '09/18, 11:05 PM');
   });
 });
 
@@ -156,9 +170,14 @@ describe('projets', () => {
     assert.equal(mac?.attenteDepuis?.getHours(), 7);
     assert.equal(mac?.aCompleter, true);
     const maintenant = new Date('2026-09-18T11:00:00');
-    assert.equal(anciennete(new Date('2026-09-18T10:40:00'), maintenant), 'depuis 20 min');
-    assert.equal(anciennete(new Date('2026-09-18T07:00:00'), maintenant), 'depuis 4 h');
-    assert.equal(anciennete(new Date('2026-09-14T11:00:00'), maintenant), 'depuis 4 j');
+    assert.equal(anciennete(new Date('2026-09-18T10:40:00'), maintenant, 'fr'), 'depuis 20 min');
+    assert.equal(anciennete(new Date('2026-09-18T10:00:00'), maintenant, 'fr'), 'depuis 1 h');
+    assert.equal(anciennete(new Date('2026-09-18T07:00:00'), maintenant, 'fr'), 'depuis 4 h');
+    assert.equal(anciennete(new Date('2026-09-14T11:00:00'), maintenant, 'fr'), 'depuis 4 j');
+    assert.equal(anciennete(new Date('2026-09-18T10:40:00'), maintenant, 'en'), 'for 20 min');
+    assert.equal(anciennete(new Date('2026-09-18T10:00:00'), maintenant, 'en'), 'for 1 h');
+    assert.equal(anciennete(new Date('2026-09-18T07:00:00'), maintenant, 'en'), 'for 4 h');
+    assert.equal(anciennete(new Date('2026-09-14T11:00:00'), maintenant, 'en'), 'for 4 d');
   });
   it('un projet garde sa teinte, et un dossier propose un nom de projet valide', () => {
     assert.equal(teinteProjet('cortex'), teinteProjet('cortex'));

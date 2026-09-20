@@ -1,5 +1,7 @@
 import { Bell, BellOff, BellRing, Inbox, Moon, Sun } from 'lucide-react';
+import { CommutateurLangue, utiliseLangue } from '../application/langue.tsx';
 import { initiales } from '../domain/boite.ts';
+import { t, tp } from '../domain/langue/index.ts';
 import type { Source } from '../domain/types.ts';
 import type { Theme } from './App.tsx';
 
@@ -17,6 +19,7 @@ interface Props {
 }
 
 export function Entete(p: Props) {
+  const l = utiliseLangue();
   const clair = p.theme === 'light';
   return (
     <header className="entete">
@@ -29,8 +32,10 @@ export function Entete(p: Props) {
       <span className="entete__sep">/</span>
       <div className="entete__boite" title={p.source?.chemin}>
         <Inbox className="ic" size={14} />
-        <span className="entete__boite-nom">{p.source?.demonstration ? 'Boîte de démonstration' : 'Boîte partagée'}</span>
-        <span className="badge-nouveau">{p.nouveaux} NOUVEAU{p.nouveaux > 1 ? 'X' : ''}</span>
+        <span className="entete__boite-nom">
+          {p.source?.demonstration ? t(l, 'coquille.boiteDemonstration') : t(l, 'coquille.boitePartagee')}
+        </span>
+        <span className="badge-nouveau">{tp(l, p.nouveaux, 'coquille.nouveaux')}</span>
       </div>
 
       <span className="vide" />
@@ -39,10 +44,10 @@ export function Entete(p: Props) {
         type="button"
         className={`veille${p.veilleActive ? ' veille--active' : ''}`}
         onClick={p.onVeille}
-        title={p.veilleActive ? 'Suspendre la relève automatique' : 'Reprendre la relève automatique'}
+        title={p.veilleActive ? t(l, 'coquille.veilleSuspendre') : t(l, 'coquille.veilleReprendre')}
       >
         <span className={`point-rond ${p.veilleActive ? 'ok pulse' : 'eteint'}`} />
-        <span className="veille__libelle">{p.veilleActive ? 'Veille active' : 'Veille suspendue'}</span>
+        <span className="veille__libelle">{p.veilleActive ? t(l, 'coquille.veilleActive') : t(l, 'coquille.veilleSuspendue')}</span>
       </button>
       <button
         type="button"
@@ -50,17 +55,19 @@ export function Entete(p: Props) {
         onClick={p.onNotifications}
         disabled={p.notifications === null}
         title={p.notifications === null
-          ? 'Notifications système indisponibles'
+          ? t(l, 'coquille.notificationsIndisponibles')
           : p.notifications
-            ? 'Notifications système actives : chaque message qui passe est signalé — cliquer pour couper'
-            : 'Notifications système coupées — cliquer pour les rétablir'}
+            ? t(l, 'coquille.notificationsActives')
+            : t(l, 'coquille.notificationsCoupees')}
       >
         {p.notifications === null ? <Bell size={16} /> : p.notifications ? <BellRing size={16} /> : <BellOff size={16} />}
       </button>
-      <button type="button" className="entete__outil" onClick={p.onTheme} title={clair ? 'Passer en sombre' : 'Passer en clair'}>
+      <CommutateurLangue />
+      <button type="button" className="entete__outil" onClick={p.onTheme}
+        title={clair ? t(l, 'coquille.themeSombre') : t(l, 'coquille.themeClair')}>
         {clair ? <Moon size={16} /> : <Sun size={16} />}
       </button>
-      <span className="avatar" title={`Vous agissez en tant que ${p.compte}`}>{initiales(p.compte)}</span>
+      <span className="avatar" title={t(l, 'coquille.agirEnTant', { compte: p.compte })}>{initiales(p.compte)}</span>
     </header>
   );
 }

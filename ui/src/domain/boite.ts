@@ -5,6 +5,8 @@
  * Les règles (qui peut faire avancer quoi) ne sont PAS ici : l'API les rend
  * dans `Message.suite`, décidées par le domaine Python.
  */
+import type { Langue } from './langue/index.ts';
+import { t, tp } from './langue/index.ts';
 import type { Compte, Contact, Message, Statut } from './types.ts';
 
 export type Classement = 'toutes' | 'fils' | 'pj' | 'moi';
@@ -79,9 +81,9 @@ export function teinteProjet(projet: string): number {
   return h % TEINTES;
 }
 
-/** L'objet tel qu'on l'affiche : préfixé de `Re : <id> — ` pour une réponse. */
-export function titre(m: Message): string {
-  return (m.re ? `Re : ${m.re} — ` : '') + m.objet;
+/** L'objet tel qu'on l'affiche : préfixé de `Re : <id> — ` pour une réponse, dans la langue choisie. */
+export function titre(m: Message, langue: Langue): string {
+  return (m.re ? t(langue, 'domaine.titre.reponse', { id: m.re }) : '') + m.objet;
 }
 
 export function instant(m: Message): Date {
@@ -93,27 +95,30 @@ export function cleJour(d: Date): string {
   return `${d.getFullYear()}${deux(d.getMonth() + 1)}${deux(d.getDate())}`;
 }
 
-export function heure(d: Date): string {
-  return `${deux(d.getHours())}:${deux(d.getMinutes())}`;
+/** La locale de chaque langue, pour tout le formatage temporel. */
+const LOCALES: Record<Langue, string> = { fr: 'fr-FR', en: 'en-US' };
+
+/** « 23:05 » ou « 11:05 PM » selon la langue. */
+export function heure(d: Date, langue: Langue): string {
+  return new Intl.DateTimeFormat(LOCALES[langue], { hour: '2-digit', minute: '2-digit' }).format(d);
 }
 
 export function minutesDuJour(d: Date): number {
   return d.getHours() * 60 + d.getMinutes();
 }
 
-const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre',
-  'octobre', 'novembre', 'décembre'];
-
 /** « 18 septembre », suivi de l'année si ce n'est pas l'année en cours. */
-export function libelleJour(cle: string, aujourdhui: Date = new Date()): string {
+export function libelleJour(cle: string, aujourdhui: Date = new Date(), langue: Langue): string {
   const annee = Number(cle.slice(0, 4));
-  const jour = `${Number(cle.slice(6, 8))} ${MOIS[Number(cle.slice(4, 6)) - 1] ?? ''}`;
-  return annee === aujourdhui.getFullYear() ? jour : `${jour} ${annee}`;
+  const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long' };
+  if (annee !== aujourdhui.getFullYear()) options.year = 'numeric';
+  return new Intl.DateTimeFormat(LOCALES[langue], options)
+    .format(new Date(annee, Number(cle.slice(4, 6)) - 1, Number(cle.slice(6, 8))));
 }
 
-/** « 18/09 23:00 » */
-export function horodatage(d: Date): string {
-  return `${deux(d.getDate())}/${deux(d.getMonth() + 1)} ${heure(d)}`;
+/** « 18/09 23:00 » en français ; l'ordre et le séparateur suivent la langue (« 09/18, 11:00 PM »). */
+export function horodatage(d: Date, langue: Langue): string {
+  return new Intl.DateTimeFormat(LOCALES[langue], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(d);
 }
 
 /** Du plus récent au plus ancien ; à date égale, le dernier écrit d'abord. */
@@ -145,7 +150,8 @@ export function filtrer(messages: readonly Message[], filtre: Filtre, compte: st
     if (filtre.agent && m.de !== filtre.agent && !m.a.includes(filtre.agent)) return false;
     if (filtre.projet && !toucheLeProjet(m, filtre.projet, de)) return false;
     if (cherche) {
-      const texte = [m.id, titre(m), m.pj ?? '', m.de, ...m.a, ...m.corps].join(' ').toLowerCase();
+      // le contenu, sans habillage typographique : la recherche ne dépend pas de la langue affichée
+      const texte = [m.id, m.re ?? '', m.objet, m.pj ?? '', m.de, ...m.a, ...m.corps].join(' ').toLowerCase();
       if (!texte.includes(cherche)) return false;
     }
     return true;
@@ -293,12 +299,12 @@ export function projets(noms: readonly string[], messages: readonly Message[], c
   });
 }
 
-/** « depuis 4 h », « depuis 3 j » : l'ancienneté d'une attente, en un mot. */
-export function anciennete(depuis: Date, maintenant: Date = new Date()): string {
+/** « depuis 4 h », « depuis 3 j » : l'ancienneté d'une attente, en un mot, dans la langue choisie. */
+export function anciennete(depuis: Date, maintenant: Date = new Date(), langue: Langue): string {
   const minutes = Math.max(0, Math.round((maintenant.getTime() - depuis.getTime()) / 60000));
-  if (minutes < 60) return `depuis ${Math.max(1, minutes)} min`;
-  if (minutes < 48 * 60) return `depuis ${Math.round(minutes / 60)} h`;
-  return `depuis ${Math.round(minutes / 1440)} j`;
+  if (minutes < 60) return tp(langue, Math.max(1, minutes), 'domaine.attente.minute');
+  if (minutes < 48 * 60) return tp(langue, Math.round(minutes / 60), 'domaine.attente.heure');
+  return tp(langue, Math.round(minutes / 1440), 'domaine.attente.jour');
 }
 
 /** Le nom de projet qu'on propose pour un dossier : son dernier segment, réduit à ce qu'un projet admet. */

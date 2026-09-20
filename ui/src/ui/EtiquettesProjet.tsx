@@ -1,5 +1,7 @@
 import { FolderGit2, Users } from 'lucide-react';
+import { utiliseLangue } from '../application/langue.tsx';
 import { teinteProjet } from '../domain/boite.ts';
+import { t } from '../domain/langue/index.ts';
 
 /** Un projet, en pastille : la même teinte pour un même projet partout dans l'interface.
  *  `null` est le cas des comptes communs à tous les projets (`owner`…). */
@@ -9,18 +11,19 @@ export function EtiquetteProjet({ projet, avecIcone = false, actif = false }: {
   /** Le projet actuellement filtré : sa pastille est pleine. */
   actif?: boolean;
 }) {
+  const l = utiliseLangue();
   if (projet === null) {
     return (
-      <span className="projet-etiquette projet-etiquette--commun" title="Compte commun à tous les projets">
+      <span className="projet-etiquette projet-etiquette--commun" title={t(l, 'message.etiquette.commun-infobulle')}>
         {avecIcone && <Users className="ic" size={9} />}
-        commun
+        {t(l, 'message.etiquette.commun')}
       </span>
     );
   }
   return (
     <span
       className={`projet-etiquette projet-etiquette--t${teinteProjet(projet)}${actif ? ' projet-etiquette--actif' : ''}`}
-      title={`Projet ${projet}`}
+      title={t(l, 'message.etiquette.projet', { nom: projet })}
     >
       {avecIcone && <FolderGit2 className="ic" size={9} />}
       {projet}

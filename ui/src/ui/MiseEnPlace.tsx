@@ -1,7 +1,9 @@
 /** La mise en place, pour un humain : créer la boîte, y connecter un projet, inviter un agent. */
 import { Check, Copy, FolderOpen, FolderPlus, Inbox, LoaderCircle, X } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
+import { utiliseLangue } from '../application/langue.tsx';
 import { projetPropose } from '../domain/boite.ts';
+import { t } from '../domain/langue/index.ts';
 import type { Activation, Creation, Invitation } from '../domain/types.ts';
 
 type Choisir = () => Promise<string | null>;
@@ -34,6 +36,7 @@ export function InviterAgent({ projets, projetCourant, onInviter }: {
   const [copie, setCopie] = useState(false);
   const [aCopier, setACopier] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  const l = utiliseLangue();
 
   const choisi = existant || projetCourant || projets[0] || '';
   const projet = portee === 'existant' ? choisi : portee === 'nouveau' ? projetPropose(nouveau) : null;
@@ -68,16 +71,16 @@ export function InviterAgent({ projets, projetCourant, onInviter }: {
     <>
       <button type="button" className={`rail-boite${ouvert ? ' rail-boite--actif' : ''}`} onClick={() => setOuvert((o) => !o)}>
         <Copy className="ic" size={15} />
-        <span className="rail-boite__libelle">Copier l’invite pour l’agent</span>
+        <span className="rail-boite__libelle">{t(l, 'accueil.copierInviteAgent')}</span>
       </button>
       {ouvert && (
         <div className="ajout">
-          <span className="ajout__question">Dans quel projet ?</span>
+          <span className="ajout__question">{t(l, 'accueil.dansQuelProjet')}</span>
           {projets.length > 0 && (
             <label className="ajout__choix">
               <input type="radio" name="portee" checked={portee === 'existant'} onChange={() => setPortee('existant')} />
               <select
-                className="ajout__champ" value={choisi} aria-label="Projet existant"
+                className="ajout__champ" value={choisi} aria-label={t(l, 'accueil.projetExistant')}
                 onFocus={() => setPortee('existant')} onChange={(e) => { setExistant(e.target.value); setPortee('existant'); }}
               >
                 {projets.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -87,28 +90,29 @@ export function InviterAgent({ projets, projetCourant, onInviter }: {
           <label className="ajout__choix">
             <input type="radio" name="portee" checked={portee === 'nouveau'} onChange={() => setPortee('nouveau')} />
             <input
-              className="ajout__champ" value={nouveau} placeholder="Nouveau projet (ex. talos)" aria-label="Nouveau projet"
+              className="ajout__champ" value={nouveau} placeholder={t(l, 'accueil.nouveauProjetExemple')} aria-label={t(l, 'accueil.nouveauProjet')}
               onFocus={() => setPortee('nouveau')} onChange={(e) => { setNouveau(e.target.value); setPortee('nouveau'); }}
               onKeyDown={(e) => { if (e.key === 'Enter') void copier(); }}
             />
           </label>
           <label className="ajout__choix">
             <input type="radio" name="portee" checked={portee === 'aucun'} onChange={() => setPortee('aucun')} />
-            <span className="ajout__choix-texte">Sans projet</span>
+            <span className="ajout__choix-texte">{t(l, 'accueil.sansProjet')}</span>
           </label>
           {portee === 'nouveau' && nouveau.trim() && projet !== nouveau.trim() && (
-            <span className="ajout__aide">Le projet s’appellera <b>{projet || '…'}</b> (minuscules, sans espace).</span>
+            <span className="ajout__aide">{t(l, 'accueil.projetSeraAvant')}<b>{projet || '…'}</b>{t(l, 'accueil.projetSeraApres')}</span>
           )}
           <button type="button" className="ajout__valider" disabled={!pret || envoi} onClick={() => void copier()}>
             {envoi ? <LoaderCircle className="ic spin" size={13} /> : copie ? <Check className="ic" size={13} /> : <Copy className="ic" size={13} />}
-            <span>{copie ? 'Invite copiée' : 'Copier l’invite'}</span>
+            <span>{copie ? t(l, 'accueil.inviteCopiee') : t(l, 'accueil.copierInvite')}</span>
           </button>
           <span className="ajout__aide">
             {copie
-              ? 'Colle-la dans le chat de ton agent : il crée son compte tout seul, dans ce projet.'
-              : 'Tu obtiens un texte à coller dans le chat de ton agent. Il y lit son projet et crée son compte tout seul.'}
+              ? t(l, 'accueil.inviteAideCopiee')
+              : t(l, 'accueil.inviteAide')}
           </span>
           {aCopier && <TexteACopier texte={aCopier} />}
+          {/* erreur venant du backend : laissée telle quelle, hors périmètre de ce chantier */}
           {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}
         </div>
       )}
@@ -118,9 +122,10 @@ export function InviterAgent({ projets, projetCourant, onInviter }: {
 
 /** Quand le navigateur refuse le presse-papiers : le texte, sélectionné d'un clic, à copier à la main. */
 export function TexteACopier({ texte }: { texte: string }) {
+  const l = utiliseLangue();
   return (
     <>
-      <span className="ajout__aide">Ton navigateur a refusé la copie automatique : sélectionne ce texte et copie-le.</span>
+      <span className="ajout__aide">{t(l, 'accueil.copieRefusee')}</span>
       <textarea className="ajout__texte" readOnly value={texte} rows={6} onFocus={(e) => e.currentTarget.select()} />
     </>
   );
@@ -141,6 +146,7 @@ export function ConnecterProjet({ onConnecter, onChoisir, onInviter }: {
   const [erreur, setErreur] = useState<string | null>(null);
   // Le dossier est connecté : reste à inviter les agents du projet — une fenêtre le dit, invite à la main.
   const [connecte, setConnecte] = useState<Activation | null>(null);
+  const l = utiliseLangue();
 
   const choisirDossier = (chemin: string) => {
     setDossier(chemin);
@@ -168,25 +174,25 @@ export function ConnecterProjet({ onConnecter, onChoisir, onInviter }: {
     <>
       <button type="button" className={`rail-boite${ouvert ? ' rail-boite--actif' : ''}`} onClick={() => setOuvert((o) => !o)}>
         <FolderPlus className="ic" size={15} />
-        <span className="rail-boite__libelle">Connecter un projet</span>
+        <span className="rail-boite__libelle">{t(l, 'accueil.connecterProjet')}</span>
       </button>
       {ouvert && (
         <div className="ajout">
           <ChampDossier
-            dossier={dossier} invite="Choisir le dossier du projet…" etiquette="Chemin local du dépôt"
+            dossier={dossier} invite={t(l, 'accueil.choisirDossierProjet')} etiquette={t(l, 'accueil.cheminLocalDepot')}
             onDossier={choisirDossier} onChoisir={onChoisir} onEntree={() => void soumettre()}
           />
           <input
-            className="ajout__champ" value={projet} placeholder="Nom du projet (ex. talos)"
-            aria-label="Nom du projet" onChange={(e) => { setProjet(e.target.value); setProjetSaisi(true); }}
+            className="ajout__champ" value={projet} placeholder={t(l, 'accueil.nomProjetExemple')}
+            aria-label={t(l, 'accueil.nomProjet')} onChange={(e) => { setProjet(e.target.value); setProjetSaisi(true); }}
             onKeyDown={(e) => { if (e.key === 'Enter') void soumettre(); }}
           />
           <button type="button" className="ajout__valider" disabled={!dossier.trim() || envoi} onClick={() => void soumettre()}>
             {envoi ? <LoaderCircle className="ic spin" size={13} /> : <FolderPlus className="ic" size={13} />}
-            <span>Connecter</span>
+            <span>{t(l, 'accueil.connecter')}</span>
           </button>
           <span className="ajout__aide">
-            Rattache un dossier de projet à la boîte et prépare les outils d’IA de ce poste. Ensuite, tu copieras l’invite à envoyer aux agents du projet.
+            {t(l, 'accueil.connecterAide')}
           </span>
           {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}
         </div>
@@ -206,6 +212,7 @@ function ProjetConnecte({ activation, onInviter, onFermer }: {
   const [copie, setCopie] = useState(false);
   const [aCopier, setACopier] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  const l = utiliseLangue();
   const prets = activation.hotes.filter((h) => h.equipe).map((h) => h.nom);
 
   const copier = async () => {
@@ -224,27 +231,29 @@ function ProjetConnecte({ activation, onInviter, onFermer }: {
   };
 
   return (
-    <Modale titre={activation.projet ? `Projet « ${activation.projet} » connecté` : 'Dossier connecté'} onFermer={onFermer}>
+    <Modale titre={activation.projet ? t(l, 'accueil.projetConnecteTitre', { projet: activation.projet }) : t(l, 'accueil.dossierConnecteTitre')} onFermer={onFermer}>
       <span className="modale__chemin">{activation.dossier}</span>
       <p className="modale__texte">
-        <b>Dernière étape : invite tes agents.</b> Copie l’invite, puis colle-la dans le chat de l’agent — ou de chacun
-        des agents — qui travaille sur ce projet. Chacun crée son compte {activation.projet ? <>dans <b>{activation.projet}</b> </> : ''}
-        tout seul, et apparaît ici.
+        <b>{t(l, 'accueil.modaleInviteTitre')}</b>{' '}
+        {t(l, 'accueil.modaleInviteAvant')}
+        {activation.projet && <>{t(l, 'accueil.modaleInviteDans')}{' '}<b>{activation.projet}</b>{' '}</>}
+        {t(l, 'accueil.modaleInviteApres')}
       </p>
       <button type="button" className="modale__action" disabled={envoi} onClick={() => void copier()}>
         {envoi ? <LoaderCircle className="ic spin" size={15} /> : copie ? <Check className="ic" size={15} /> : <Copy className="ic" size={15} />}
-        <span>{copie ? 'Invite copiée — colle-la à ton agent' : 'Copier l’invite'}</span>
+        <span>{copie ? t(l, 'accueil.inviteCopieeColler') : t(l, 'accueil.copierInvite')}</span>
       </button>
-      {copie && <p className="modale__note">Tu peux la coller à plusieurs agents : la même invite sert à tous ceux du projet.</p>}
+      {copie && <p className="modale__note">{t(l, 'accueil.modaleInviteGroupe')}</p>}
       {aCopier && <TexteACopier texte={aCopier} />}
       {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}
-      {prets.length > 0 && <p className="modale__note">Outils d’IA prêts sur ce poste : {prets.join(', ')}.</p>}
+      {prets.length > 0 && <p className="modale__note">{t(l, 'accueil.outilsPrets', { hotes: prets.join(', ') })}</p>}
     </Modale>
   );
 }
 
 /** Une fenêtre au-dessus de la page : Échap ou un clic à côté la ferme. */
 export function Modale({ titre, onFermer, children }: { titre: string; onFermer: () => void; children: ReactNode }) {
+  const l = utiliseLangue();
   useEffect(() => {
     const surTouche = (e: KeyboardEvent) => { if (e.key === 'Escape') onFermer(); };
     window.addEventListener('keydown', surTouche);
@@ -255,10 +264,10 @@ export function Modale({ titre, onFermer, children }: { titre: string; onFermer:
       <div className="modale rise" role="dialog" aria-modal="true" aria-label={titre} onClick={(e) => e.stopPropagation()}>
         <div className="modale__tete">
           <span className="modale__titre">{titre}</span>
-          <button type="button" className="modale__fermer" aria-label="Fermer" onClick={onFermer}><X className="ic" size={15} /></button>
+          <button type="button" className="modale__fermer" aria-label={t(l, 'accueil.fermer')} onClick={onFermer}><X className="ic" size={15} /></button>
         </div>
         {children}
-        <button type="button" className="modale__terminer" onClick={onFermer}>Terminer</button>
+        <button type="button" className="modale__terminer" onClick={onFermer}>{t(l, 'accueil.terminer')}</button>
       </div>
     </div>
   );
@@ -275,11 +284,13 @@ export function CreerBoite({ motif, onCreer, onChoisir }: {
   const [dossier, setDossier] = useState('');
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const l = utiliseLangue();
 
   if (motif) {
     return (
       <div className="rail__section">
-        <span className="eyebrow">Boîte</span>
+        <span className="eyebrow">{t(l, 'accueil.boiteRubrique')}</span>
+        {/* motif résumé par le backend : laissé tel quel, hors périmètre de ce chantier */}
         <span className="ajout__aide">{motif}</span>
       </div>
     );
@@ -299,23 +310,23 @@ export function CreerBoite({ motif, onCreer, onChoisir }: {
 
   return (
     <div className="rail__section">
-      <span className="eyebrow">Boîte</span>
+      <span className="eyebrow">{t(l, 'accueil.boiteRubrique')}</span>
       <button type="button" className={`rail-boite${ouvert ? ' rail-boite--actif' : ''}`} onClick={() => setOuvert((o) => !o)}>
         <Inbox className="ic" size={15} />
-        <span className="rail-boite__libelle">Créer la boîte</span>
+        <span className="rail-boite__libelle">{t(l, 'accueil.creerBoite')}</span>
       </button>
       {ouvert && (
         <div className="ajout">
           <ChampDossier
-            dossier={dossier} invite="Choisir le dossier de la boîte…" etiquette="Dossier partagé de la boîte"
+            dossier={dossier} invite={t(l, 'accueil.choisirDossierBoite')} etiquette={t(l, 'accueil.dossierPartageBoite')}
             onDossier={setDossier} onChoisir={onChoisir} onEntree={() => void soumettre()}
           />
           <button type="button" className="ajout__valider" disabled={!dossier.trim() || envoi} onClick={() => void soumettre()}>
             {envoi ? <LoaderCircle className="ic spin" size={13} /> : <Inbox className="ic" size={13} />}
-            <span>Créer la boîte</span>
+            <span>{t(l, 'accueil.creerBoite')}</span>
           </button>
           <span className="ajout__aide">
-            Crée la boîte dans ce dossier et l’ouvre. Choisis un dossier partagé, vu par toutes tes machines.
+            {t(l, 'accueil.creerBoiteAide')}
           </span>
           {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}
         </div>
@@ -335,6 +346,7 @@ export function ChampDossier({ dossier, invite, etiquette, onDossier, onChoisir,
 }) {
   const [ouvert, setOuvert] = useState(false);
   const [panne, setPanne] = useState<string | null>(null);
+  const l = utiliseLangue();
   const parcourir = async () => {
     if (ouvert) return;
     setOuvert(true);
@@ -353,12 +365,13 @@ export function ChampDossier({ dossier, invite, etiquette, onDossier, onChoisir,
     <>
       <button type="button" className="ajout__parcourir" disabled={ouvert} onClick={() => void parcourir()}>
         {ouvert ? <LoaderCircle className="ic spin" size={13} /> : <FolderOpen className="ic" size={13} />}
-        <span>{ouvert ? 'Fenêtre de choix ouverte…' : dossier || invite}</span>
+        <span>{ouvert ? t(l, 'accueil.fenetreOuverte') : dossier || invite}</span>
       </button>
-      {ouvert && <span className="ajout__aide">Choisis le dossier dans la fenêtre qui vient de s’ouvrir. Si tu ne la vois pas, elle est derrière cette page.</span>}
+      {ouvert && <span className="ajout__aide">{t(l, 'accueil.choisirDossierAide')}</span>}
+      {/* la panne est le message d'une exception (souvent le backend) : laissée telle quelle */}
       {panne && <span className="ajout__erreur" role="alert">{panne}</span>}
       <input
-        className="ajout__champ" value={dossier} placeholder="…ou colle le chemin" aria-label={etiquette}
+        className="ajout__champ" value={dossier} placeholder={t(l, 'accueil.collerChemin')} aria-label={etiquette}
         onChange={(e) => onDossier(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') onEntree(); }}
       />

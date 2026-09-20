@@ -1,15 +1,27 @@
 /** La boîte à travers l'API locale (`messenger.py ui`), relayée par Vite en développement. */
+import { LANGUE_DEFAUT, langueDuNavigateur, normaliseLangue, t, type Langue } from '../domain/langue/index.ts';
 import type { PortBoite } from '../application/ports.ts';
 import type { Activation, Creation, Etat, Invitation, Message, Poste, Statut } from '../domain/types.ts';
 
 /** Ce qu'on dit à l'humain quand l'API refuse. Une route que l'API ne connaît pas (`404 introuvable`) veut
- *  dire qu'elle est plus ancienne que cette page : un serveur resté ouvert pendant une mise à jour. */
-export function messageDErreur(statut: number, erreur: string | null): string {
+ *  dire qu'elle est plus ancienne que cette page : un serveur resté ouvert pendant une mise à jour.
+ *  `erreur` est un texte du backend Python : un contrat lu par des agents, jamais traduit ici. */
+export function messageDErreur(langue: Langue, statut: number, erreur: string | null): string {
   if (statut === 404 && (erreur === null || erreur === 'introuvable')) {
-    return "cette fonction n'existe pas dans l'application en cours : elle date d'avant une mise à jour — "
-      + 'ferme-la et relance-la';
+    return t(langue, 'technique.api_obsolete');
   }
-  return erreur ?? `l'API locale ne répond pas (HTTP ${statut}) — voir le terminal`;
+  return erreur ?? t(langue, 'technique.api_silencieuse', { statut });
+}
+
+/** La langue de l'interface, relue à chaque appel : cet adaptateur vit hors de React, où la langue est un
+ *  contexte. La clé est celle de `PreferencesLocales` ; à défaut de préférence, la langue du navigateur,
+ *  comme au premier montage du fournisseur. */
+function langueCourante(): Langue {
+  try {
+    return normaliseLangue(window.localStorage.getItem('arkalabs-messenger:langue')) ?? langueDuNavigateur();
+  } catch {
+    return LANGUE_DEFAUT;
+  }
 }
 
 /** Ce que l'API envoie vraiment. Une version plus ancienne, restée allumée pendant une mise à jour,
@@ -37,9 +49,12 @@ export function normaliser(brut: EtatBrut): Etat {
 
 export class ApiHttp implements PortBoite {
   readonly #base: string;
+  readonly #langue: () => Langue;
 
-  constructor(base = '') {
+  /** `langue` rend la langue de l'interface au moment de l'appel ; par défaut, relue des préférences du poste. */
+  constructor(base = '', langue: () => Langue = langueCourante) {
     this.#base = base;
+    this.#langue = langue;
   }
 
   async charger(): Promise<Etat> {
@@ -146,7 +161,7 @@ export class ApiHttp implements PortBoite {
     try {
       reponse = await fetch(this.#base + chemin, { cache: 'no-store', ...init });
     } catch {
-      throw new Error("l'API locale ne répond pas — relance `npm run dev` ou `messenger.py ui`");
+      throw new Error(t(this.#langue(), 'technique.api_hors_ligne'));
     }
     const texte = await reponse.text();
     let corps: unknown = null;
@@ -157,7 +172,7 @@ export class ApiHttp implements PortBoite {
     }
     if (!reponse.ok) {
       const erreur = corps && typeof corps === 'object' && 'erreur' in corps ? String(corps.erreur) : null;
-      throw new Error(messageDErreur(reponse.status, erreur));
+      throw new Error(messageDErreur(this.#langue(), reponse.status, erreur));
     }
     return corps as T;
   }

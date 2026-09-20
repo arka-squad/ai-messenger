@@ -1,6 +1,8 @@
 import { ArrowRight, Paperclip } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { utiliseLangue } from '../application/langue.tsx';
 import { type ProjetDe, heure, instant, nomAffiche, projetsDe, titre } from '../domain/boite.ts';
+import { t } from '../domain/langue/index.ts';
 import type { Message } from '../domain/types.ts';
 import { EtiquettesProjet } from './EtiquettesProjet.tsx';
 import { IconeStatut } from './IconeStatut.tsx';
@@ -25,10 +27,11 @@ interface Props {
 }
 
 export function Liste(p: Props) {
+  const l = utiliseLangue();
   return (
-    <section className="liste" aria-label="Messages">
+    <section className="liste" aria-label={t(l, 'coquille.messages')}>
       <div className="bandeau">
-        <span className="eyebrow">Messages</span>
+        <span className="eyebrow">{t(l, 'coquille.messages')}</span>
         <span className="vide" />
         <span className="bandeau__info">{p.chargement || p.erreur ? '' : `${p.messages.length} / ${p.total}`}</span>
       </div>
@@ -40,6 +43,7 @@ export function Liste(p: Props) {
 }
 
 function Lignes({ messages, projet, projetDe, affichages, arrivees, choisi, onChoix, total }: Props) {
+  const l = utiliseLangue();
   // Comme la maquette : les douze premières lignes entrent au montage, puis chaque arrivée.
   const [entrees] = useState(() => new Set(messages.slice(0, 12).map((m) => m.id)));
   const choisie = useRef<HTMLButtonElement | null>(null);
@@ -48,7 +52,7 @@ function Lignes({ messages, projet, projetDe, affichages, arrivees, choisi, onCh
   }, [choisi]);
 
   if (messages.length === 0) {
-    return <div className="liste__vide">{total ? 'Aucun message ne correspond.' : 'La boîte est vide.'}</div>;
+    return <div className="liste__vide">{total ? t(l, 'coquille.listeAucun') : t(l, 'coquille.listeVide')}</div>;
   }
   return (
     <div>
@@ -69,7 +73,7 @@ function Lignes({ messages, projet, projetDe, affichages, arrivees, choisi, onCh
             onClick={() => onChoix(m.id)}
           >
             <span className="ligne__tete">
-              <span className="ligne__heure">{heure(instant(m))}</span>
+              <span className="ligne__heure">{heure(instant(m), l)}</span>
               <span className="adresse-de">{nomAffiche(m.de, affichages, projet)}</span>
               <ArrowRight className="ic" size={11} />
               <span className="adresse-a">{m.a.map((x) => nomAffiche(x, affichages, projet)).join(', ')}</span>
@@ -79,7 +83,7 @@ function Lignes({ messages, projet, projetDe, affichages, arrivees, choisi, onCh
               {m.pj && <Paperclip className="ic" size={12} />}
               <IconeStatut statut={m.mien} />
             </span>
-            <span className="ligne__objet">{titre(m)}</span>
+            <span className="ligne__objet">{titre(m, l)}</span>
           </button>
         );
       })}
@@ -101,13 +105,15 @@ function Squelette() {
 }
 
 function Panne({ erreur }: { erreur: string }) {
+  const l = utiliseLangue();
+  // Les segments autour des <code> sont des clés séparées : les commandes restent en dur, jamais traduites.
   return (
     <div className="panne" role="alert">
-      <span className="panne__titre">La boîte n’a pas pu être lue</span>
+      <span className="panne__titre">{t(l, 'coquille.panneTitre')}</span>
       <span className="panne__message">{erreur}</span>
       <ul className="panne__aide">
-        <li>Indique la boîte : <code>MESSENGER_BOX</code> dans <code>ui/.env.local</code>, ou <code>python3 messenger.py setup --box &lt;chemin&gt;</code>.</li>
-        <li>Le détail est dans le terminal où tourne <code>npm run dev</code>.</li>
+        <li>{t(l, 'coquille.panneIndique')}<code>MESSENGER_BOX</code>{t(l, 'coquille.panneDans')}<code>ui/.env.local</code>{t(l, 'coquille.panneOu')}<code>python3 messenger.py setup --box &lt;chemin&gt;</code>.</li>
+        <li>{t(l, 'coquille.panneTerminal')}<code>npm run dev</code>.</li>
       </ul>
     </div>
   );

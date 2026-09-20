@@ -96,6 +96,8 @@ input { font: inherit; }
 .entete__outil { margin-left: 14px; color: var(--tx4); cursor: pointer; display: flex; }
 .entete__outil--actif { color: var(--tx2); }
 .entete__outil:disabled { cursor: default; opacity: 0.45; }
+/* Le commutateur de langue (classe imposée par CommutateurLangue) reprend le gabarit du bouton de thème. */
+.entete__langue { margin-left: 14px; color: var(--tx4); cursor: pointer; display: flex; align-items: center; font-size: 12px; font-weight: 600; }
 .avatar {
   width: 24px; height: 24px; border-radius: 9999px; border: 1px solid rgba(var(--w), 0.14); margin-left: 14px;
   display: flex; align-items: center; justify-content: center; box-sizing: border-box;

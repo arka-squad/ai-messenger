@@ -2,16 +2,42 @@
  * La veille : charge la boîte, la relève à intervalle, signale les nouveaux messages.
  * Sans React : l'interface s'y abonne (`useSyncExternalStore`).
  */
+import { t, tp, type Langue } from '../domain/langue/index.ts';
 import type { Activation, Creation, Etat, Invitation, Message, Poste, Statut } from '../domain/types.ts';
 import type { PortBoite } from './ports.ts';
+
+/** Ce que la dernière relève a trouvé : une donnée, pas un texte affichable — le libellé se fabrique dans
+ *  la langue voulue avec `libelleConstat`. */
+export type Constat =
+  | { type: 'inchangee' }
+  | { type: 'injoignable' }
+  | { type: 'ajour' }
+  | { type: 'eteinte' }
+  | { type: 'nouveaux'; n: number };
+
+/** Le texte d'un constat de relève, dans la langue de l'interface. */
+export function libelleConstat(langue: Langue, c: Constat): string {
+  switch (c.type) {
+    case 'inchangee':
+      return t(langue, 'technique.inchangee');
+    case 'injoignable':
+      return t(langue, 'technique.injoignable');
+    case 'ajour':
+      return t(langue, 'technique.ajour');
+    case 'eteinte':
+      return t(langue, 'technique.eteinte');
+    case 'nouveaux':
+      return tp(langue, c.n, 'technique.nouveaux');
+  }
+}
 
 export interface EtatVeille {
   etat: Etat | null;
   erreur: string | null;
   active: boolean;
   derniereReleve: Date | null;
-  /** Ce que la dernière relève a trouvé, en une phrase. */
-  constat: string;
+  /** Ce que la dernière relève a trouvé ; à libeller avec `libelleConstat`. */
+  constat: Constat;
   /** Les messages arrivés depuis le chargement précédent. */
   arrivees: readonly Message[];
   /** L'humain vient d'éteindre la boîte depuis cette page. */
@@ -25,8 +51,9 @@ export class Veille {
   readonly #intervalle: number;
   readonly #abonnes = new Set<Abonne>();
   #minuteur: ReturnType<typeof setInterval> | null = null;
-  #etat: EtatVeille = { etat: null, erreur: null, active: true, derniereReleve: null, constat: '', arrivees: [],
-    eteinte: false };
+  // Placeholder jamais affiché : le rail ne libelle le constat qu'après une première relève.
+  #etat: EtatVeille = { etat: null, erreur: null, active: true, derniereReleve: null, constat: { type: 'inchangee' },
+    arrivees: [], eteinte: false };
 
   constructor(boite: PortBoite, intervalleMs = 3000) {
     this.#boite = boite;
@@ -69,9 +96,9 @@ export class Veille {
         await this.recharger();
         return;
       }
-      this.#publier({ derniereReleve: new Date(), constat: 'boîte inchangée', erreur: null });
+      this.#publier({ derniereReleve: new Date(), constat: { type: 'inchangee' }, erreur: null });
     } catch (e) {
-      this.#publier({ derniereReleve: new Date(), constat: 'boîte injoignable', erreur: message(e) });
+      this.#publier({ derniereReleve: new Date(), constat: { type: 'injoignable' }, erreur: message(e) });
     }
   }
 
@@ -80,12 +107,12 @@ export class Veille {
       const etat = await this.#boite.charger();
       const connus = new Set(this.#etat.etat?.messages.map((m) => m.id) ?? []);
       const arrivees = this.#etat.etat ? etat.messages.filter((m) => !connus.has(m.id)) : [];
-      const constat = arrivees.length
-        ? `${arrivees.length} nouveau${arrivees.length > 1 ? 'x' : ''} message${arrivees.length > 1 ? 's' : ''}`
-        : 'boîte à jour';
+      const constat: Constat = arrivees.length
+        ? { type: 'nouveaux', n: arrivees.length }
+        : { type: 'ajour' };
       this.#publier({ etat, arrivees, constat, erreur: null, derniereReleve: new Date() });
     } catch (e) {
-      this.#publier({ erreur: message(e), constat: 'boîte injoignable', derniereReleve: new Date() });
+      this.#publier({ erreur: message(e), constat: { type: 'injoignable' }, derniereReleve: new Date() });
     }
   }
 
@@ -168,7 +195,7 @@ export class Veille {
   async eteindre(): Promise<void> {
     await this.#boite.eteindre();
     this.arreter();
-    this.#publier({ active: false, constat: 'boîte éteinte', eteinte: true });
+    this.#publier({ active: false, constat: { type: 'eteinte' }, eteinte: true });
   }
 
   lienPieceJointe(nom: string): string {

@@ -1,4 +1,7 @@
 import { BookUser, FolderGit2, Inbox, Layers, type LucideIcon, Paperclip, Reply, UserRound } from 'lucide-react';
+import { utiliseLangue } from '../application/langue.tsx';
+import { libelleConstat, type Constat } from '../application/veille.ts';
+import { t, tp } from '../domain/langue/index.ts';
 import {
   type Agent,
   type Classement,
@@ -40,23 +43,27 @@ interface Props {
   source: Source | null;
   onChoisir: () => Promise<string | null>;
   derniereReleve: Date | null;
-  constat: string;
+  constat: Constat;
 }
 
 export function Rail({ compte, compteurs, projets, groupes, filtre, onFiltre, activable, motifCreation,
   onInviter, onPoste, onPreparer, onEteindre, onActiver, onCreer, onOuvrirBoite, source, onChoisir,
   derniereReleve, constat }: Props) {
+  const l = utiliseLangue();
+  // Les valeurs 'toutes'/'fils'/'pj'/'moi' servent de filtre et de classe CSS : on traduit les libellés, pas elles.
   const boites: [Classement, string, LucideIcon, number][] = [
-    ['toutes', 'Tous les messages', Inbox, compteurs.total],
-    ['fils', 'Réponses', Reply, compteurs.fils],
-    ['pj', 'Avec pièce jointe', Paperclip, compteurs.pj],
-    ['moi', compte === 'owner' ? 'Adressés à l’Owner' : `Adressés à ${compte}`, UserRound, compteurs.moi],
+    ['toutes', t(l, 'coquille.tousMessages'), Inbox, compteurs.total],
+    ['fils', t(l, 'coquille.reponses'), Reply, compteurs.fils],
+    ['pj', t(l, 'coquille.avecPieceJointe'), Paperclip, compteurs.pj],
+    ['moi', t(l, 'coquille.adressesA', {
+      compte: compte === 'owner' ? t(l, 'coquille.proprietaire') : compte,
+    }), UserRound, compteurs.moi],
   ];
   const aujourdhui = cleJour(new Date());
 
   return (
     <aside className="rail">
-      <nav className="rail__boites" aria-label="Boîtes">
+      <nav className="rail__boites" aria-label={t(l, 'coquille.navBoites')}>
         {boites.map(([id, libelle, Icone, n]) => (
           <button
             key={id}
@@ -73,7 +80,7 @@ export function Rail({ compte, compteurs, projets, groupes, filtre, onFiltre, ac
 
       {(activable || projets.length > 0) && (
         <div className="rail__section">
-          <span className="eyebrow">Projets</span>
+          <span className="eyebrow">{t(l, 'coquille.projets')}</span>
           {projets.length > 0 && (
             <button
               type="button"
@@ -81,7 +88,7 @@ export function Rail({ compte, compteurs, projets, groupes, filtre, onFiltre, ac
               onClick={() => onFiltre({ ...filtre, projet: null })}
             >
               <Layers className="ic" size={15} />
-              <span className="rail-boite__libelle">Tous les projets</span>
+              <span className="rail-boite__libelle">{t(l, 'coquille.tousProjets')}</span>
               <span className="compteur">{compteurs.total}</span>
             </button>
           )}
@@ -90,13 +97,13 @@ export function Rail({ compte, compteurs, projets, groupes, filtre, onFiltre, ac
               key={p.nom}
               type="button"
               className={`rail-boite${filtre.projet === p.nom ? ' rail-boite--actif' : ''}`}
-              title={`${p.agents} agent${p.agents > 1 ? 's' : ''} · ${p.messages} message${p.messages > 1 ? 's' : ''}, dont les échanges avec les autres projets`}
+              title={`${tp(l, p.agents, 'coquille.projetAgents')} · ${tp(l, p.messages, 'coquille.projetMessages')}, ${t(l, 'coquille.projetEchanges')}`}
               // Changer de projet libère le filtre d'agent : ses agents ne sont pas ceux d'un autre projet.
               onClick={() => onFiltre({ ...filtre, projet: filtre.projet === p.nom ? null : p.nom, agent: null })}
             >
               <FolderGit2 className={`ic teinte--t${teinteProjet(p.nom)}`} size={15} />
               <span className="rail-boite__libelle rail-boite__libelle--mono">{p.nom}</span>
-              {p.nouveaux > 0 && <span className="point-rond attente" title={`${p.nouveaux} nouveau(x)`} />}
+              {p.nouveaux > 0 && <span className="point-rond attente" title={tp(l, p.nouveaux, 'coquille.projetNouveaux')} />}
               <span className="compteur">{p.messages}</span>
             </button>
           ))}
@@ -108,7 +115,7 @@ export function Rail({ compte, compteurs, projets, groupes, filtre, onFiltre, ac
       {!activable && <CreerBoite motif={motifCreation} onCreer={onCreer} onChoisir={onChoisir} />}
 
       <div className="rail__section">
-        <span className="eyebrow">Agents</span>
+        <span className="eyebrow">{t(l, 'coquille.agents')}</span>
         {groupes.map((g) => (
           <div key={g.projet ?? '·commun'} className="rail-groupe">
             <div className="rail-groupe__tete">
@@ -116,7 +123,9 @@ export function Rail({ compte, compteurs, projets, groupes, filtre, onFiltre, ac
                 <button
                   type="button"
                   className="rail-groupe__projet"
-                  title={filtre.projet === g.projet ? 'Voir tous les projets' : `Ne voir que le projet ${g.projet}`}
+                  title={filtre.projet === g.projet
+                    ? t(l, 'coquille.voirTousProjets')
+                    : t(l, 'coquille.voirProjetSeul', { projet: g.projet })}
                   onClick={() => onFiltre({ ...filtre, projet: filtre.projet === g.projet ? null : g.projet, agent: null })}
                 >
                   <EtiquetteProjet projet={g.projet} avecIcone actif={filtre.projet === g.projet} />
@@ -126,7 +135,7 @@ export function Rail({ compte, compteurs, projets, groupes, filtre, onFiltre, ac
               <span className="compteur">{g.agents.length}</span>
             </div>
             {g.agents.length === 0 && (
-              <span className="rail-groupe__vide">Aucun agent encore — copie l’invite et colle-la à ton agent.</span>
+              <span className="rail-groupe__vide">{t(l, 'coquille.groupeVide')}</span>
             )}
             {g.agents.map((a) => <LigneAgent key={a.nom} agent={a} filtre={filtre} onFiltre={onFiltre} aujourdhui={aujourdhui} />)}
           </div>
@@ -137,12 +146,12 @@ export function Rail({ compte, compteurs, projets, groupes, filtre, onFiltre, ac
         onOuvrirBoite={onOuvrirBoite} onChoisir={onChoisir} />
 
       <div className="rail__releve">
-        <span className="eyebrow">Relève</span>
-        <span className="rail__releve-texte">
-          Toute écriture dans la boîte réveille l’agent en session ; sinon il relève au démarrage suivant.
-        </span>
+        <span className="eyebrow">{t(l, 'coquille.releve')}</span>
+        <span className="rail__releve-texte">{t(l, 'coquille.releveExplication')}</span>
         <span className="rail__releve-constat">
-          {derniereReleve ? `Dernière relève ${heure(derniereReleve)} · ${constat}` : 'Première relève…'}
+          {derniereReleve
+            ? t(l, 'coquille.releveDerniere', { heure: heure(derniereReleve, l), constat: libelleConstat(l, constat) })
+            : t(l, 'coquille.relevePremiere')}
         </span>
       </div>
     </aside>
@@ -156,16 +165,18 @@ function LigneAgent({ agent: a, filtre, onFiltre, aujourdhui }: {
   onFiltre: (f: Filtre) => void;
   aujourdhui: string;
 }) {
+  const l = utiliseLangue();
   const actif = filtre.agent === a.nom;
-  const dernier = a.dernierEnvoi
-    ? `dernier ${cleJour(a.dernierEnvoi) === aujourdhui ? heure(a.dernierEnvoi) : horodatage(a.dernierEnvoi).slice(0, 5)}`
-    : 'silencieux';
+  const quand = a.dernierEnvoi
+    ? (cleJour(a.dernierEnvoi) === aujourdhui ? heure(a.dernierEnvoi, l) : horodatage(a.dernierEnvoi, l).slice(0, 5))
+    : null;
+  const dernier = quand ? t(l, 'coquille.agentDernier', { quand }) : t(l, 'coquille.agentSilencieux');
   const fiche = [
     a.nom,
     [a.hote, a.machine].filter(Boolean).join(' · '),
     a.role,
-    `${a.envois} envoi${a.envois > 1 ? 's' : ''}`,
-    a.contacts.length ? `carnet : ${a.contacts.map((c) => `${c.alias} → ${c.adresses.join(', ')}`).join(' ; ')}` : '',
+    tp(l, a.envois, 'coquille.agentEnvois'),
+    a.contacts.length ? t(l, 'coquille.agentCarnet', { carnet: a.contacts.map((c) => `${c.alias} → ${c.adresses.join(', ')}`).join(' ; ') }) : '',
   ].filter(Boolean).join('\n');
   return (
     <button
@@ -180,8 +191,9 @@ function LigneAgent({ agent: a, filtre, onFiltre, aujourdhui }: {
         <span className="rail-agent__meta">
           <span className="rail-agent__dernier">{dernier}</span>
           {a.enAttente > 0 && (
-            <span className="rail-agent__attente" title={a.attenteDepuis ? `Le plus ancien attend ${anciennete(a.attenteDepuis)}` : undefined}>
-              {a.enAttente} en attente{a.attenteDepuis ? ` ${anciennete(a.attenteDepuis)}` : ''}
+            <span className="rail-agent__attente"
+              title={a.attenteDepuis ? t(l, 'coquille.agentAttenteDepuis', { anciennete: anciennete(a.attenteDepuis, l) }) : undefined}>
+              {tp(l, a.enAttente, 'coquille.agentEnAttente')}{a.attenteDepuis ? ` ${anciennete(a.attenteDepuis, l)}` : ''}
             </span>
           )}
           {a.contacts.length > 0 && (

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { Activation, Creation, Etat, Invitation, Message, Poste, Statut } from '../domain/types.ts';
 import type { PortBoite } from './ports.ts';
-import { Veille } from './veille.ts';
+import { Veille, libelleConstat } from './veille.ts';
 
 function message(id: string): Message {
   return {
@@ -100,14 +100,14 @@ describe('veille', () => {
 
     await veille.relever();
     assert.equal(boite.chargements, 1);
-    assert.equal(veille.lire().constat, 'boîte inchangée');
+    assert.deepEqual(veille.lire().constat, { type: 'inchangee' });
 
     boite.etat.messages.push(message('b'));
     boite.etat.version = 'v2';
     await veille.relever();
     assert.equal(boite.chargements, 2);
     assert.deepEqual(veille.lire().arrivees.map((m) => m.id), ['b']);
-    assert.equal(veille.lire().constat, '1 nouveau message');
+    assert.deepEqual(veille.lire().constat, { type: 'nouveaux', n: 1 });
   });
 
   it('dit quand la boîte est injoignable, sans perdre ce qui est affiché', async () => {
@@ -116,7 +116,7 @@ describe('veille', () => {
     await veille.recharger();
     boite.panne = true;
     await veille.relever();
-    assert.equal(veille.lire().constat, 'boîte injoignable');
+    assert.deepEqual(veille.lire().constat, { type: 'injoignable' });
     assert.equal(veille.lire().etat?.messages.length, 1);
   });
 
@@ -174,5 +174,25 @@ describe('veille', () => {
     desabonner();
     await veille.recharger();
     assert.equal(appels, 1);
+  });
+});
+
+describe('libelleConstat', () => {
+  it('libelle chaque constat en français', () => {
+    assert.equal(libelleConstat('fr', { type: 'inchangee' }), 'boîte inchangée');
+    assert.equal(libelleConstat('fr', { type: 'injoignable' }), 'boîte injoignable');
+    assert.equal(libelleConstat('fr', { type: 'ajour' }), 'boîte à jour');
+    assert.equal(libelleConstat('fr', { type: 'eteinte' }), 'boîte éteinte');
+    assert.equal(libelleConstat('fr', { type: 'nouveaux', n: 1 }), '1 nouveau message');
+    assert.equal(libelleConstat('fr', { type: 'nouveaux', n: 3 }), '3 nouveaux messages');
+  });
+
+  it('libelle chaque constat en anglais', () => {
+    assert.equal(libelleConstat('en', { type: 'inchangee' }), 'mailbox unchanged');
+    assert.equal(libelleConstat('en', { type: 'injoignable' }), 'mailbox unreachable');
+    assert.equal(libelleConstat('en', { type: 'ajour' }), 'mailbox up to date');
+    assert.equal(libelleConstat('en', { type: 'eteinte' }), 'mailbox off');
+    assert.equal(libelleConstat('en', { type: 'nouveaux', n: 1 }), '1 new message');
+    assert.equal(libelleConstat('en', { type: 'nouveaux', n: 3 }), '3 new messages');
   });
 });

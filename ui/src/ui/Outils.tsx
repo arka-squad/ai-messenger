@@ -1,5 +1,7 @@
 import { Search } from 'lucide-react';
+import { utiliseLangue } from '../application/langue.tsx';
 import type { Compteurs, Filtre } from '../domain/boite.ts';
+import { t } from '../domain/langue/index.ts';
 import type { Statut } from '../domain/types.ts';
 
 interface Props {
@@ -8,23 +10,31 @@ interface Props {
   onFiltre: (f: Filtre) => void;
 }
 
+/** Le libellé traduit de chaque statut : une clé par valeur protocole, jamais dérivée d'elle. */
+const LIBELLES: Record<Statut, 'message.statut.nouveau' | 'message.statut.lu' | 'message.statut.traite'> = {
+  nouveau: 'message.statut.nouveau',
+  lu: 'message.statut.lu',
+  traité: 'message.statut.traite',
+};
+
 export function Outils({ compteurs, filtre, onFiltre }: Props) {
-  const puces: [Statut | null, string, number][] = [
-    [null, 'Tous', compteurs.total],
-    ['nouveau', 'Nouveau', compteurs.nouveau],
-    ['lu', 'Lu', compteurs.lu],
-    ['traité', 'Traité', compteurs.traité],
+  const l = utiliseLangue();
+  const puces: [Statut | null, number][] = [
+    [null, compteurs.total],
+    ['nouveau', compteurs.nouveau],
+    ['lu', compteurs.lu],
+    ['traité', compteurs.traité],
   ];
   return (
     <div className="outils">
-      {puces.map(([statut, libelle, n]) => (
+      {puces.map(([statut, n]) => (
         <button
-          key={libelle}
+          key={statut ?? 'tous'}
           type="button"
           className={`puce${filtre.statut === statut ? ' puce--actif' : ''}`}
           onClick={() => onFiltre({ ...filtre, statut })}
         >
-          <span className="puce__libelle">{libelle}</span>
+          <span className="puce__libelle">{statut === null ? t(l, 'message.filtre.toutes') : t(l, LIBELLES[statut])}</span>
           <span className="compteur">{n}</span>
         </button>
       ))}
@@ -34,8 +44,8 @@ export function Outils({ compteurs, filtre, onFiltre }: Props) {
         <input
           type="search"
           value={filtre.recherche}
-          placeholder="Objet, id, pièce jointe"
-          aria-label="Rechercher dans la boîte"
+          placeholder={t(l, 'message.filtre.recherche')}
+          aria-label={t(l, 'message.filtre.recherche-aria')}
           onChange={(e) => onFiltre({ ...filtre, recherche: e.target.value })}
           onKeyDown={(e) => {
             if (e.key === 'Escape') onFiltre({ ...filtre, recherche: '' });

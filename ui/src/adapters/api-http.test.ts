@@ -1,21 +1,34 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { Etat, Message } from '../domain/types.ts';
-import { messageDErreur, normaliser } from './api-http.ts';
+import { ApiHttp, messageDErreur, normaliser } from './api-http.ts';
 
 describe("ce qu'on dit quand l'API refuse", () => {
   it("reprend le message de l'API, qui dit quoi faire", () => {
-    assert.equal(messageDErreur(400, 'dossier introuvable : /nulle/part'), 'dossier introuvable : /nulle/part');
-    assert.equal(messageDErreur(501, "la fenêtre de choix n'a pas pu s'ouvrir"), "la fenêtre de choix n'a pas pu s'ouvrir");
+    // les textes d'erreur du backend Python sont des contrats lus par des agents : jamais traduits
+    assert.equal(messageDErreur('fr', 400, 'dossier introuvable : /nulle/part'), 'dossier introuvable : /nulle/part');
+    assert.equal(messageDErreur('en', 501, "la fenêtre de choix n'a pas pu s'ouvrir"), "la fenêtre de choix n'a pas pu s'ouvrir");
   });
   it("nomme une application plus ancienne que la page, au lieu d'un « introuvable » muet", () => {
-    assert.match(messageDErreur(404, 'introuvable'), /relance-la/);
-    assert.match(messageDErreur(404, null), /relance-la/);
+    assert.match(messageDErreur('fr', 404, 'introuvable'), /relance-la/);
+    assert.match(messageDErreur('fr', 404, null), /relance-la/);
     // un 404 qui s'explique lui-même (pièce jointe absente…) garde son message
-    assert.equal(messageDErreur(404, 'pièce jointe introuvable : x.md'), 'pièce jointe introuvable : x.md');
+    assert.equal(messageDErreur('fr', 404, 'pièce jointe introuvable : x.md'), 'pièce jointe introuvable : x.md');
   });
   it('sans message, renvoie au terminal', () => {
-    assert.match(messageDErreur(500, null), /HTTP 500/);
+    assert.match(messageDErreur('fr', 500, null), /HTTP 500/);
+  });
+  it('trouve ses mots en anglais comme en français', () => {
+    assert.match(messageDErreur('en', 404, null), /start it again/);
+    assert.match(messageDErreur('en', 500, null), /HTTP 500/);
+  });
+});
+
+describe("quand l'API ne répond pas", () => {
+  it('conseille de relancer le serveur, dans la langue de l’interface', async () => {
+    // fetch échoue (URL relative absente sous node) : le message fabriqué côté interface suit la langue
+    await assert.rejects(() => new ApiHttp().eteindre(), /relance/);
+    await assert.rejects(() => new ApiHttp('', () => 'en').eteindre(), /restart/);
   });
 });
 

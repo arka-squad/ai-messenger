@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { utiliseLangue } from '../application/langue.tsx';
 import type { PortPreferences } from '../application/ports.ts';
 import type { Veille } from '../application/veille.ts';
 import {
@@ -14,6 +15,7 @@ import {
   recents,
   toucheLeProjet,
 } from '../domain/boite.ts';
+import { t } from '../domain/langue/index.ts';
 import type { Message, Statut } from '../domain/types.ts';
 import { Detail } from './Detail.tsx';
 import { Entete } from './Entete.tsx';
@@ -33,6 +35,7 @@ interface Props {
 
 export function App({ veille, preferences }: Props) {
   const v = useSyncExternalStore(veille.abonner, veille.lire);
+  const l = utiliseLangue();
   const [theme, setTheme] = useState<Theme>(() => (preferences.lire('theme') === 'light' ? 'light' : 'dark'));
   const [filtre, setFiltreBrut] = useState<Filtre>(FILTRE_INITIAL);
   // Une notification système ouvre l'interface sur son message : /?message=<id>
@@ -75,12 +78,9 @@ export function App({ veille, preferences }: Props) {
   const motifCreation = useMemo(() => {
     const s = etat?.source;
     if (!s || s.activable || s.demonstration) return null;
-    if (s.lecture_seule) {
-      return 'Boîte en lecture seule (ancienne boîte Markdown) — migre-la en JSON '
-        + '(messenger.py migrate) pour créer des projets.';
-    }
-    return 'Création indisponible pour cette boîte.';
-  }, [etat]);
+    if (s.lecture_seule) return t(l, 'coquille.creationLectureSeule');
+    return t(l, 'coquille.creationIndisponible');
+  }, [etat, l]);
   // Le trafic suit le projet choisi, pas les autres filtres : il montre la journée du projet.
   const duProjet = useMemo(
     () => (filtre.projet ? tous.filter((m) => toucheLeProjet(m, filtre.projet as string, projetDe)) : tous),
@@ -111,10 +111,9 @@ export function App({ veille, preferences }: Props) {
     return (
       <div className="app app--eteinte">
         <div className="eteinte">
-          <span className="eteinte__titre">La boîte est éteinte</span>
+          <span className="eteinte__titre">{t(l, 'coquille.eteinteTitre')}</span>
           <span className="eteinte__texte">
-            Tes agents continuent de s’écrire : seule cette fenêtre s’est arrêtée. Pour la rouvrir, double-clique
-            sur l’icône <b>Messenger</b>. Tu peux fermer cet onglet.
+            {t(l, 'coquille.eteinteTexteAvant')}<b>Messenger</b>{t(l, 'coquille.eteinteTexteApres')}
           </span>
         </div>
       </div>

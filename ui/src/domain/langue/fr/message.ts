@@ -1,0 +1,65 @@
+/** Les surfaces d'un message : détail, filtres, statuts, trafic, pied — libellés seulement, jamais les valeurs. */
+export const FR_MESSAGE = {
+  /* Les statuts : une clé par valeur protocole. La classe CSS et le filtre gardent la valeur brute. */
+  'message.statut.nouveau': 'nouveau',
+  'message.statut.lu': 'lu',
+  'message.statut.traite': 'traité',
+  /* Les puces de filtre par statut, et la recherche. */
+  'message.filtre.toutes': 'Tous',
+  'message.filtre.recherche': 'Objet, id, pièce jointe',
+  'message.filtre.recherche-aria': 'Rechercher dans la boîte',
+  /* La fiche d'un message : sourcils, blocs vides, infobulles. */
+  'message.detail.aria': 'Message',
+  'message.detail.aucun': 'Aucun message à afficher.',
+  'message.detail.de': 'De',
+  'message.detail.a': 'À',
+  'message.detail.statut': 'Statut',
+  'message.detail.corps': 'Corps',
+  'message.detail.pj': 'Pièce jointe',
+  'message.detail.fil': 'Fil',
+  'message.detail.corps-vide': 'Aucun — l’objet suffit.',
+  'message.detail.pj-vide': 'Aucune — le corps suffit.',
+  'message.detail.pj-absente': 'absente',
+  'message.detail.pj-absente-infobulle': 'Ce fichier n’est pas dans le dossier de la boîte.',
+  'message.detail.fil-vide': 'Pas de réponse à ce jour.',
+  'message.detail.fuseau': 'Paris',
+  /* Le statut propre à chaque destinataire de la fiche. */
+  'message.detail.pas-lu': 'ne l’a pas encore lu',
+  'message.detail.marque': 'l’a marqué {statut}',
+  /* Le stepper de statut, et qui l'a fait avancer. */
+  'message.detail.envoye': 'envoyé par {par} le {date}',
+  'message.detail.statut-par': '{statut} par {par} le {date}',
+  /* Le bouton d'action et ses états désactivés. */
+  'message.action.lecture-seule': 'Lecture seule',
+  'message.action.lecture-seule-infobulle': 'Ancienne boîte Markdown : migre-la en JSON pour agir (messenger.py migrate).',
+  'message.action.terminal': 'Statut terminal',
+  'message.action.reserve': 'Réservé à {destinataires}',
+  'message.action.reserve-infobulle': 'Seul un destinataire fait avancer le statut.',
+  'message.action.marquer-lu': 'Marquer lu',
+  'message.action.marquer-traite': 'Marquer traité',
+  /* Le trafic du jour. */
+  'message.trafic.aria': 'Trafic du jour',
+  'message.trafic.titre': 'Trafic du {jour}',
+  'message.trafic.messages__1': '{n} message',
+  'message.trafic.messages__n': '{n} messages',
+  'message.trafic.agents__1': '{n} agent',
+  'message.trafic.agents__n': '{n} agents',
+  'message.trafic.fuseau-paris': 'heure de Paris',
+  'message.trafic.fuseau-local': 'heure locale',
+  'message.trafic.vide': 'Aucun trafic ce jour-là.',
+  'message.trafic.point': '{heure} · {de} → {destinataires} · {titre}',
+  /* Le pied : compteurs, démonstration, source. */
+  'message.pied.total__1': '{n} message',
+  'message.pied.total__n': '{n} messages',
+  'message.pied.nouveau__1': '{n} nouveau',
+  'message.pied.nouveau__n': '{n} nouveaux',
+  'message.pied.pj__1': '{n} pièce jointe',
+  'message.pied.pj__n': '{n} pièces jointes',
+  'message.pied.demonstration': 'Démonstration — ta boîte : MESSENGER_BOX dans ui/.env.local',
+  'message.pied.source': 'Source : {nom}',
+  'message.pied.markdown': ' · converti en JSON · lecture seule',
+  /* Les étiquettes de projet. */
+  'message.etiquette.commun': 'commun',
+  'message.etiquette.commun-infobulle': 'Compte commun à tous les projets',
+  'message.etiquette.projet': 'Projet {nom}',
+} as const;
