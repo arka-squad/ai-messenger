@@ -586,7 +586,7 @@ def _annoncer_courrier_en_attente(chemin: Optional[str], session: Optional[str],
           for c, n in attendus),
         "Si l'un de ces comptes est le tien, reprends-le depuis ce dossier :",
         "- si ton hôte a le serveur MCP « arkalabs-messenger » : outil `identify` (argument `address`), puis `check` ;",
-        f"- sinon : python \"{messenger}\" identify --address <adresse>{options}",
+        f"- sinon : \"{sys.executable}\" \"{messenger}\" identify --address <adresse>{options}",
         "Sinon, ignore ceci : ce courrier n'est pas pour toi — n'agis pas, ne le marque pas.",
     ]) + "\n")
     return True
@@ -604,7 +604,7 @@ def _annoncer_enrolement(chemin: Optional[str], projet: Optional[str], session: 
         f"Projet : {projet or '— (compte commun)'}" + boite,
         "Choisis un intitulé de tâche court et durable, puis crée ton compte :",
         "- si ton hôte a le serveur MCP « arkalabs-messenger » : appelle son outil `enroll` ;",
-        f"- sinon : python \"{messenger}\" enroll --task \"<ta tâche>\"{options}",
+        f"- sinon : \"{sys.executable}\" \"{messenger}\" enroll --task \"<ta tâche>\"{options}",
         "Ton adresse (cl-agent-<tâche>-win) et ton nom lisible (CL_Agent-<Tâche>_WIN) se déduisent de ton",
         "hôte et de ton poste. Ensuite, ta relève se fait toute seule.",
     ]) + "\n")
