@@ -55,10 +55,10 @@ grep -rn "import" src/arkalabs_messenger/adapters/driving | grep "driven"
 | `adapters/driven/temoin.py` | le garde-fou des lectures périmées : ce que ce poste a vu de plus complet dans chaque boîte. Une relecture plus courte refuse l'écriture — une boîte ne perd jamais de message |
 | `adapters/driven/` | boîte et annuaire en fichiers JSON (verrou, écriture atomique), vue Markdown, ancienne boîte Markdown en lecture seule, pièces jointes, notifications système natives (toast Windows à la marque, macOS, Linux), horloge |
 | `adapters/driving/cli.py` | la ligne de commande des agents |
-| `adapters/driving/web.py` | l'API locale de l'interface (et l'interface construite) : lecture, avancée de statut, création de boîte (`/api/creer`) et connexion d'un projet (`/api/activer`), boîte résolue à chaque requête |
+| `adapters/driving/web.py` | l'API locale de l'interface (et l'interface construite) : lecture — chaque message enrichi de `suite` et de `mien`, son statut pour le compte courant —, avancée de statut, création de boîte (`/api/creer`), connexion d'un projet (`/api/activer`), boîte de ce poste (`/api/boite-du-poste`), invite et organisation (`/api/invite`, `/api/rattacher`, `/api/contact`, `/api/fusionner`), état et équipement du poste (`/api/poste`, `/api/preparer`, `/api/eteindre`) ; boîte résolue à chaque requête |
 | `adapters/driving/mcp.py` | le serveur MCP de la boîte : JSON-RPC 2.0 sur l'entrée et la sortie standard, écrit en bibliothèque standard ; outils (`whoami`, `enroll`, `identify`, `check`, `list`, `read`, `send`, `reply`, `mark`, `agents`, `contacts`, `contact_add`, `contact_remove`, `wait`), ressources `messenger://…`, appels annulables |
 | `adapters/driving/hotes.py` | équiper les hôtes IA du poste (Claude Code, Codex, Kimi Code, Antigravity, Cursor) : serveur MCP, relève et skill posés dans la configuration propre à chacun — fusion sans écrasement, idempotence, divergence réparée, autre installation respectée, fichier illisible jamais réécrit, écriture atomique |
-| `adapters/driving/poste.py` | la boîte du poste (`setup --box`), le projet du dépôt (`.messenger.json`), l'identité d'un agent (par session, puis par hôte et par dépôt), la connexion d'un dépôt (`activate`), le sélecteur de dossier natif (au premier plan, une fenêtre à la fois, une panne jamais prise pour une annulation), l'environnement |
+| `adapters/driving/poste.py` | la boîte du poste (`setup --box`), le projet du dépôt (`.messenger.json`), l'identité d'un agent (par session, puis par hôte et par dépôt), la connexion d'un dépôt (`activate`), le sélecteur de dossier natif (au premier plan, une fenêtre à la fois, une panne jamais prise pour une annulation), l'environnement, et la veille des sessions (`~/.arkalabs-messenger.veilles/`, un battement par session, dont la fraîcheur dit à la relève de fin de tour qu'une session sera réveillée) |
 | `adapters/driving/raccourci.py` | l'icône « Messenger » du bureau (`shortcut`) : `.lnk` vers `pythonw` sous Windows, application minimale sous macOS, entrée `.desktop` sous Linux — un double-clic lance `start`, sans console, avec un journal |
 | `ressources/` | l'icône, en PNG, ICO et ICNS — dessinée par `scripts/generer_icone.py`, bibliothèque standard |
 | `bootstrap.py` | l'assemblage : choisit les adaptateurs selon la disposition de la boîte |
@@ -73,9 +73,9 @@ Même découpage, en TypeScript :
 
 | Dossier | Rôle |
 |---|---|
-| `src/domain/` | les types de l'API et les dérivations pures : filtres, compteurs, agents, couloirs du trafic, fil |
-| `src/application/` | les ports (`PortBoite`, `PortPreferences`) et la `Veille`, qui relève la boîte sans rien savoir de React |
-| `src/adapters/` | l'API HTTP et les préférences du navigateur |
+| `src/domain/` | les types de l'API et les dérivations pures : filtres, compteurs, agents, couloirs du trafic, fil, et le dictionnaire bilingue (`langue/fr/`, `langue/en/`, `t()` et `tp()`) dont la complétude est garantie par le typage |
+| `src/application/` | les ports (`PortBoite`, `PortPreferences`), la `Veille`, qui relève la boîte sans rien savoir de React, et la langue courante (`langue.tsx` : contexte, commutateur, `<html lang>`) |
+| `src/adapters/` | l'API HTTP et les préférences du navigateur ; `normaliser` complète ce qu'une API plus ancienne n'envoie pas et lève le drapeau `obsolete` |
 | `src/ui/` | les composants React et leur feuille de style |
 | `src/design/` | les jetons du design system arkalabs |
 | `src/main.tsx` | l'assemblage |
@@ -100,6 +100,15 @@ thèmes clair et sombre) : l'écran n'écrit aucune couleur en dur.
   autres : leur relève et leur veille voient toujours le message. Le statut d'ensemble n'est qu'une
   vue — le moins avancé de tous. Sans cette règle, l'humain qui ouvre un message dans l'interface
   éteint le réveil de tous les agents en copie (constaté le 20/09/2026).
+- **L'interface survit à une API plus ancienne qu'elle.** `ui/dist` est servi
+  depuis le disque : une boîte laissée allumée pendant une mise à jour sert donc
+  une page récente avec une API ancienne. L'adaptateur HTTP reconstruit les champs
+  manquants au lieu de laisser la page se démonter, et dit à l'humain de relancer
+  la boîte.
+- **La langue est un réglage du poste, jamais une donnée de la boîte.** Elle vit
+  dans les préférences locales, comme le thème : la boîte est partagée entre
+  machines et entre agents, elle n'a pas de langue. Les valeurs du protocole
+  (`nouveau`, `lu`, `traité`) ne sont jamais traduites — seuls leurs libellés le sont.
 - **Chaque écriture relit la boîte sous verrou.** Une transaction ne travaille
   jamais sur un état périmé ; une erreur en cours de route n'écrit rien.
 - **Une lecture plus courte que la précédente est refusée à l'écriture.** Le verrou protège des
@@ -137,7 +146,7 @@ contexte. Dans tous les cas, le domaine et les cas d'usage ne changent pas.
 ## Tests
 
 ```bash
-python3 -m unittest            # domaine, cas d'usage (doublures en mémoire), adaptateurs, CLI, API, serveur MCP, hôtes
-npm test                       # domaine et veille du front
+python3 -m unittest            # 227 tests : domaine, cas d'usage (doublures en mémoire), adaptateurs, CLI, API, serveur MCP, hôtes
+npm test                       # front : domaine, veille, adaptateur HTTP, parité du dictionnaire (43 tests)
 npm run typecheck              # TypeScript strict
 ```

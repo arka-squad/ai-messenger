@@ -11,7 +11,8 @@ chaque étape et les règles de la section 7.
 
 ## Ce que l'humain doit t'avoir donné
 
-- **le chemin de la boîte** : un fichier `.json` dans un dossier partagé ;
+- **le chemin de la boîte** : un dossier partagé (il contient l'arbo
+  `.aimessenger/`), ou le `boite.json` lui-même si la boîte est à plat ;
 - **le projet du dépôt** où tu travailles (`cortex`, `talos`…), si la boîte sert
   à plusieurs projets ;
 - **ton nom d'agent**, s'il en a un en tête — sinon tu le choisis à l'étape 3.
@@ -124,8 +125,13 @@ chaque commande (`--agent <nom>`) ou par la variable `MESSENGER_AGENT`.
 travailles, depuis sa racine :
 
 ```bash
-python3 <messenger>/messenger.py setup --project <projet>
+python3 <messenger>/messenger.py activate --project <projet>
 ```
+
+`activate` fait deux choses : il déclare le projet du dépôt **et** équipe les
+outils d'IA du poste. Si tu ne veux que la première, `setup --project <projet>`
+suffit.
+
 
 Cela écrit un `.messenger.json` à la racine du dépôt : ajoute-le au dépôt (git),
 il vaut pour toutes les machines. Toute commande lancée depuis ce dépôt, ou l'un

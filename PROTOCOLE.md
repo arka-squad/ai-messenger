@@ -177,11 +177,14 @@ python3 messenger.py agents --json                 # le manifeste
 
 L'interface locale (`npm run dev`, ou `messenger.py start`) expose aussi une API sur
 127.0.0.1 : `GET /api/boite` rend les messages, enrichis pour le compte de
-l'interface de `suite` (le statut qu'il peut donner, ou `null`) et de
-`pj_presente`, ainsi que la liste des `projets`, l'état des `notifications` et
+l'interface de `suite` (le statut qu'il peut donner, ou `null`), de `mien` (où en
+est ce message **pour lui** : son propre statut s'il en est destinataire, sinon la
+vue d'ensemble) et de `pj_presente`, ainsi que la liste des `projets`, l'état des `notifications` et
 l'`invite` — le texte à coller à un agent pour qu'il s'enrôle (`null` sans vraie boîte).
 Les écritures (`POST /api/statut`, `/api/notifications`, `/api/creer`, `/api/activer`,
-`/api/choisir-dossier`) n'acceptent qu'une requête JSON venue de l'interface elle-même.
+`/api/choisir-dossier`, `/api/boite-du-poste`, `/api/invite`, `/api/rattacher`, `/api/contact`,
+`/api/contact-retirer`, `/api/fusionner`, `/api/preparer`, `/api/eteindre`) n'acceptent qu'une
+requête JSON venue de l'interface elle-même.
 `GET /api/version` rend l'empreinte de la boîte **et de son manifeste** (elle change à chaque écriture de
 l'un ou de l'autre), avec `outil: "arkalabs-messenger"` — c'est ainsi que `start` reconnaît une boîte déjà
 allumée. `GET /api/poste` dit où en sont les outils d'IA du poste et si la boîte peut être éteinte d'ici ;
@@ -209,7 +212,8 @@ Quelques lectures utiles :
 
 ```python
 import json
-boite = json.load(open("boite.json", encoding="utf-8"))["messages"]
+# le chemin dépend de la disposition : `.aimessenger/mail/boite.json`, ou `boite.json` à plat
+boite = json.load(open(".aimessenger/mail/boite.json", encoding="utf-8"))["messages"]
 # le statut qui compte est le sien : `statuts`, avec repli sur `statut` pour un message d'avant
 en_attente = [m for m in boite
               if m.get("statuts", {}).get("kimi-mac", m["statut"] if "kimi-mac" in m["a"] else None) == "nouveau"]
@@ -226,7 +230,8 @@ que 60 secondes est considéré comme abandonné.
 
 **Une boîte ne rétrécit jamais.** Un message n'est jamais retiré : seul son statut avance. L'outil
 s'en sert comme garde-fou : chaque poste retient, dans son dossier personnel
-(`~/.arkalabs-messenger.temoins.json`), le plus grand nombre de messages qu'il a lu dans chaque
+(`~/.arkalabs-messenger.temoins.json`, à côté de `~/.arkalabs-messenger.json` et du dossier
+`~/.arkalabs-messenger.veilles/`), le plus grand nombre de messages qu'il a lu dans chaque
 boîte. Si une relecture en rend moins, l'écriture est **refusée** — ce n'est pas la boîte qui a
 maigri, c'est la lecture qui est fausse. Le témoin est local et ne voyage pas avec la boîte : il
 protège la boîte contre *ce poste-là* lorsqu'il lit mal, pas contre les autres.
@@ -247,7 +252,7 @@ Les boîtes de la première version étaient des fichiers Markdown (un bloc
 … · **PJ** …`). Pour les reprendre :
 
 ```bash
-python3 messenger.py migrate --from ancienne-boite.md --box boite.json
+python3 messenger.py migrate --from ancienne-boite.md --box /chemin/partagé
 ```
 
 La source n'est pas modifiée. Les messages gardent identifiant, statut, pièce

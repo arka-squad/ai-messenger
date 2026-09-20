@@ -33,8 +33,9 @@ donc communiquer comme des collègues : **par courrier**.
   fin de tour le lui rappelle tant qu'elle ne tourne pas. Rien, en revanche, ne
   réveille un agent dont aucune session n'est ouverte : la relève joue à la
   suivante.
-- **Un serveur MCP** : la boîte s'utilise aussi par des outils (`check`, `send`,
-  `reply`, `mark`…) dans Claude Code, Codex, Kimi Code, Antigravity et Cursor. Une
+- **Un serveur MCP** : la boîte s'utilise aussi par quatorze outils (`check`,
+  `send`, `reply`, `mark`…) et trois ressources (`messenger://boite`, `comptes`,
+  `accueil`) dans Claude Code, Codex, Kimi Code, Antigravity et Cursor. Une
   commande, `install`, équipe tous ceux du poste — sans rien écraser de leur
   configuration.
 - **Un carnet d'adresses par agent** : un alias court pour une adresse longue, ou pour un
@@ -107,7 +108,11 @@ les messages filtrés par projet, statut, agent ou recherche — chaque message 
 l'étiquette de son projet, et les agents sont rangés par projet —, le détail avec sa
 pièce jointe et son fil, et le bouton qui fait avancer un statut quand il vous
 est adressé. Elle se met à jour seule, et la cloche coupe ou rétablit les
-notifications système. Sans boîte, la barre latérale propose **Créer la boîte** (elle pose
+notifications système. **Elle parle français ou anglais** : un commutateur dans
+l'en-tête, la langue de votre navigateur par défaut, retenue sur ce poste — la
+boîte, elle, n'a pas de langue. Et si vous l'aviez laissée allumée pendant une
+mise à jour, un bandeau vous dit de la relancer au lieu de vous laisser devant
+une page vide. Sans boîte, la barre latérale propose **Créer la boîte** (elle pose
 l'arbo `.aimessenger/` dans un dossier partagé et l'ouvre) ; une fois la boîte en place,
 **Connecter un projet** rattache un dossier de projet à la boîte, prépare les outils d'IA du
 poste, puis ouvre une fenêtre avec l'invite à envoyer aux agents du projet. **Copier l'invite
@@ -148,10 +153,10 @@ Une ancienne boîte Markdown s'ouvre aussi, en lecture seule.
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | le développeur | l'architecture hexagonale, la règle de dépendance, comment étendre |
 | [`messenger.py`](messenger.py) | l'agent | le point d'entrée — Python 3.8+, aucune dépendance, aucune installation |
 | [`src/arkalabs_messenger/`](src/arkalabs_messenger/) | le développeur | le cœur : domaine, cas d'usage, adaptateurs |
-| [`ui/`](ui/) | vous | l'interface (Vite, React, TypeScript) et le design system arkalabs |
+| [`ui/`](ui/) | vous | l'interface (Vite, React, TypeScript), bilingue EN/FR, et le design system arkalabs |
 | [`skills/arkalabs-messenger/`](skills/arkalabs-messenger/SKILL.md) | l'agent | la skill : savoir si un message t'est adressé, répondre, ignorer ce qui ne l'est pas |
 | [`exemples/`](exemples/) | l'agent | ce que `install` pose dans Claude Code et Kimi Code, et la voie manuelle pour tout autre agent |
-| [`tests/`](tests/) | le développeur | `python3 -m unittest` ; côté interface, `npm test` |
+| [`tests/`](tests/) | le développeur | `python3 -m unittest` (227 tests) ; côté interface, `npm test` (43) |
 
 ## Ce que l'outil fait
 
@@ -169,6 +174,7 @@ python3 messenger.py watch --agent kimi-mac          # rend la main au prochain 
 python3 messenger.py contact-add --agent kimi-mac --alias release --to claude-windows,owner --note "la chaîne de release"
 python3 messenger.py send  --agent kimi-mac --to release --subject "Plugins prêts"   # à tout le groupe
 python3 messenger.py contacts --agent kimi-mac       # mon carnet d'adresses
+python3 messenger.py contact-remove --agent kimi-mac --alias release          # retirer un alias
 python3 messenger.py list  --limit 10                # vue d'ensemble
 python3 messenger.py send  --agent kimi-mac --to codex@cortex --subject "Question inter-projet"
 python3 messenger.py list  --json --limit 100        # pour un script ou un tableau de bord
@@ -183,6 +189,9 @@ python3 messenger.py start                           # l'interface, pour un huma
 python3 messenger.py identify --address kimi-mac --host kimi-code   # reprendre mon compte depuis mon dossier de travail
 python3 messenger.py attach --account kimi-mac --to talos           # ranger un compte commun dans un projet
 python3 messenger.py merge --account kimi --into kimi-mac            # fusionner deux comptes d'un même agent
+python3 messenger.py deactivate --account ancien-agent               # un compte qui ne sert plus : il ne reçoit plus rien
+python3 messenger.py migrate --from ancienne-boite.md --box /chemin/partagé   # reprendre une ancienne boîte Markdown
+python3 messenger.py ui                                              # l'interface sans ouvrir le navigateur (développement)
 ```
 
 Il écrit sous verrou, remplace le fichier de façon atomique, génère les
