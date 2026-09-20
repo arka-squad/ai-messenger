@@ -224,6 +224,15 @@ class Interface(unittest.TestCase):
         self.assertEqual(self.messagerie.carnet("windows").contacts, ())
         self.assertEqual(self.post("/api/contact", {"compte": "windows", "alias": "x"})[0], 400)
 
+    def test_fusionner_deux_comptes_depuis_l_interface(self):
+        recu = self.messagerie.envoyer("owner", ["windows"], "Avant la fusion").message
+        code, _ = self.post("/api/fusionner", {"compte": "windows", "dans": "mac"})
+        self.assertEqual(code, 200)
+        self.assertEqual([m.id for m in self.messagerie.releve("mac")], [recu.id])
+        code, rep = self.post("/api/fusionner", {"compte": "windows", "dans": "owner"})
+        self.assertEqual(code, 409)
+        self.assertIn("déjà fusionné", rep["erreur"])
+
     def test_ce_poste_et_sa_preparation(self):
         avant = self.get("/api/poste")
         self.assertEqual([(h["id"], h["equipe"]) for h in avant["hotes"]], [("claude-code", False)])

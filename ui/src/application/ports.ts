@@ -20,6 +20,8 @@ export interface PortBoite {
   inviter(invitation: Invitation): Promise<string>;
   /** Range un compte commun dans un projet, ou l'en sort (`null`). */
   rattacher(compte: string, projet: string | null): Promise<void>;
+  /** Fusionne deux comptes d'un même agent : `compte` est fermé, son courrier et son adresse mènent à `dans`. */
+  fusionner(compte: string, dans: string): Promise<void>;
   /** Note un contact dans le carnet d'un agent, ou le remplace. */
   noterContact(compte: string, alias: string, adresses: string[], note: string, remplacer: boolean): Promise<void>;
   retirerContact(compte: string, alias: string): Promise<void>;

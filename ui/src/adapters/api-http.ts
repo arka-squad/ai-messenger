@@ -78,6 +78,10 @@ export class ApiHttp implements PortBoite {
     await this.#poster('/api/rattacher', { compte, projet });
   }
 
+  async fusionner(compte: string, dans: string): Promise<void> {
+    await this.#poster('/api/fusionner', { compte, dans });
+  }
+
   async noterContact(compte: string, alias: string, adresses: string[], note: string, remplacer: boolean): Promise<void> {
     await this.#poster('/api/contact', { compte, alias, adresses, note, remplacer });
   }

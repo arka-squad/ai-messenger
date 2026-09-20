@@ -52,10 +52,12 @@ def etat(messagerie: Messagerie, compte: str, demonstration: bool = False,
     """Tout ce que l'interface affiche, et ce que `compte` a le droit de faire."""
     version = messagerie.version()
     boite = messagerie.instantane()
+    idents = messagerie.identites(compte)  # le compte de l'interface, plus ceux fusionnés dedans
     messages = []
     for m in boite.messages:
         d = message_vers_dict(m)
-        d["suite"] = None if messagerie.lecture_seule else m.suite_pour(compte)
+        d["suite"] = None if messagerie.lecture_seule else next(
+            (m.suite_pour(i) for i in idents if m.suite_pour(i)), None)
         d["pj_presente"] = bool(m.pj) and messagerie.piece_jointe(m.pj) is not None
         messages.append(d)
     if messagerie.annuaire_present():
@@ -281,7 +283,7 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
             chemin = urllib.parse.urlsplit(self.path).path
             if chemin not in ("/api/statut", "/api/notifications", "/api/activer", "/api/creer",
                               "/api/choisir-dossier", "/api/preparer", "/api/eteindre", "/api/invite",
-                              "/api/rattacher", "/api/contact", "/api/contact-retirer"):
+                              "/api/rattacher", "/api/contact", "/api/contact-retirer", "/api/fusionner"):
                 return self._erreur(404, "introuvable")
             if not self.headers.get("Content-Type", "").startswith("application/json"):
                 return self._erreur(415, "JSON attendu")
@@ -298,7 +300,8 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                     return self._creer(demande)
                 if chemin == "/api/choisir-dossier":
                     return self._choisir_dossier()
-                if chemin in ("/api/invite", "/api/rattacher", "/api/contact", "/api/contact-retirer"):
+                if chemin in ("/api/invite", "/api/rattacher", "/api/contact", "/api/contact-retirer",
+                              "/api/fusionner"):
                     return self._organiser(chemin, demande)
                 if chemin == "/api/preparer":
                     return self._preparer()
@@ -328,7 +331,9 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                 if chemin == "/api/invite":
                     return self._json(200, {"invite": self._inviter(messagerie, demande)})
                 adresse = str(demande["compte"])
-                if chemin == "/api/rattacher":
+                if chemin == "/api/fusionner":
+                    messagerie.fusionner(adresse, str(demande["dans"]))
+                elif chemin == "/api/rattacher":
                     messagerie.rattacher(adresse, str(demande["projet"]) if demande.get("projet") else None)
                 elif chemin == "/api/contact":
                     adresses = demande["adresses"]

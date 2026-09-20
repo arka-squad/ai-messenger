@@ -14,7 +14,8 @@ from ..domain import Annuaire, Boite, Compte, Contact, Message, ProjetDeclare, T
 FORMAT = 1
 
 _CHAMPS_MESSAGE = ("id", "date", "de", "a", "objet", "corps", "pj", "re", "statut", "historique", "importe")
-_CHAMPS_COMPTE = ("nom", "hote", "modele", "machine", "role", "affichage", "humain", "releve", "cree", "actif")
+_CHAMPS_COMPTE = ("nom", "hote", "modele", "machine", "role", "affichage", "humain", "releve", "cree", "actif",
+                  "fusionne_dans")
 _CHAMPS_CONTACT = ("alias", "adresses", "note", "cree")
 _CHAMPS_PROJET = ("nom", "cree")
 
@@ -132,6 +133,7 @@ def compte_depuis_dict(d: Any) -> Compte:
         affichage=d.get("affichage"),
         cree=d.get("cree"),
         actif=bool(d.get("actif", True)),
+        fusionne_dans=_texte_ou_nul(d, "fusionne_dans"),
         contacts=tuple(contact_depuis_dict(x) for x in _liste(d, "contacts")),
         # un rattachement n'a de sens que pour une adresse sans projet ; ailleurs, l'adresse fait foi
         rattachement=(_texte_ou_nul(d, "projet") if "@" not in str(d.get("nom", "")) else None),

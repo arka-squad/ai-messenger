@@ -168,11 +168,15 @@ class Message:
             return None
         return STATUTS[STATUTS.index(self.statut) + 1]
 
-    def avancer(self, par: str, statut: str, date: str) -> "Message":
-        """Fait avancer le statut. Seul un destinataire le peut, et jamais en arrière."""
+    def avancer(self, par: str, statut: str, date: str, aussi: Iterable[str] = ()) -> "Message":
+        """Fait avancer le statut. Seul un destinataire le peut, et jamais en arrière.
+
+        `aussi` : les adresses que `par` représente (des comptes fusionnés dans le sien) —
+        l'historique enregistre `par`, celui qui agit vraiment.
+        """
         if statut not in STATUTS[1:]:
             raise TransitionRefusee(f"statut inconnu « {statut} » : lu ou traité")
-        if not self.est_pour(par):
+        if not self.est_pour(par) and not any(self.est_pour(a) for a in aussi):
             raise TransitionRefusee(
                 f"{par} n'est pas destinataire de {self.id} : seul un destinataire fait avancer le statut")
         actuel = STATUTS.index(self.statut) if self.statut in STATUTS else -1
@@ -253,10 +257,10 @@ class Boite:
         self.controler(message.re, message.id)
         self.messages.append(message)
 
-    def marquer(self, mid: str, par: str, statut: str, date: str) -> Message:
+    def marquer(self, mid: str, par: str, statut: str, date: str, aussi: Iterable[str] = ()) -> Message:
         for i, m in enumerate(self.messages):
             if m.id == mid:
-                self.messages[i] = m.avancer(par, statut, date)
+                self.messages[i] = m.avancer(par, statut, date, aussi)
                 return self.messages[i]
         raise MessageIntrouvable(f"message introuvable : {mid}")
 
@@ -333,6 +337,9 @@ class Compte:
     """Son carnet d'adresses."""
     rattachement: Optional[str] = None
     """Le projet auquel on a rattaché ce compte **commun** : son adresse n'en porte pas, et ne change pas."""
+    fusionne_dans: Optional[str] = None
+    """L'adresse du compte qui a absorbé celui-ci : même agent, deux comptes. Désactivé, il ne reçoit
+    plus rien en propre — son courrier en attente et ce qui s'écrit encore à son adresse vont là-bas."""
     autres: Dict[str, Any] = field(default_factory=dict, compare=False, hash=False)
 
     @property
@@ -385,6 +392,8 @@ class Annuaire:
         compte = self.compte(nom)
         if compte is None:
             raise CompteInconnu(f"compte introuvable : {nom}")
+        if compte.fusionne_dans:
+            raise MessageInvalide(f"« {nom} » a été fusionné dans {self.cible_de(nom)} : c'est ce compte-là qu'on range")
         if projet_de(nom):
             raise MessageInvalide(f"« {nom} » porte déjà son projet dans son adresse : il ne se range pas ailleurs")
         if projet:
@@ -407,14 +416,56 @@ class Annuaire:
         `nom@projet` est pris tel quel. Un nom court désigne d'abord le compte du
         même projet, puis le compte commun du même nom (`owner`). S'il n'existe ni
         l'un ni l'autre, il est rattaché au projet : la vérification dira qu'il manque.
+        Un compte fusionné mène au compte qui l'a absorbé.
         """
         valider_adresse(nom)
         if "@" in nom or not projet:
-            return nom
+            return self.cible_de(nom)
         local = qualifier(nom, projet)
         if self.compte(local) is None and self.compte(nom) is not None:
-            return nom
-        return local
+            return self.cible_de(nom)
+        return self.cible_de(local)
+
+    def cible_de(self, nom: str) -> str:
+        """Là où mène `nom` : lui-même, ou le compte qui l'a absorbé (les fusions se suivent en chaîne)."""
+        vus = set()
+        while True:
+            compte = self.compte(nom)
+            if compte is None or not compte.fusionne_dans or nom in vus:
+                return nom
+            vus.add(nom)
+            nom = compte.fusionne_dans
+
+    def identites(self, nom: str) -> List[str]:
+        """`nom` et les adresses des comptes fusionnés dedans : ce que cet agent relève et peut marquer."""
+        return [nom, *(c.nom for c in self.comptes if c.fusionne_dans and self.cible_de(c.nom) == nom)]
+
+    def fusionner(self, source: str, cible: str, date: Optional[str] = None) -> Compte:
+        """Fusionne `source` dans `cible` : même agent, deux comptes — le geste de l'humain qui range sa boîte.
+
+        `source` est désactivé et marqué ; son courrier en attente, et tout ce qui s'écrira encore à son
+        adresse, vont à `cible`. Son carnet rejoint celui de `cible` (sans écraser un alias existant).
+        Les messages déjà envoyés ne changent pas : l'historique reste vrai. Rend le compte marqué.
+        """
+        de, vers = self.compte(source), self.compte(cible)
+        if de is None or vers is None:
+            manque = source if de is None else cible
+            raise CompteInconnu(f"compte introuvable : {manque} — comptes actifs : {', '.join(self.actifs())}")
+        if source == cible:
+            raise MessageInvalide("un compte ne se fusionne pas dans lui-même")
+        if de.fusionne_dans:
+            raise CompteExistant(f"« {source} » est déjà fusionné dans {self.cible_de(source)}")
+        if vers.fusionne_dans or not vers.actif:
+            raise MessageInvalide(f"« {cible} » ne peut rien absorber : ce compte est "
+                                  + ("fusionné dans " + self.cible_de(cible) if vers.fusionne_dans else "désactivé"))
+        place = max(0, CONTACTS_MAX - len(vers.contacts))
+        repris = [c for c in de.contacts if vers.contact(c.alias) is None][:place]
+        if repris:
+            carnet = tuple(sorted((*vers.contacts, *repris), key=lambda c: c.alias))
+            self._remplacer(vers, replace(vers, contacts=carnet))
+        marque = replace(de, actif=False, fusionne_dans=cible)
+        self._remplacer(de, marque)
+        return marque
 
     def nom_libre(self, adresse: str, projet: Optional[str], machine: Optional[str]) -> Tuple[str, Optional[Compte]]:
         """Le premier nom disponible pour un agent de `machine`, à partir d'`adresse`.
@@ -427,13 +478,13 @@ class Annuaire:
             candidat = adresse if n == 1 else f"{adresse[:29]}-{n}"
             nom = qualifier(candidat, projet)
             existant = self.compte(nom)
-            if existant is not None and (existant.machine or "") == (machine or ""):
+            if existant is not None and existant.fusionne_dans is None and (existant.machine or "") == (machine or ""):
                 return nom, existant
             if existant is None:
                 # Le même agent, enrôlé avant que son dépôt ait un projet : on le retrouve sous son adresse
                 # commune plutôt que de lui créer un second compte, qui laisserait son courrier orphelin.
                 commun = self.compte(candidat) if projet else None
-                if commun is not None and (commun.machine or "") == (machine or ""):
+                if commun is not None and commun.fusionne_dans is None and (commun.machine or "") == (machine or ""):
                     return candidat, commun
                 return nom, None
             n += 1
@@ -444,6 +495,9 @@ class Annuaire:
         if existant is None:
             self.comptes.append(compte)
             return True
+        if existant.fusionne_dans:
+            raise CompteExistant(f"« {existant.nom} » a été fusionné dans {self.cible_de(existant.nom)} : "
+                                 "utilise ce compte-là")
         if not mise_a_jour:
             raise CompteExistant(
                 f"le compte « {existant.nom} » existe déjà ({existant.hote}, {existant.machine}, "

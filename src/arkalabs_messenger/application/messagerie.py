@@ -120,6 +120,18 @@ class Messagerie:
         vus.update(p for p in (projet_de(x) for x in self._boite.lire().participants()) if p)
         return sorted(vus)
 
+    def identites(self, compte: str) -> List[str]:
+        """L'adresse de `compte` et celles des comptes fusionnés dedans : ce qu'il relève et peut marquer."""
+        if not self._annuaire.existe():
+            return [compte]
+        return self._annuaire.lire().identites(compte)
+
+    def fusionner(self, source: str, cible: str) -> Compte:
+        """Fusionne deux comptes d'un même agent (geste de l'humain qui range sa boîte) : `source` est
+        désactivé, son courrier en attente passe à `cible`, et son adresse y mène désormais."""
+        with self._annuaire.transaction() as annuaire:
+            return annuaire.fusionner(valider_adresse(source), valider_adresse(cible), self._horodatage())
+
     def rattacher(self, compte: str, projet: Optional[str]) -> Compte:
         """Range un compte commun dans un projet, ou l'en sort (`None`). Le geste de l'humain qui organise
         sa boîte : l'adresse du compte ne change pas, son courrier et son carnet non plus."""
@@ -175,6 +187,9 @@ class Messagerie:
         """
         with self._annuaire.transaction() as annuaire:
             compte = annuaire.compte(valider_adresse(adresse))
+            if compte is not None and compte.fusionne_dans:
+                cible = annuaire.cible_de(adresse)
+                raise CompteExistant(f"« {adresse} » a été fusionné dans {cible} : reprends « {cible} »")
             if compte is None or not compte.actif:
                 raise CompteInconnu(f"pas de compte actif « {adresse} » : crée le tien avec `enroll`")
             if compte.machine and (compte.machine or "") != (machine or ""):
@@ -188,12 +203,14 @@ class Messagerie:
             return compte
 
     def en_attente_sur_ce_poste(self, hote: str, machine: Optional[str]) -> List[Tuple[Compte, int]]:
-        """Les comptes créés par `hote` sur ce poste qui ont du courrier « nouveau », et combien."""
+        """Les comptes créés par `hote` sur ce poste qui ont du courrier « nouveau » (fusions comprises), et combien."""
         boite = self._boite.lire()
+        annuaire = self._annuaire.lire()
         trouves = []
-        for c in self._annuaire.lire().comptes:
+        for c in annuaire.comptes:
             if c.actif and c.hote == hote and c.machine and c.machine == machine:
-                n = len(boite.nouveaux_pour(c.nom))
+                idents = annuaire.identites(c.nom)
+                n = sum(1 for m in boite.messages if m.statut == "nouveau" and any(m.est_pour(i) for i in idents))
                 if n:
                     trouves.append((c, n))
         return trouves
@@ -245,19 +262,22 @@ class Messagerie:
         return Envoi(message, verifiees, tuple(developpes.items()))
 
     def releve(self, compte: str) -> List[Message]:
-        """Les messages au statut « nouveau » adressés à `compte`."""
-        return self._boite.lire().nouveaux_pour(valider_adresse(compte))
+        """Les messages au statut « nouveau » adressés à `compte` — comptes fusionnés dans le sien compris."""
+        idents = self.identites(valider_adresse(compte))
+        return [m for m in self._boite.lire().messages if m.statut == "nouveau" and any(m.est_pour(i) for i in idents)]
 
     def marquer(self, compte: str, mid: str, statut: str) -> Message:
+        idents = self.identites(valider_adresse(compte))
         with self._boite.transaction() as boite:
-            return boite.marquer(mid, valider_adresse(compte), statut, self._horodatage())
+            return boite.marquer(mid, compte, statut, self._horodatage(), aussi=idents)
 
     def lister(self, compte: Optional[str] = None, statut: Optional[str] = None,
                limite: Optional[int] = None, projet: Optional[str] = None) -> List[Message]:
         """Du plus récent au plus ancien, filtré par compte (émis ou reçu), statut et projet."""
         du_projet = self._dans_le_projet(projet) if projet else None
+        idents = self.identites(compte) if compte else None
         messages = [m for m in self._boite.lire().recents()
-                    if (compte is None or m.concerne(compte)) and (statut is None or m.statut == statut)
+                    if (idents is None or any(m.concerne(i) for i in idents)) and (statut is None or m.statut == statut)
                     and (du_projet is None or any(du_projet(x) for x in (m.de, *m.a)))]
         return messages if limite is None else messages[:limite]
 

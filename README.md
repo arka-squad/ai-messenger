@@ -111,7 +111,8 @@ met dans le presse-papiers un texte à coller dans le chat de n'importe quel age
 projet, équipe la machine si ce n'est pas fait, et crée son compte tout seul. Un clic sur un
 agent ouvre **sa fiche** : le ranger dans un projet (son adresse ne change pas), tenir son
 carnet d'adresses, copier *son* invite s'il ne relève pas son courrier — la fiche dit depuis
-quand il attend. L'encart **Ce poste** dit si vos outils d'IA sont prêts, et les prépare d'un
+quand il attend —, ou le **fusionner** avec son doublon (même agent, deux
+comptes : le courrier en attente et l'adresse suivent, l'historique ne change pas). L'encart **Ce poste** dit si vos outils d'IA sont prêts, et les prépare d'un
 bouton. Aucun geste technique côté humain.
 
 ```bash
@@ -176,6 +177,7 @@ python3 messenger.py shortcut                        # l'icône « Messenger » 
 python3 messenger.py start                           # l'interface, pour un humain (ce que lance l'icône)
 python3 messenger.py identify --address kimi-mac --host kimi-code   # reprendre mon compte depuis mon dossier de travail
 python3 messenger.py attach --account kimi-mac --to talos           # ranger un compte commun dans un projet
+python3 messenger.py merge --account kimi --into kimi-mac            # fusionner deux comptes d'un même agent
 ```
 
 Il écrit sous verrou, remplace le fichier de façon atomique, génère les

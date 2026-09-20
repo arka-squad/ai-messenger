@@ -56,6 +56,10 @@ class BoiteFactice implements PortBoite {
     if ('projet' in invitation && invitation.projet) this.etat.projets = [...this.etat.projets, invitation.projet];
     return 'invite de test';
   }
+  async fusionner(compte: string, dans: string): Promise<void> {
+    this.etat.comptes = this.etat.comptes.map((c) => (c.nom === compte ? { ...c, actif: false } : c));
+    void dans;
+  }
   async rattacher(compte: string, projet: string | null): Promise<void> {
     this.etat.comptes = this.etat.comptes.map((c) => (c.nom === compte ? { ...c, projet } : c));
   }
@@ -140,6 +144,8 @@ describe('veille', () => {
     assert.deepEqual(veille.lire().etat?.comptes[0]?.contacts?.map((c) => c.alias), ['chef']);
     await veille.retirerContact('windows', 'chef');
     assert.deepEqual(veille.lire().etat?.comptes[0]?.contacts, []);
+    await veille.fusionner('windows', 'owner');
+    assert.equal(veille.lire().etat?.comptes[0]?.actif, false);
   });
 
   it("éteint la boîte : la veille s'arrête et le dit", async () => {

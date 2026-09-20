@@ -451,3 +451,4 @@ select.ajout__champ { appearance: auto; cursor: pointer; }
 .eteinte { display: flex; flex-direction: column; gap: 10px; max-width: 440px; padding: 32px; text-align: center; }
 .eteinte__titre { font-size: 20px; font-weight: 700; color: var(--tx1); }
 .eteinte__texte { font-size: 13.5px; line-height: 1.65; color: var(--tx3); }
+.fiche__eyebrow-espace { margin-top: 8px; }

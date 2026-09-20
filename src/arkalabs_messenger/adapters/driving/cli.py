@@ -128,6 +128,17 @@ def _attach(args: argparse.Namespace, usine: Usine) -> int:
     return 0
 
 
+def _merge(args: argparse.Namespace, usine: Usine) -> int:
+    """Fusionner deux comptes d'un même agent : le geste de l'humain qui range sa boîte."""
+    messagerie = usine.ouvrir(_boite(args))
+    marque = messagerie.fusionner(args.account, args.into)
+    herites = messagerie.releve(args.into)
+    print(f"{marque.nom} → fusionné dans {args.into}")
+    print(f"  son courrier en attente arrive à {args.into} ({len(herites)} message(s) « nouveau » à relever) ;")
+    print(f"  écrire à {marque.nom} mène désormais à {args.into} ; les messages déjà envoyés ne changent pas.")
+    return 0
+
+
 def _activate(args: argparse.Namespace, usine: Usine) -> int:
     """Connecter ce dépôt à la boîte : boîte du poste, projet du dépôt, hôtes IA du poste équipés."""
     if args.box is not None:
@@ -689,6 +700,11 @@ def _parseur() -> argparse.ArgumentParser:
                  agent=False, projet=False)
     x.add_argument("--account", required=True, help="l'adresse du compte (sans @projet)")
     x.add_argument("--to", default="", help="le projet ; vide pour le sortir de tout projet")
+
+    x = commande("merge", "fusionne deux comptes d'un même agent : courrier en attente et adresse suivent",
+                 _merge, agent=False, projet=False)
+    x.add_argument("--account", required=True, help="l'adresse absorbée (l'ancien compte, en entier)")
+    x.add_argument("--into", required=True, help="l'adresse qui absorbe (le compte gardé, en entier)")
 
     x = commande("agents", "liste les comptes", _agents, agent=False)
     x.add_argument("--all", action="store_true", help="inclure les comptes désactivés")

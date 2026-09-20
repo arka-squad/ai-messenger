@@ -1,5 +1,5 @@
 /** La fiche d'un agent : qui il est, son projet, son carnet d'adresses — et de quoi l'organiser. */
-import { BookUser, Check, Copy, LoaderCircle, Plus, Trash2, X } from 'lucide-react';
+import { BookUser, Check, Copy, LoaderCircle, Merge, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { type Agent, anciennete, projetDe, projetPropose } from '../domain/boite.ts';
 import type { Invitation } from '../domain/types.ts';
@@ -17,6 +17,8 @@ interface Props {
   onNoterContact: (compte: string, alias: string, adresses: string[], note: string) => Promise<void>;
   onRetirerContact: (compte: string, alias: string) => Promise<void>;
   onInviter: (invitation: Invitation) => Promise<string>;
+  /** Fusionne cet agent dans un autre compte : le sien est fermé, son courrier suit. */
+  onFusionner: (compte: string, dans: string) => Promise<void>;
   onFermer: () => void;
 }
 
@@ -24,7 +26,7 @@ interface Props {
 const NOUVEAU = 'nouveau projet';
 
 export function FicheAgent({ agent: a, agents, projets, modifiable, onRattacher, onNoterContact, onRetirerContact,
-  onInviter, onFermer }: Props) {
+  onInviter, onFusionner, onFermer }: Props) {
   const [erreur, setErreur] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
 
@@ -73,6 +75,10 @@ export function FicheAgent({ agent: a, agents, projets, modifiable, onRattacher,
           <ChoixProjet agent={a} projets={projets} modifiable={modifiable && !occupe}
             onChoix={(projet) => agir(() => onRattacher(a.nom, projet))} />
           <InviteAgent compte={a.nom} modifiable={modifiable} onInviter={onInviter} />
+          {modifiable && (
+            <FusionCompte agent={a} agents={agents} occupe={occupe}
+              onFusionner={(dans) => agir(() => onFusionner(a.nom, dans))} />
+          )}
         </div>
         <div className="fiche__bloc fiche__bloc--large">
           <span className="eyebrow"><BookUser className="ic" size={11} /> Carnet d’adresses</span>
@@ -142,6 +148,43 @@ function ChoixProjet({ agent: a, projets, modifiable, onChoix }: {
         </div>
       )}
       <span className="fiche__aide">Son adresse ne change pas : son courrier et son carnet restent valables.</span>
+    </>
+  );
+}
+
+/** Deux comptes pour le même agent ? On les fusionne : celui-ci se ferme, son courrier en attente passe
+ *  à l'autre, et ce qui s'écrit encore à son adresse y arrive. Les messages déjà envoyés ne changent pas. */
+function FusionCompte({ agent: a, agents, occupe, onFusionner }: {
+  agent: Agent;
+  agents: readonly Agent[];
+  occupe: boolean;
+  onFusionner: (dans: string) => Promise<void>;
+}) {
+  const [dans, setDans] = useState('');
+  const autres = agents.filter((x) => x.nom !== a.nom);
+  if (autres.length === 0) return null;
+  return (
+    <>
+      <span className="eyebrow fiche__eyebrow-espace">Deux comptes, un agent ?</span>
+      <select
+        className="ajout__champ" aria-label="Fusionner ce compte dans" value={dans}
+        onChange={(e) => setDans(e.target.value)}
+      >
+        <option value="">Fusionner ce compte dans…</option>
+        {autres.map((x) => <option key={x.nom} value={x.nom}>{x.affichage ?? x.nom}</option>)}
+      </select>
+      {dans && (
+        <>
+          <button type="button" className="ajout__valider" disabled={occupe} onClick={() => void onFusionner(dans)}>
+            {occupe ? <LoaderCircle className="ic spin" size={13} /> : <Merge className="ic" size={13} />}
+            <span>Fusionner</span>
+          </button>
+          <span className="fiche__aide">
+            « {a.affichage ?? a.nom} » sera fermé : son courrier en attente passe à <b>{dans}</b>, et ce qui
+            s’écrit encore à son adresse y arrive. Les messages déjà envoyés ne changent pas.
+          </span>
+        </>
+      )}
     </>
   );
 }

@@ -133,6 +133,12 @@ export class Veille {
     await this.recharger();
   }
 
+  /** Fusionne deux comptes d'un même agent, puis recharge : l'ancien disparaît de la liste. */
+  async fusionner(compte: string, dans: string): Promise<void> {
+    await this.#boite.fusionner(compte, dans);
+    await this.recharger();
+  }
+
   async noterContact(compte: string, alias: string, adresses: string[], note: string, remplacer = false): Promise<void> {
     await this.#boite.noterContact(compte, alias, adresses, note, remplacer);
     await this.recharger();

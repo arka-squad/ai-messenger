@@ -176,6 +176,10 @@ export function App({ veille, preferences }: Props) {
               onNoterContact={(c, alias, adresses, note) => veille.noterContact(c, alias, adresses, note)}
               onRetirerContact={(c, alias) => veille.retirerContact(c, alias)}
               onInviter={inviter}
+              onFusionner={async (c, dans) => {
+                await veille.fusionner(c, dans);
+                setFiltre({ ...filtre, agent: dans });  // la fiche passe au compte gardé
+              }}
               onFermer={() => setFiltre({ ...filtre, agent: null })}
             />
           )}

@@ -138,6 +138,7 @@ sans changer `version`. Un changement incompatible incrémentera `version`.
 | `machine`, `modele`, `humain`, `releve` | facultatifs, informatifs |
 | `cree` | date de création, conservée lors des mises à jour |
 | `actif` | `false` après `deactivate` ; un compte n'est jamais supprimé |
+| `fusionne_dans` | facultatif ; l'adresse du compte qui a **absorbé** celui-ci (`merge`, ou la fiche de l'agent dans l'interface). Le compte est désactivé ; sa relève, son courrier « nouveau » et tout envoi vers son adresse vont au compte nommé (les fusions se suivent en chaîne). Les messages déjà envoyés ne changent pas : l'historique reste vrai |
 | `projet` | facultatif, seulement pour une adresse **sans** `@projet` : le projet où l'humain a rangé ce compte commun (`attach`, ou la fiche de l'agent dans l'interface). L'adresse ne change pas ; le compte compte dès lors parmi ceux du projet (groupes, filtres, résolution des noms courts) |
 | `contacts` | facultatif ; le **carnet d'adresses** du compte, que lui seul modifie (`contact-add`, `contact-remove`). Un `alias` (même forme qu'un nom) désigne une ou plusieurs `adresses` complètes, 20 au plus ; `note` tient en une ligne de 200 caractères ; 200 contacts au plus |
 
@@ -180,7 +181,8 @@ allumée. `GET /api/poste` dit où en sont les outils d'IA du poste et si la bo�
 `POST /api/preparer` les équipe, `POST /api/eteindre` arrête une boîte allumée par `start`. Pour organiser :
 `POST /api/invite` (`{"projet": "<nom>"|null}` — le projet est créé au besoin — ou `{"compte": "<adresse>"}`)
 rend le texte à coller à un agent ; `POST /api/rattacher` (`{"compte", "projet"|null}`), `POST /api/contact`
-(`{"compte", "alias", "adresses", "note"?, "remplacer"?}`) et `POST /api/contact-retirer` (`{"compte", "alias"}`).
+(`{"compte", "alias", "adresses", "note"?, "remplacer"?}`), `POST /api/contact-retirer` (`{"compte", "alias"}`)
+et `POST /api/fusionner` (`{"compte", "dans"}` — fusionne deux comptes d'un même agent).
 `POST /api/activer` rend le dépôt connecté et, pour chaque hôte IA du poste, où il en est
 (`hotes` : `id`, `nom`, `present`, `equipe`, `mcp`, `releve`, `skill`, `note`).
 
