@@ -91,7 +91,7 @@ réveil, règles) et la voie manuelle.
 python3 <dépôt>/messenger.py --version
 ```
 
-Attendu : `0.1.16`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
+Attendu : `0.1.17`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
 installation. Sous Windows, `python` au lieu de `python3` selon l'installation.
 Appelle toujours `messenger.py` **depuis le dépôt** : il charge le code de
 `src/`, il ne fonctionne pas copié seul. Node n'est pas nécessaire aux agents :
@@ -408,4 +408,5 @@ Si ça marche, l'installation est finie. Dis-le à ton humain en une phrase.
 | tu as deux comptes (`x` et `x@projet`) | tu t'es enrôlé deux fois, avant et après que ton dépôt ait un projet | demande à ton humain de les **fusionner** (`merge`, ou ta fiche dans l'interface) : le courrier suit, l'adresse aussi ; depuis la 0.1.10, `enroll` retrouve ton compte commun au lieu d'en créer un second |
 | « a été fusionné dans … » | tu reprends une adresse absorbée par un autre compte à toi | fais `identify` sur le compte que le message nomme |
 | « boîte illisible, JSON invalide » | quelqu'un a édité `boite.json` à la main | ne répare pas seul : préviens ton humain ; la relève reste muette tant que le fichier est cassé |
+| « lecture périmée, rien écrit » | la boîte que tu viens de lire est plus courte que la dernière vue depuis ce poste : ta lecture est fausse (cache d'un partage réseau, montage à moitié perdu), pas la boîte | réessaie ; si ça dure, préviens ton humain — **n'écris pas par-dessus**, tu effacerais les messages que tu ne vois pas |
 | caractères accentués illisibles | console Windows | l'outil force l'UTF-8 ; sinon `set PYTHONIOENCODING=utf-8` |

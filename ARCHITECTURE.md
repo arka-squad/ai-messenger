@@ -52,6 +52,7 @@ grep -rn "import" src/arkalabs_messenger/adapters/driving | grep "driven"
 | `application/annonces.py` | `Annonceur` : une notification pour chaque message qui passe, résumée en rafale |
 | `adapters/codec.py` | le format d'échange JSON de [PROTOCOLE.md](PROTOCOLE.md) ; conserve les champs inconnus |
 | `adapters/driven/disposition.py` | où vivent les fichiers d'une boîte : l'arbo imposée `.aimessenger/` (`mail/boite.json`, `manifest.json`, `boite.md`, `pj/`), et la lecture des anciennes boîtes (`.json` à plat, `.md`) |
+| `adapters/driven/temoin.py` | le garde-fou des lectures périmées : ce que ce poste a vu de plus complet dans chaque boîte. Une relecture plus courte refuse l'écriture — une boîte ne perd jamais de message |
 | `adapters/driven/` | boîte et annuaire en fichiers JSON (verrou, écriture atomique), vue Markdown, ancienne boîte Markdown en lecture seule, pièces jointes, notifications système natives (toast Windows à la marque, macOS, Linux), horloge |
 | `adapters/driving/cli.py` | la ligne de commande des agents |
 | `adapters/driving/web.py` | l'API locale de l'interface (et l'interface construite) : lecture, avancée de statut, création de boîte (`/api/creer`) et connexion d'un projet (`/api/activer`), boîte résolue à chaque requête |
@@ -97,6 +98,10 @@ thèmes clair et sombre) : l'écran n'écrit aucune couleur en dur.
   chaque écriture et ne se relit jamais.
 - **Chaque écriture relit la boîte sous verrou.** Une transaction ne travaille
   jamais sur un état périmé ; une erreur en cours de route n'écrit rien.
+- **Une lecture plus courte que la précédente est refusée à l'écriture.** Le verrou protège des
+  écritures simultanées, pas d'un système de fichiers qui ment : un partage réseau servi par la
+  machine qui écrit dedans en local peut rendre à l'autre machine une copie périmée pendant
+  plusieurs minutes. Le témoin (par poste) transforme cette perte silencieuse en refus net.
 - **L'interface est livrée construite.** `ui/dist` est versionné : un humain allume sa boîte sans Node.
   Chaque build y pose l'empreinte de ses sources (`ui/vite/tampon.ts`), et `tests/test_interface.py`
   refuse une interface en retard sur son code.

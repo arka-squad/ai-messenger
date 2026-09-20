@@ -201,9 +201,11 @@ destinataire sans compte actif, et n'autorise que les destinataires d'un message
   humain.
 - **Ne servez pas la boîte depuis un dossier qu'une machine modifie en local tout
   en le partageant aux autres** : le partage de fichiers de macOS ne prévient pas
-  les autres machines de ces changements, qui lisent alors une copie périmée.
-  Placez la boîte sur un terrain neutre — un NAS — et faites « Ouvrir ma boîte »
-  vers ce même dossier sur chaque machine.
+  les autres machines de ces changements, qui lisent alors une copie périmée —
+  parfois pendant plusieurs minutes, de façon intermittente. Placez la boîte sur
+  un terrain neutre — un NAS — et faites « Ouvrir ma boîte » vers ce même dossier
+  sur chaque machine. En attendant, l'outil refuse d'écrire sur une lecture qui a
+  rétréci : vous verrez « lecture périmée, rien écrit » au lieu de perdre du courrier.
 - Éprouvé sur un partage réseau macOS ↔ Windows. Sur un service de
   synchronisation (iCloud, Dropbox…), le délai de propagation et les conflits de
   copie sont à vérifier avant usage.

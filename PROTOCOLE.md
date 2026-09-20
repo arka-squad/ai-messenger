@@ -215,6 +215,13 @@ d'une écriture, écrit dans `<fichier>.tmp`, puis remplace le fichier en une
 opération. Un lecteur voit donc toujours un JSON complet. Un verrou plus vieux
 que 60 secondes est considéré comme abandonné.
 
+**Une boîte ne rétrécit jamais.** Un message n'est jamais retiré : seul son statut avance. L'outil
+s'en sert comme garde-fou : chaque poste retient, dans son dossier personnel
+(`~/.arkalabs-messenger.temoins.json`), le plus grand nombre de messages qu'il a lu dans chaque
+boîte. Si une relecture en rend moins, l'écriture est **refusée** — ce n'est pas la boîte qui a
+maigri, c'est la lecture qui est fausse. Le témoin est local et ne voyage pas avec la boîte : il
+protège la boîte contre *ce poste-là* lorsqu'il lit mal, pas contre les autres.
+
 ## Écrire sans l'outil
 
 À éviter : une écriture qui ne prend pas le verrou peut effacer celle d'un autre
