@@ -89,6 +89,8 @@ class ClaudeCode(Poste):
         self.assertEqual(reglages["permissions"], {"deny": ["Bash(rm *)"]})
         self.assertEqual(reglages["hooks"]["PreToolUse"][0]["hooks"][0]["command"], "garde")
         self.assertIn("--event SessionStart", reglages["hooks"]["SessionStart"][0]["hooks"][0]["command"])
+        # le rattrapage de fin de tour : du courrier arrivé pendant le travail est vu avant de s'endormir
+        self.assertIn("--event Stop", reglages["hooks"]["Stop"][0]["hooks"][0]["command"])
 
         avant = (self.lire(".claude.json"), self.lire(".claude/settings.json"))
         hotes.equiper(self.hote, self.ctx)
@@ -217,6 +219,11 @@ timeout = 5
         super().setUp()
         self.installer(".kimi-code")
         self.hote = hotes.hote("kimi-code")
+
+    def test_pas_de_hook_de_fin_de_tour_hors_claude_code(self):
+        """Kimi Code n'a pas d'événement `Stop` documenté : on ne pose que ce que l'hôte sait faire."""
+        self.assertEqual(hotes.evenements(hotes.hote("kimi-code")), ("SessionStart", "UserPromptSubmit"))
+        self.assertEqual(hotes.evenements(hotes.hote("claude-code")), ("SessionStart", "UserPromptSubmit", "Stop"))
 
     def test_pose_deux_regles_de_quatre_champs_au_plus(self):
         self.ecrire(".kimi-code/config.toml", self.CONFIG)

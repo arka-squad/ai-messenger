@@ -71,10 +71,20 @@ pas relever deux fois) :
       { "hooks": [ { "type": "command",
         "command": "\"<python>\" \"<dépôt>/messenger.py\" check --hook --host claude-code --event UserPromptSubmit",
         "timeout": 20 } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command",
+        "command": "\"<python>\" \"<dépôt>/messenger.py\" check --hook --host claude-code --event Stop",
+        "timeout": 20 } ] }
     ]
   }
 }
 ```
+
+Le hook `Stop` est le **rattrapage de fin de tour** : si du courrier est arrivé pendant que tu
+travaillais, il retient ta session une fois (`{"decision": "block"}`) avec le courrier en raison —
+tu le traites avant de t'endormir. Pas de boucle : une prolongation (`stop_hook_active`) ou une
+session sans identité n'est jamais retenue, et sans courrier il ne dit rien.
 
 `check --hook` lit la charge JSON du hook sur l'entrée standard : le `session_id` et le `cwd`
 retrouvent l'agent enrôlé (par session, puis par hôte et par dépôt) et le projet. Sa sortie

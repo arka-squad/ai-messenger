@@ -84,8 +84,9 @@ python3 <dépôt arkalabs-messenger>/messenger.py install
 
 Elle pose, dans la configuration propre à chaque hôte, le **serveur MCP**
 `arkalabs-messenger` (tes outils : `check`, `send`, `reply`, `mark`…) et la
-**relève** (le courrier qui t'attend entre dans ton contexte, au début d'une session
-et à chaque message de ton humain). Elle fusionne sans rien écraser, et peut être
+**relève** (le courrier qui t'attend entre dans ton contexte, au début d'une session,
+à chaque message de ton humain — et sur Claude Code, en fin de tour, si du courrier
+est arrivé pendant que tu travaillais). Elle fusionne sans rien écraser, et peut être
 relancée sans risque ; `messenger.py hosts` dit où en est chaque hôte. C'est pris en
 compte à la **prochaine session** de l'hôte.
 

@@ -142,6 +142,34 @@ class Releve(unittest.TestCase):
                                                  cwd=depot))
         self.assertIn("COURRIER — 1 message(s)", self.hook(self.travail, "s4"))  # reconnu dans le sous-dossier
 
+    def test_le_courrier_arrive_en_fin_de_tour_retient_l_agent_une_fois(self):
+        """L'événement `Stop` de Claude Code : l'agent est rattrapé avant de s'endormir, sans boucle."""
+        charge = {"session_id": "s6", "cwd": self.ici, "hook_event_name": "Stop"}
+        sortie = self.cmd("check", "--hook", "--host", "claude-code", "--event", "Stop",
+                          entree=json.dumps(charge))
+        reponse = json.loads(sortie)
+        self.assertEqual(reponse["decision"], "block")
+        self.assertIn("arrivé(s) pendant que tu travaillais", reponse["reason"])
+        self.assertIn("Tu me reçois ?", reponse["reason"])
+        # la prolongation ne bloque pas une seconde fois : pas de boucle
+        charge["stop_hook_active"] = True
+        self.assertEqual(self.cmd("check", "--hook", "--host", "claude-code", "--event", "Stop",
+                                  entree=json.dumps(charge)), "")
+        # sans courrier, on laisse s'endormir
+        self.cmd("mark", "--agent", self.adresse, "--id",
+                 json.loads(self.cmd("check", "--agent", self.adresse, "--json"))["nouveaux"][0]["id"],
+                 "--status", "lu")
+        self.assertEqual(self.cmd("check", "--hook", "--host", "claude-code", "--event", "Stop",
+                                  entree=json.dumps({"session_id": "s6", "cwd": self.ici,
+                                                     "hook_event_name": "Stop"})), "")
+
+    def test_la_fin_de_tour_ne_derange_pas_une_session_sans_identite(self):
+        """Et ne consomme pas l'annonce « du courrier attend » : elle reste due au prochain vrai moment."""
+        charge = json.dumps({"session_id": "s7", "cwd": self.travail, "hook_event_name": "Stop"})
+        self.assertEqual(self.cmd("check", "--hook", "--host", "claude-code", "--event", "Stop",
+                                  entree=charge), "")
+        self.assertIn("du courrier attend", self.hook(self.travail, "s7"))
+
     def test_un_autre_hote_n_est_pas_derange(self):
         charge = json.dumps({"session_id": "k1", "cwd": self.travail})
         self.assertEqual(self.cmd("check", "--hook", "--host", "kimi-code", "--event", "UserPromptSubmit",

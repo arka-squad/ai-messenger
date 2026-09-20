@@ -42,7 +42,17 @@ ILLISIBLE = "illisible"
 SANS_OBJET = "sans objet"
 
 EVENEMENTS: Tuple[str, ...] = ("SessionStart", "UserPromptSubmit")
-"""Les deux moments de la relève : au début d'une session, et à chaque message de l'humain."""
+"""Les deux moments de la relève, chez tous les hôtes à hooks : au début d'une session,
+et à chaque message de l'humain."""
+
+ARRET = "Stop"
+"""Le troisième moment, là où l'hôte le permet : quand l'agent finit son tour. Si du courrier est
+arrivé pendant qu'il travaillait, il est rattrapé avant de s'endormir au lieu d'attendre le
+prochain message de l'humain."""
+
+
+def evenements(h: "Hote") -> Tuple[str, ...]:
+    return EVENEMENTS + ((ARRET,) if h.arret else ())
 
 _DELAI_HOOK = 20
 
@@ -69,6 +79,8 @@ class Hote:
     """L'entrée doit-elle dire `"type": "stdio"` ?"""
     releve: Optional[str] = None
     """Son mécanisme de hooks : `json` (Claude Code, Codex), `toml` (Kimi Code), ou None."""
+    arret: bool = False
+    """L'hôte a-t-il un événement de fin de tour (`Stop`) capable de relancer l'agent ?"""
     hooks: Optional[str] = None
     """Le fichier de ses hooks, relatif à son dossier."""
     skills: Optional[str] = None
@@ -79,7 +91,7 @@ class Hote:
 
 HOTES: Tuple[Hote, ...] = (
     Hote("claude-code", "Claude Code", ".claude", "CLAUDE_CONFIG_DIR", mcp="../.claude.json", format_mcp="json",
-         type_stdio=True, releve="json", hooks="settings.json", skills="skills"),
+         type_stdio=True, releve="json", hooks="settings.json", skills="skills", arret=True),
     Hote("codex", "Codex", ".codex", "CODEX_HOME", mcp="config.toml", format_mcp="toml",
          releve="json", hooks="hooks.json"),
     Hote("kimi-code", "Kimi Code", ".kimi-code", "KIMI_CODE_HOME", mcp="mcp.json", format_mcp="json",
@@ -309,16 +321,16 @@ def _retirer_mcp(h: Hote, ctx: Contexte) -> None:
 def _etat_releve(h: Hote, ctx: Contexte) -> str:
     if not h.releve:
         return SANS_OBJET
-    attendues = [ctx.commande_releve(h, e) for e in EVENEMENTS]
+    attendues = [ctx.commande_releve(h, e) for e in evenements(h)]
     try:
         trouvees = _releve_lire(h, ctx)
     except _Illisible:
         return ILLISIBLE
     if not trouvees:
         return ABSENT
-    if len(trouvees) == len(EVENEMENTS) and all(
+    if len(trouvees) == len(evenements(h)) and all(
             any(e == evenement and _meme_releve(commande, attendue) for e, commande in trouvees)
-            for evenement, attendue in zip(EVENEMENTS, attendues)):
+            for evenement, attendue in zip(evenements(h), attendues)):
         return VERIFIE
     for _, commande in trouvees:
         if _autre_installation(_messenger_dans(commande), ctx.messenger):
@@ -348,7 +360,7 @@ def _poser_releve(h: Hote, ctx: Contexte) -> None:
     assert chemin is not None
     if h.releve == "toml":
         texte = _toml_blocs_hooks(_lire_texte(chemin))[1]
-        for evenement in EVENEMENTS:
+        for evenement in evenements(h):
             # Kimi Code n'admet que quatre champs par règle : event, matcher, command, timeout.
             texte = _joindre(texte, ["[[hooks]]", f"event = {_toml(evenement)}",
                                      f"command = {_toml(ctx.commande_releve(h, evenement))}",
@@ -357,7 +369,7 @@ def _poser_releve(h: Hote, ctx: Contexte) -> None:
         return
     data = _json_sans_releve(_lire_json(chemin))
     hooks = data.setdefault("hooks", {})
-    for evenement in EVENEMENTS:
+    for evenement in evenements(h):
         crochet: Dict[str, Any] = {"type": "command", "command": ctx.commande_releve(h, evenement),
                                    "timeout": _DELAI_HOOK}
         if evenement == "SessionStart":

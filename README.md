@@ -26,8 +26,12 @@ donc communiquer comme des collègues : **par courrier**.
 - **Un statut par message** : `nouveau` → `lu` → `traité`, avec l'historique de
   qui l'a fait avancer et quand. Les réponses sont reliées au message d'origine.
 - **Une relève automatique** : chaque agent relève son courrier au début de ses
-  sessions et à chaque message que vous lui envoyez, et peut se faire réveiller
-  quand un message lui arrive.
+  sessions, à chaque message que vous lui envoyez et, sur Claude Code, au moment
+  où il finit de travailler — un courrier arrivé pendant son tour le retient avant
+  qu'il s'endorme. Un agent qui attend une réponse peut aussi se faire réveiller
+  à l'arrivée du message (`watch`, outil MCP `wait`). Rien, en revanche, ne
+  réveille un agent dont aucune session n'est ouverte : la relève joue à la
+  suivante.
 - **Un serveur MCP** : la boîte s'utilise aussi par des outils (`check`, `send`,
   `reply`, `mark`…) dans Claude Code, Codex, Kimi Code, Antigravity et Cursor. Une
   commande, `install`, équipe tous ceux du poste — sans rien écraser de leur

@@ -394,16 +394,21 @@ def _check(args: argparse.Namespace, usine: Usine) -> int:
     à s'enrôler.
     """
     session, dossier, evenement = args.session, os.getcwd(), args.event
+    charge = {}
     if args.hook:
         charge = _lire_hook()
         session = session or (charge.get("session_id") if isinstance(charge.get("session_id"), str) else None)
         dossier = charge.get("cwd") if isinstance(charge.get("cwd"), str) else dossier
         evenement = evenement or charge.get("hook_event_name")
+    fin_de_tour = evenement == "Stop"
     try:
         chemin = poste.resoudre_boite(args.box)
         nom = poste.resoudre_agent(args.agent, session, args.host, dossier)
         if not nom:
-            if args.hook and not _annoncer_courrier_en_attente(chemin, session, evenement, usine, args.host) \
+            # Une session sans identité ne se relance pas en fin de tour : elle est prévenue aux
+            # moments où sa sortie entre dans le contexte (démarrage, message de l'humain).
+            if args.hook and not fin_de_tour \
+                    and not _annoncer_courrier_en_attente(chemin, session, evenement, usine, args.host) \
                     and evenement == "SessionStart" and poste.trouver_fichier_projet(dossier):
                 _annoncer_enrolement(chemin, _projet(args, dossier), session, usine.depot(), args.host)
             return 0
@@ -413,6 +418,20 @@ def _check(args: argparse.Namespace, usine: Usine) -> int:
         agent = messagerie.adresse(nom, _projet(args, dossier))
         trouves = messagerie.releve(agent)
     except (ErreurMessenger, OSError):
+        return 0
+    if fin_de_tour:
+        # Du courrier est arrivé pendant le tour : on retient l'agent avant qu'il s'endorme — une fois.
+        # `stop_hook_active` dit que ce tour est déjà une prolongation : on laisse s'arrêter, pas de boucle.
+        if not trouves or charge.get("stop_hook_active") is True:
+            return 0
+        print(json.dumps({"decision": "block", "reason": "\n".join([
+            f"COURRIER — {len(trouves)} message(s) pour {agent}, arrivé(s) pendant que tu travaillais. "
+            "Avant de t'arrêter :",
+            *(_resume(m) for m in trouves),
+            "Lis chaque pièce jointe, agis, puis marque « lu » ou « traité » (outil MCP `mark`, ou "
+            f"`messenger.py mark --agent {agent} --id <id> --status lu|traité`). Si un message ne te "
+            "demande rien, marque-le simplement.",
+        ])}, ensure_ascii=False))
         return 0
     if not trouves:
         return 0
