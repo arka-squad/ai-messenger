@@ -81,7 +81,7 @@ def identite_memorisee(hote: Optional[str], dossier: Optional[str]) -> Optional[
     un agent enrôlé à la racine de son dépôt est reconnu dans ses sous-dossiers."""
     if not hote or not dossier:
         return None
-    courant = os.path.abspath(dossier)
+    courant = os.path.realpath(dossier)
     while True:
         agent = _memo("identites", _cle_identite(hote, courant))
         if agent:
@@ -122,7 +122,9 @@ def code_du_poste() -> str:
 
 
 def _cle_identite(hote: Optional[str], dossier: Optional[str]) -> str:
-    return f"{hote}|{os.path.normcase(os.path.abspath(dossier or '.'))}"
+    # Le chemin réel : sous macOS, `/var/…` et `/private/var/…` sont le même dossier, et l'hôte n'annonce
+    # pas forcément celui que `os.getcwd()` a rendu à l'enrôlement.
+    return f"{hote}|{os.path.normcase(os.path.realpath(dossier or '.'))}"
 
 
 def _memo(table: str, cle: str) -> Optional[str]:
