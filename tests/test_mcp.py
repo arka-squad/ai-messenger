@@ -227,6 +227,40 @@ class ParLEntreeStandard(unittest.TestCase):
                              f"CD_Agent-Éclaireur_{poste.code_du_poste().upper()}")
             self.assertEqual(reponses[None]["error"]["code"], -32700)
 
+    def test_un_hote_qui_part_en_pleine_reponse_n_est_pas_une_panne(self):
+        with tempfile.TemporaryDirectory() as dossier:
+            env = dict(os.environ, HOME=dossier, USERPROFILE=dossier, PYTHONIOENCODING="utf-8")
+            for cle in ("MESSENGER_BOX", "MESSENGER_AGENT", "MESSENGER_PROJECT"):
+                env.pop(cle, None)
+            p = subprocess.Popen([sys.executable, MESSENGER, "mcp", "--host", "codex"], stdin=subprocess.PIPE,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=dossier)
+            p.stdout.close()  # l'hôte a disparu : plus personne ne lit
+            for i in range(1, 4):
+                p.stdin.write(json.dumps({"jsonrpc": "2.0", "id": i, "method": "tools/call",
+                                          "params": {"name": "whoami", "arguments": {}}}).encode("utf-8") + b"\n")
+            p.stdin.close()
+            self.assertEqual(p.wait(timeout=60), 0)
+            erreurs = p.stderr.read().decode("utf-8", "replace")
+            p.stderr.close()
+            self.assertEqual(erreurs, "")  # ni trace, ni exception ignorée à la sortie de l'interpréteur
+
+
+class SortieFermee(Serveur):
+    def test_le_serveur_s_arrete_sans_lever(self):
+        class Cassee:
+            def write(self, _):
+                raise OSError(22, "Invalid argument")
+
+            def flush(self):
+                pass
+
+        import io
+        serveur = self.nouveau()
+        entree = io.BytesIO(b'{"jsonrpc":"2.0","id":1,"method":"ping"}\n{"jsonrpc":"2.0","id":2,"method":"ping"}\n')
+        self.assertEqual(serveur.servir(entree, Cassee()), 0)
+        self.assertTrue(serveur.sortie_fermee)
+        self.assertNotEqual(entree.read(), b"")  # il n'a pas insisté : la seconde requête n'est pas lue
+
 
 if __name__ == "__main__":
     unittest.main()

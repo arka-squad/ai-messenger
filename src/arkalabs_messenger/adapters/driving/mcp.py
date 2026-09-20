@@ -75,6 +75,7 @@ class ServeurMcp:
         self._verrou = threading.Lock()
         self._ecriture = threading.Lock()
         self._annulations: Dict[Any, threading.Event] = {}
+        self._sortie_fermee = threading.Event()
         self._outils = self._declarer_outils()
 
     # ------------------------------------------------------------------ #
@@ -84,11 +85,18 @@ class ServeurMcp:
         """Lit un message JSON par ligne jusqu'à la fin de l'entrée. Les outils tournent à part,
         pour qu'une annulation soit lue pendant qu'un outil attend."""
         def repondre(reponse: Any) -> None:
-            if reponse is None:
+            if reponse is None or self._sortie_fermee.is_set():
                 return
             with self._ecriture:
-                sortie.write(json.dumps(reponse, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n")
-                sortie.flush()
+                try:
+                    sortie.write(json.dumps(reponse, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+                                 + b"\n")
+                    sortie.flush()
+                except (OSError, ValueError):
+                    # L'hôte est parti sans fermer l'entrée : plus personne à qui répondre. On s'arrête
+                    # proprement — ce qui écrit dans la boîte finit, les attentes sont réveillées.
+                    self._sortie_fermee.set()
+                    self._reveiller()
 
         en_cours = []
         for ligne in iter(entree.readline, b""):
@@ -105,12 +113,22 @@ class ServeurMcp:
                 en_cours = [f for f in en_cours if f.is_alive()] + [fil]
             else:
                 repondre(self.traiter(message))
+            if self._sortie_fermee.is_set():
+                break
         # L'hôte a fermé l'entrée : on réveille les attentes, et on laisse finir ce qui écrit dans la boîte.
-        for annulation in list(self._annulations.values()):
-            annulation.set()
+        self._reveiller()
         for fil in en_cours:
             fil.join(timeout=_FIN_MAX)
         return 0
+
+    def _reveiller(self) -> None:
+        for annulation in list(self._annulations.values()):
+            annulation.set()
+
+    @property
+    def sortie_fermee(self) -> bool:
+        """L'hôte a-t-il fermé la sortie avant la fin ?"""
+        return self._sortie_fermee.is_set()
 
     def traiter(self, message: Any) -> Any:
         """Traite un message (ou un lot) ; rend la réponse, ou None pour une notification."""
@@ -456,4 +474,11 @@ def servir(usine: Usine, boite: Optional[str], agent: Optional[str], projet: Opt
            hote: Optional[str]) -> int:
     """Sert sur l'entrée et la sortie standard, en binaire : ni fin de ligne traduite, ni encodage deviné."""
     serveur = ServeurMcp(usine, boite, poste.resoudre_agent(agent), projet, hote)
-    return serveur.servir(sys.stdin.buffer, sys.stdout.buffer)
+    code = serveur.servir(sys.stdin.buffer, sys.stdout.buffer)
+    if serveur.sortie_fermee:
+        # La sortie standard est cassée : on la détourne, sinon l'interpréteur échoue en la vidant à sa sortie.
+        try:
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        except (OSError, ValueError):
+            pass
+    return code
