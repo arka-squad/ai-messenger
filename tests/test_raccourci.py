@@ -50,8 +50,9 @@ class Bureau(unittest.TestCase):
             script = f.read()
         self.assertTrue(script.startswith("#!/bin/sh\n"))
         # l'interpréteur en entier (le Finder n'a pas de PATH), les apostrophes du chemin protégées, un journal
-        self.assertIn("exec '/usr/local/bin/python3' '/Users/moi/l'\\''outil/messenger.py' start --log "
-                      "\"$HOME/.arkalabs-messenger.log\"", script)
+        self.assertIn("nohup '/usr/local/bin/python3' '/Users/moi/l'\\''outil/messenger.py' start --log "
+                      "\"$HOME/.arkalabs-messenger.log\" >/dev/null 2>&1 &", script)
+        self.assertNotIn("exec ", script)  # l'app rend la main : un second double-clic relance bien le script
         if os.name == "posix":
             self.assertTrue(os.access(lanceur, os.X_OK))
 

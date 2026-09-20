@@ -8,4 +8,4 @@ Architecture hexagonale (voir ARCHITECTURE.md) :
     bootstrap.py   l'assemblage des adaptateurs autour des cas d'usage
 """
 
-__version__ = "0.1.11"
+__version__ = "0.1.12"

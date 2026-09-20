@@ -129,8 +129,10 @@ def _poser_macos(cible: str, python: str, messenger: str) -> None:
     lanceur = os.path.join(contenu, "MacOS", NOM)
     with open(lanceur, "w", encoding="utf-8", newline="\n") as f:
         # Lancée par le Finder, une app n'a presque pas de PATH : l'interpréteur est donné en entier.
+        # La boîte part en arrière-plan et l'app rend la main aussitôt : macOS ne relance pas une app déjà
+        # ouverte, et un second double-clic — qui doit rouvrir la fenêtre de la boîte — ne ferait rien.
         f.write("#!/bin/sh\n"
-                f"exec {_sh(python)} {_sh(messenger)} start --log \"$HOME/{JOURNAL}\"\n")
+                f"nohup {_sh(python)} {_sh(messenger)} start --log \"$HOME/{JOURNAL}\" >/dev/null 2>&1 &\n")
     os.chmod(lanceur, os.stat(lanceur).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
