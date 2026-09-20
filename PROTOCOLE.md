@@ -154,6 +154,17 @@ l'interface de `suite` (le statut qu'il peut donner, ou `null`) et de
 l'`invite` — le texte à coller à un agent pour qu'il s'enrôle (`null` sans vraie boîte).
 Les écritures (`POST /api/statut`, `/api/notifications`, `/api/creer`, `/api/activer`,
 `/api/choisir-dossier`) n'acceptent qu'une requête JSON venue de l'interface elle-même.
+`POST /api/activer` rend le dépôt connecté et, pour chaque hôte IA du poste, où il en est
+(`hotes` : `id`, `nom`, `present`, `equipe`, `mcp`, `releve`, `skill`, `note`).
+
+Enfin, `messenger.py mcp` expose la boîte à un hôte IA par le **Model Context Protocol**
+(JSON-RPC 2.0 sur l'entrée et la sortie standard, un message par ligne ; versions
+`2025-06-18`, `2025-03-26`, `2024-11-05`) : les outils `whoami`, `enroll`, `identify`,
+`check`, `list`, `read`, `send`, `reply`, `mark`, `agents`, `wait`, et les ressources
+`messenger://boite`, `messenger://comptes`, `messenger://accueil`. Un refus du domaine
+(destinataire inconnu, statut qui recule…) revient comme un résultat d'outil `isError`,
+avec le même message que la ligne de commande ; une requête mal formée, comme une erreur
+JSON-RPC. Les règles sont celles de ce document : le serveur n'en ajoute ni n'en lève aucune.
 
 Quelques lectures utiles :
 

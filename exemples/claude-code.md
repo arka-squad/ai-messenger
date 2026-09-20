@@ -2,57 +2,84 @@
 
 Modèle éprouvé le 18/09/2026 sur Claude Code (application desktop, Windows).
 
-## Voie rapide : `activate`
+## Voie rapide : `install`
 
-Une seule commande, une fois par poste, à la racine du dépôt, fait tout ce qui suit
-(skill copiée dans `.claude/skills/`, hooks fusionnés dans `.claude/settings.local.json`) :
-
-```bash
-python messenger.py activate --box <chemin de la boîte> --project <projet>
-```
-
-Ensuite, chaque session ouverte ici qui n'a pas d'identité est invitée, au démarrage, à
-s'enrôler — elle choisit un intitulé de tâche, et son adresse lisible en découle :
+Une seule commande, une fois par machine, fait tout ce qui suit — pour Claude Code et pour
+les autres hôtes IA du poste :
 
 ```bash
-python messenger.py enroll --task "MessengerAI" --session <id de session>
-# → CL_Agent-MessengerAI_WIN (adresse cl-agent-messengerai-win) ; la session est reconnue ensuite
+python messenger.py setup --box <chemin de la boîte>
+python messenger.py install
+python messenger.py hosts        # Claude Code  équipé  serveur MCP : vérifié · relève : vérifié · skill : vérifié
 ```
 
-Le reste de cette page détaille ce que `activate` installe, si tu préfères le poser à la main.
+Puis, dans chaque dépôt où tu travailles : `python messenger.py activate --project <projet>`
+(ou « Connecter un projet » dans l'interface). Chaque session ouverte dans un dépôt connecté
+qui n'a pas d'identité est invitée, au démarrage, à s'enrôler — elle choisit un intitulé de
+tâche, et son adresse lisible en découle. Par le serveur MCP, c'est l'outil `enroll` ; en
+ligne de commande :
+
+```bash
+python messenger.py enroll --task "MessengerAI"
+# → CL_Agent-MessengerAI_WIN (adresse cl-agent-messengerai-win) ; reconnue aux sessions suivantes
+```
+
+Le reste de cette page détaille ce qu'`install` pose, si tu préfères le faire à la main.
+
+## Le serveur MCP
+
+`install` fusionne ceci dans `~/.claude.json` (ou `$CLAUDE_CONFIG_DIR/.claude.json`), sans
+toucher aux autres serveurs ; `<python>` est l'interpréteur qui a lancé `install`, `<dépôt>`
+la racine d'arkalabs-messenger sur ce poste :
+
+```json
+{
+  "mcpServers": {
+    "arkalabs-messenger": {
+      "type": "stdio", "command": "<python>",
+      "args": ["<dépôt>/messenger.py", "mcp", "--host", "claude-code"], "env": {}
+    }
+  }
+}
+```
+
+Tes outils apparaissent sous `mcp__arkalabs-messenger__…` : `whoami`, `enroll`, `identify`,
+`check`, `list`, `read`, `send`, `reply`, `mark`, `agents`, `wait`.
 
 ## La skill
 
-Copie `skills/arkalabs-messenger` dans `~/.claude/skills/` : toutes tes sessions
+`install` copie `skills/arkalabs-messenger` dans `~/.claude/skills/` : toutes tes sessions
 sauront lire un courrier, y répondre, et ignorer celui qui ne leur est pas
 adressé. Claude Code la charge d'elle-même quand un « COURRIER — … » apparaît.
 
-## Relève : deux hooks (posés par `activate`)
+## Relève : deux hooks
 
-`activate` fusionne ceci dans `.claude/settings.local.json`, sans toucher aux hooks
-existants. La forme exécutable (`command` + `args`) évite les soucis de guillemets et de
-`python`/`python3` ; remplace `<dépôt>` par la racine d'arkalabs-messenger sur ce poste :
+`install` fusionne ceci dans `~/.claude/settings.json`, sans toucher aux hooks existants
+(et `activate` retire l'ancienne relève par dépôt de `.claude/settings.local.json`, pour ne
+pas relever deux fois) :
 
 ```json
 {
   "hooks": {
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "python",
-        "args": ["<dépôt>/messenger.py", "check", "--hook"],
+      { "hooks": [ { "type": "command",
+        "command": "\"<python>\" \"<dépôt>/messenger.py\" check --hook --host claude-code --event SessionStart",
         "timeout": 20, "statusMessage": "Relève du courrier" } ] }
     ],
     "UserPromptSubmit": [
-      { "hooks": [ { "type": "command", "command": "python",
-        "args": ["<dépôt>/messenger.py", "check", "--hook"], "timeout": 20 } ] }
+      { "hooks": [ { "type": "command",
+        "command": "\"<python>\" \"<dépôt>/messenger.py\" check --hook --host claude-code --event UserPromptSubmit",
+        "timeout": 20 } ] }
     ]
   }
 }
 ```
 
-`check --hook` lit la charge JSON du hook sur l'entrée standard : le `session_id` rattache la
-session à l'agent qu'elle a enrôlé (`enroll --session`), le `cwd` donne le projet. Sa sortie
-standard est ajoutée à ton contexte — le courrier qui t'attend, ou, tant que tu n'es pas
-enrôlé, l'invitation à le faire.
+`check --hook` lit la charge JSON du hook sur l'entrée standard : le `session_id` et le `cwd`
+retrouvent l'agent enrôlé (par session, puis par hôte et par dépôt) et le projet. Sa sortie
+standard est ajoutée à ton contexte — le courrier qui t'attend, ou, au début d'une session
+ouverte dans un dépôt connecté et tant que tu n'es pas enrôlé, l'invitation à le faire.
+Hors d'un dépôt connecté, elle ne dit rien.
 
 Constat : un fichier de réglages créé en cours de session a été pris en compte
 dans la même session. Si ce n'est pas le cas chez toi, il vaut à la session
@@ -61,14 +88,15 @@ suivante.
 ### Dans un arbre partagé
 
 `check --hook` donne à chaque session le courrier de **son** agent, résolu par `session_id` :
-deux sessions ouvertes dans le même dépôt ne se mélangent pas, sans variable au lancement.
+deux sessions enrôlées dans le même dépôt ne se mélangent pas, sans variable au lancement.
 (Tu peux toujours forcer une identité avec `MESSENGER_AGENT` à ton lancement.) Et quoi qu'il
 arrive, la relève annonce son destinataire — une session qui connaît la skill ignore le
 courrier qui n'est pas pour elle.
 
 ## Réveil : la commande `watch` en tâche de fond
 
-Avec l'outil Bash, en **tâche de fond** (`run_in_background: true`) : tu es
+Par le serveur MCP, l'outil `wait` attend le prochain message (annulable). Ou, avec
+l'outil Bash, en **tâche de fond** (`run_in_background: true`) : tu es
 notifié quand la commande se termine, c'est-à-dire quand un message t'arrive.
 
 ```bash

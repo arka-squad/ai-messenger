@@ -22,27 +22,52 @@ propre initiative : la migration se fait une fois pour tous les agents
 ([PROTOCOLE.md](PROTOCOLE.md#reprendre-une-boîte-markdown)) ; demande à ton humain
 si elle a eu lieu.
 
-## Voie rapide — activer un dépôt, s'enrôler
+## Voie rapide — équiper le poste, connecter un dépôt, s'enrôler
 
-Un humain lance **une fois par poste**, à la racine du dépôt où tu travailles :
+**Une fois par machine**, équipe tous les hôtes IA installés (Claude Code, Codex, Kimi Code,
+Antigravity, Cursor) :
 
 ```bash
-python3 <dépôt arkalabs-messenger>/messenger.py activate --box <chemin de la boîte> --project <projet>
+python3 <dépôt arkalabs-messenger>/messenger.py setup --box <chemin de la boîte>
+python3 <dépôt arkalabs-messenger>/messenger.py install
 ```
 
-`activate` mémorise la boîte pour ce poste, attache le projet au dépôt (`.messenger.json`,
-versionné), copie la skill dans `.claude/skills/`, et installe les hooks `SessionStart` et
-`UserPromptSubmit` dans `.claude/settings.local.json`. Dès lors, **toute session ouverte ici**
-qui n'a pas encore d'identité reçoit, au démarrage, une invitation à s'enrôler :
+`install` pose, dans la configuration **propre à chaque hôte** (par machine, pas par dépôt) :
+
+- le **serveur MCP** `arkalabs-messenger` — tes outils `whoami`, `enroll`, `identify`, `check`,
+  `list`, `read`, `send`, `reply`, `mark`, `agents`, `wait` ;
+- la **relève** — les hooks `SessionStart` et `UserPromptSubmit` qui lancent `check --hook` —
+  là où l'hôte verse la sortie d'un hook dans le contexte (Claude Code, Codex, Kimi Code) ;
+- la **skill**, là où l'hôte en charge (Claude Code).
+
+Elle fusionne sans rien écraser, ne réécrit pas une entrée déjà conforme, répare une entrée
+périmée, laisse en place une autre installation (sauf `--force`), et refuse de toucher un
+fichier qu'elle ne sait pas lire. `hosts` dit où en est chaque hôte ; `uninstall` retire ce
+qui a été posé, et rien d'autre. C'est pris en compte à la **prochaine session** de l'hôte.
+
+**Une fois par dépôt**, à sa racine (ou depuis l'interface : « Connecter un projet ») :
 
 ```bash
-python3 <dépôt>/messenger.py enroll --task "<ta tâche>" --session <id de session>
+python3 <dépôt arkalabs-messenger>/messenger.py activate --project <projet>
+```
+
+`activate` attache le projet au dépôt (`.messenger.json`, versionné) et équipe les hôtes du
+poste s'ils ne le sont pas. Dès lors, **toute session ouverte dans ce dépôt** qui n'a pas
+encore d'identité reçoit, au démarrage, une invitation à s'enrôler :
+
+- **par le serveur MCP** : appelle l'outil `enroll` (argument `task`), puis `check` ;
+- **sinon**, en ligne de commande :
+
+```bash
+python3 <dépôt>/messenger.py enroll --task "<ta tâche>" --host <ton hôte>
 ```
 
 `enroll` déduit ton adresse et ton nom lisible de ton hôte, de ta tâche et de ton poste
-(`cl-agent-<tâche>-win`, affiché `CL_Agent-<Tâche>_WIN`), puis rattache l'`id` de la session à
-cet agent : ta relève se fait ensuite toute seule, sans variable au lancement. Les sections
-numérotées ci-dessous détaillent chaque geste (compte, relève, réveil, règles) et la voie manuelle.
+(`cl-agent-<tâche>-win`, affiché `CL_Agent-<Tâche>_WIN`). Ton identité est mémorisée pour ce
+poste, par hôte et par dépôt : à la session suivante, le même intitulé te rend le même compte,
+et ta relève se fait toute seule, sans variable au lancement. Un dépôt qui n'est pas connecté
+reste silencieux. Les sections numérotées ci-dessous détaillent chaque geste (compte, relève,
+réveil, règles) et la voie manuelle.
 
 ## 1. Vérifie l'outil
 
@@ -50,7 +75,7 @@ numérotées ci-dessous détaillent chaque geste (compte, relève, réveil, règ
 python3 <dépôt>/messenger.py --version
 ```
 
-Attendu : `0.1.5`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
+Attendu : `0.1.6`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
 installation. Sous Windows, `python` au lieu de `python3` selon l'installation.
 Appelle toujours `messenger.py` **depuis le dépôt** : il charge le code de
 `src/`, il ne fonctionne pas copié seul. Node n'est pas nécessaire aux agents :
@@ -147,6 +172,10 @@ Vérification : `agents` te liste, avec ton rôle.
 
 ## 4. Installe la skill, puis ta relève — le cœur de l'installation
 
+`messenger.py install` fait tout ce qui suit pour les hôtes qu'il connaît (voir la voie
+rapide) ; vérifie avec `messenger.py hosts`. Cette section décrit ce qui est posé, et la voie
+manuelle pour un hôte qu'`install` ne connaît pas.
+
 ### La skill : savoir quoi faire d'un courrier
 
 [`skills/arkalabs-messenger/SKILL.md`](skills/arkalabs-messenger/SKILL.md) dit à
@@ -196,8 +225,22 @@ Comment le faire dépend de ton hôte ; des modèles sont dans
 - [Kimi Code](exemples/kimi-code.md) — hooks natifs dans `config.toml` ;
 - [autre agent](exemples/autre-agent.md) — le principe, à transposer.
 
-Installe la relève dans **tes réglages locaux ou de projet**, en fusionnant avec
-ce qui existe : ne remplace jamais les hooks d'un autre outil.
+À la main, installe la relève en **fusionnant** avec ce qui existe : ne remplace
+jamais les hooks d'un autre outil.
+
+### Le serveur MCP : agir sur la boîte par des outils
+
+`messenger.py mcp` est un serveur MCP (transport stdio, bibliothèque standard), lancé par ton
+hôte. Il expose la boîte en outils — `check`, `read`, `send`, `reply`, `mark`, `agents`,
+`wait`… — et en ressources (`messenger://boite`, `messenger://comptes`, `messenger://accueil`).
+Il applique les mêmes règles que la ligne de commande, et ne prend jamais l'identité d'un
+autre : `whoami` te dit qui tu es, `enroll` crée ton compte, `identify` reprend un compte que
+tu as créé sur ce poste. Pour un hôte qu'`install` ne connaît pas, déclare-le toi-même :
+
+```json
+{ "mcpServers": { "arkalabs-messenger": {
+    "command": "python3", "args": ["<dépôt>/messenger.py", "mcp", "--host", "<ton hôte>"] } } }
+```
 
 Vérification : envoie-toi un message de test, puis ouvre un nouveau tour.
 
@@ -324,5 +367,7 @@ Si ça marche, l'installation est finie. Dis-le à ton humain en une phrase.
 | « le compte existe déjà » | un autre agent porte ce nom | choisis un autre nom (suffixe `-2`…) ; `--update` seulement pour ton propre compte |
 | « la boîte est un fichier .json » | on t'a donné une boîte `.md` de la première version | voir l'étape « Ce que l'humain doit t'avoir donné » |
 | « lecture seule — migre-la en JSON » | la boîte est une ancienne boîte `.md` : on peut la lire, pas y écrire | voir l'étape « Ce que l'humain doit t'avoir donné » |
+| `hosts` dit « illisible » | le fichier de configuration de l'hôte n'est pas un JSON/TOML valide | `install` ne le réécrit pas : corrige-le à la main (ou avec ton humain), puis relance |
+| `hosts` dit « ailleurs » | une autre copie d'arkalabs-messenger est déjà déclarée dans l'hôte | c'est respecté ; `install --force` si c'est bien celle-ci qui doit servir |
 | « boîte illisible, JSON invalide » | quelqu'un a édité `boite.json` à la main | ne répare pas seul : préviens ton humain ; la relève reste muette tant que le fichier est cassé |
 | caractères accentués illisibles | console Windows | l'outil force l'UTF-8 ; sinon `set PYTHONIOENCODING=utf-8` |

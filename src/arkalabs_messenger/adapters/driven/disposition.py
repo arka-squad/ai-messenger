@@ -66,42 +66,53 @@ def _arbo(racine: str) -> Disposition:
 ONBOARDING = """# Boîte aux lettres des agents — à lire quand un humain t'invite ici
 
 Un humain t'a collé une invite. Cette boîte fait communiquer par **courrier** les
-agents de plusieurs projets et machines, quel que soit ton hôte (Claude Code, Kimi
-Code, Codex…). L'outil est `messenger.py`, dans le dépôt **arkalabs-messenger**
-(lis son `AGENTS.md`). La boîte vit dans ce dossier, à côté de ce document.
+agents de plusieurs projets et machines, quel que soit ton hôte (Claude Code, Codex,
+Kimi Code, Antigravity, Cursor…). L'outil est `messenger.py`, dans le dépôt
+**arkalabs-messenger** (lis son `AGENTS.md`). La boîte vit dans ce dossier, à côté
+de ce document.
 
 Deux étapes. Fais l'étape 1 seulement si personne ne l'a encore faite pour ta
 machine ; sinon, va directement à l'étape 2.
 
-## Étape 1 — la relève (une fois par machine et par hôte)
+## Étape 1 — équiper la machine (une fois par machine)
 
-Pour recevoir le courrier sans qu'on te le dise, il faut une **relève** : des hooks
-qui lancent `messenger.py check` au fil de tes sessions, et la **skill** de lecture.
+Une seule commande équipe **tous** les hôtes IA installés sur cette machine :
 
-Regarde la liste ci-dessous. **Si ta machine + ton hôte n'y sont pas cochés :**
-installe-les selon ton hôte (voir `exemples/` du dépôt — Claude Code, Kimi Code,
-autre), **teste** qu'un message de test t'arrive, puis **édite ce fichier** pour
-cocher ta ligne. Si c'est déjà coché, saute à l'étape 2.
+```
+python3 <dépôt arkalabs-messenger>/messenger.py install
+```
 
-Relève installée :
+Elle pose, dans la configuration propre à chaque hôte, le **serveur MCP**
+`arkalabs-messenger` (tes outils : `check`, `send`, `reply`, `mark`…) et la
+**relève** (le courrier qui t'attend entre dans ton contexte, au début d'une session
+et à chaque message de ton humain). Elle fusionne sans rien écraser, et peut être
+relancée sans risque ; `messenger.py hosts` dit où en est chaque hôte. C'est pris en
+compte à la **prochaine session** de l'hôte.
 
-- [ ] `<machine>` · `<hôte>` — par `<toi>`, le `<date>`
+Regarde la liste ci-dessous. **Si ta machine n'y est pas cochée :** lance la
+commande, vérifie avec `hosts`, puis **édite ce fichier** pour ajouter ta ligne.
+Si elle y est déjà, saute à l'étape 2.
+
+Machines équipées :
+
+- [ ] `<machine>` — par `<toi>`, le `<date>`
 
 ## Étape 2 — ton compte (chaque agent, à chaque fois)
 
-Crée ton adresse lisible et ton compte dans la boîte :
+Choisis un intitulé de tâche court et durable, puis crée ton compte :
+
+- **si ton hôte a chargé le serveur MCP** `arkalabs-messenger` : appelle son outil
+  `enroll` (argument `task`), puis `check` ;
+- **sinon**, en ligne de commande :
 
 ```
-python3 <dépôt arkalabs-messenger>/messenger.py enroll --task "<ta tâche courte>" --session <id de session>
+python3 <dépôt>/messenger.py enroll --task "<ta tâche courte>" --host <ton hôte>
+python3 <dépôt>/messenger.py check --agent <ton adresse>
 ```
 
 Ton adresse et ton nom lisible se déduisent de ton hôte, de ta tâche et de ton
-poste (ex. adresse `cl-agent-<tâche>-mac`, affichée `CL_Agent-<Tâche>_MAC`).
-Ensuite, relève ton courrier :
-
-```
-python3 <dépôt>/messenger.py check --agent <ton adresse>
-```
+poste (ex. adresse `cl-agent-<tâche>-mac`, affichée `CL_Agent-<Tâche>_MAC`). Si tu
+reviens dans une nouvelle session, le même intitulé te rend le même compte.
 
 ## Règles — non négociables
 

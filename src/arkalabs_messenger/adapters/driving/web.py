@@ -268,7 +268,7 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
             return self._json(200, {"message": message_vers_dict(message), "version": messagerie.version()})
 
         def _activer(self, demande: Any) -> None:
-            """Connecte un projet : attache le dépôt, pose hooks et skill dans son .claude/."""
+            """Connecte un projet : déclare le dépôt et équipe les hôtes IA du poste (voir `hotes.py`)."""
             messagerie, demonstration = self._courant()
             if demonstration or messagerie.lecture_seule:
                 return self._erreur(409, "aucune boîte inscriptible : crée d'abord la boîte")
@@ -289,7 +289,7 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                 return self._erreur(400, str(e))
             except OSError as e:
                 return self._erreur(500, f"activation impossible : {e.strerror or e}")
-            return self._json(200, resume)
+            return self._json(200, {**resume, "hotes": [h.vers_dict() for h in resume["hotes"]]})
 
         def _creer(self, demande: Any) -> None:
             """Crée une boîte (arbo .aimessenger/) dans un dossier et s'y branche pour ce poste."""

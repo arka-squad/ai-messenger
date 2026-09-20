@@ -41,7 +41,7 @@ class BoiteFactice implements PortBoite {
     return actives;
   }
   async activer(dossier: string, projet: string): Promise<Activation> {
-    return { dossier, projet: projet || null, boite: this.etat.source.chemin, hooks: '.claude/settings.local.json', skill: '.claude/skills/arkalabs-messenger' };
+    return { dossier, projet: projet || null, boite: this.etat.source.chemin, hotes: [] };
   }
   async creer(dossier: string): Promise<Creation> {
     return { cree: true, boite: `${dossier}/.aimessenger/mail/boite.json` };

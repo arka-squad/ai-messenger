@@ -40,7 +40,9 @@ class LigneDeCommande(unittest.TestCase):
         self.dossier = self._tmp.name
         self.boite = os.path.join(self.dossier, "partage", "boite.json")
         self.env = dict(os.environ, HOME=self.dossier, USERPROFILE=self.dossier, PYTHONIOENCODING="utf-8")
-        for cle in ("MESSENGER_BOX", "MESSENGER_AGENT", "MESSENGER_PROJECT"):
+        # ni la vraie boîte, ni la vraie configuration des hôtes IA : tout vit dans le dossier temporaire
+        for cle in ("MESSENGER_BOX", "MESSENGER_AGENT", "MESSENGER_PROJECT",
+                    "CLAUDE_CONFIG_DIR", "CODEX_HOME", "KIMI_CODE_HOME"):
             self.env.pop(cle, None)
 
     def tearDown(self):
@@ -90,49 +92,70 @@ class LigneDeCommande(unittest.TestCase):
         self.assertIn(mid, out)
         self.assertIn("cl-agent-build-win", out)
 
-    def test_check_hook_invite_a_s_enroler_si_pas_d_identite(self):
+    def test_check_hook_invite_a_s_enroler_dans_un_depot_connecte(self):
         self.cmd("init")
+        self.cmd("setup", "--project", "demo")
         charge = json.dumps({"session_id": "S9", "cwd": self.dossier, "hook_event_name": "SessionStart"})
-        code, out, _ = self.cmd("check", "--hook", entree=charge)
+        code, out, _ = self.cmd("check", "--hook", "--host", "codex", entree=charge)
         self.assertEqual(code, 0)
         self.assertIn("pas encore enrôlé", out)
-        self.assertIn("enroll --task", out)
-        self.assertIn("--session S9", out)
+        self.assertIn("outil `enroll`", out)
+        self.assertIn("--host codex --session S9", out)
+
+    def test_check_hook_muet_hors_d_un_depot_connecte(self):
+        """La relève est posée par machine : elle tourne partout, et ne dit rien ailleurs."""
+        self.cmd("init")
+        charge = json.dumps({"session_id": "S9", "cwd": self.dossier, "hook_event_name": "SessionStart"})
+        self.assertEqual(self.cmd("check", "--hook", entree=charge), (0, "", ""))
 
     def test_check_hook_muet_sur_un_simple_prompt_sans_identite(self):
         self.cmd("init")
-        charge = json.dumps({"session_id": "S9", "cwd": self.dossier, "hook_event_name": "UserPromptSubmit"})
-        self.assertEqual(self.cmd("check", "--hook", entree=charge), (0, "", ""))
+        self.cmd("setup", "--project", "demo")
+        self.assertEqual(self.cmd("check", "--hook", "--event", "UserPromptSubmit", entree="{}"), (0, "", ""))
 
-    def test_activate_installe_hooks_et_skill(self):
+    def test_releve_par_hote_et_dossier_quand_l_hote_ne_donne_pas_de_session(self):
         self.cmd("init")
+        self.cmd("register", "--agent", "owner", "--host", "humain", "--role", "arbitre")
+        self.cmd("enroll", "--task", "Plugins", "--host", "kimi-code", "--poste", "mac")
+        mid = self.cmd("send", "--agent", "owner", "--to", "km-agent-plugins-mac", "--subject", "Go")[1].strip()
+        code, out, _ = self.cmd("check", "--hook", "--host", "kimi-code", "--event", "UserPromptSubmit", entree="")
+        self.assertIn(mid, out)
+        self.assertEqual(self.cmd("check", "--hook", "--host", "codex", "--event", "UserPromptSubmit", entree="")[1], "")
+
+    def test_activate_declare_le_depot_et_equipe_les_hotes_du_poste(self):
+        self.cmd("init")
+        os.makedirs(os.path.join(self.dossier, ".claude"))   # Claude Code est « installé » sur ce faux poste
         depot_projet = os.path.join(self.dossier, "monrepo")
         os.makedirs(depot_projet)
-        code, out, _ = self.cmd("activate", "--project", "demo", cwd=depot_projet)
-        self.assertEqual(code, 0)
-        self.assertIn("dépôt activé", out)
-
-        reglages = os.path.join(depot_projet, ".claude", "settings.local.json")
-        with open(reglages, encoding="utf-8") as f:
-            data = json.load(f)
-        for evenement in ("SessionStart", "UserPromptSubmit"):
-            args = data["hooks"][evenement][0]["hooks"][0]["args"]
-            self.assertIn("--hook", args)
-            self.assertTrue(any(a.endswith("messenger.py") for a in args))
-
-        self.assertTrue(os.path.isfile(
-            os.path.join(depot_projet, ".claude", "skills", "arkalabs-messenger", "SKILL.md")))
+        code, out, err = self.cmd("activate", "--project", "demo", cwd=depot_projet)
+        self.assertEqual(code, 0, err)
+        self.assertIn("dépôt connecté", out)
+        self.assertIn("Claude Code", out)
         self.assertTrue(os.path.isfile(os.path.join(depot_projet, ".messenger.json")))
+        self.assertFalse(os.path.exists(os.path.join(depot_projet, ".claude")))
 
-    def test_activate_est_idempotent(self):
+        with open(os.path.join(self.dossier, ".claude.json"), encoding="utf-8") as f:
+            serveur = json.load(f)["mcpServers"]["arkalabs-messenger"]
+        self.assertEqual(serveur["args"][1:], ["mcp", "--host", "claude-code"])
+        with open(os.path.join(self.dossier, ".claude", "settings.json"), encoding="utf-8") as f:
+            hooks = json.load(f)["hooks"]
+        for evenement in ("SessionStart", "UserPromptSubmit"):
+            self.assertIn(f"check --hook --host claude-code --event {evenement}",
+                          hooks[evenement][0]["hooks"][0]["command"])
+        self.assertTrue(os.path.isfile(
+            os.path.join(self.dossier, ".claude", "skills", "arkalabs-messenger", "SKILL.md")))
+
+    def test_activate_retire_l_ancienne_releve_posee_dans_le_depot(self):
         self.cmd("init")
         depot_projet = os.path.join(self.dossier, "monrepo")
-        os.makedirs(depot_projet)
-        self.cmd("activate", "--project", "demo", cwd=depot_projet)
-        self.cmd("activate", "--project", "demo", cwd=depot_projet)
+        os.makedirs(os.path.join(depot_projet, ".claude"))
+        ancien = {"permissions": {"allow": ["Bash(ls)"]}, "hooks": {"SessionStart": [{"hooks": [
+            {"type": "command", "command": "python", "args": ["/vieux/messenger.py", "check", "--hook"]}]}]}}
+        with open(os.path.join(depot_projet, ".claude", "settings.local.json"), "w", encoding="utf-8") as f:
+            json.dump(ancien, f)
+        self.assertEqual(self.cmd("activate", "--project", "demo", cwd=depot_projet)[0], 0)
         with open(os.path.join(depot_projet, ".claude", "settings.local.json"), encoding="utf-8") as f:
-            data = json.load(f)
-        self.assertEqual(len(data["hooks"]["SessionStart"]), 1)
+            self.assertEqual(json.load(f), {"permissions": {"allow": ["Bash(ls)"]}})
 
 
 if __name__ == "__main__":

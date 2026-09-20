@@ -7,7 +7,7 @@ import unittest
 import urllib.error
 import urllib.request
 
-from arkalabs_messenger.adapters.driving import poste
+from arkalabs_messenger.adapters.driving import hotes, poste
 from arkalabs_messenger.adapters.driving.web import creer_serveur
 from arkalabs_messenger.application import Annonceur
 from arkalabs_messenger.bootstrap import Usine
@@ -132,8 +132,12 @@ class Activation(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.dossier = self._tmp.name
-        self._config = poste.CONFIG
+        self._config, self._contexte = poste.CONFIG, hotes.contexte
         poste.CONFIG = os.path.join(self.dossier, "poste.json")  # ne pas toucher au vrai config du poste
+        # …ni à la vraie configuration des hôtes IA : un faux dossier personnel, où seul Claude Code existe
+        self.home = os.path.join(self.dossier, "home")
+        os.makedirs(os.path.join(self.home, ".claude"))
+        hotes.contexte = lambda depot: hotes.Contexte(depot, home=self.home, env={})
         os.makedirs(os.path.join(self.dossier, "partage"))
         self.messagerie = Usine().ouvrir(os.path.join(self.dossier, "partage", "boite.json"))
         self.messagerie.initialiser()
@@ -142,7 +146,7 @@ class Activation(unittest.TestCase):
         threading.Thread(target=self.serveur.serve_forever, daemon=True).start()
 
     def tearDown(self):
-        poste.CONFIG = self._config
+        poste.CONFIG, hotes.contexte = self._config, self._contexte
         self.serveur.shutdown()
         self.serveur.server_close()
         self._tmp.cleanup()
@@ -162,10 +166,13 @@ class Activation(unittest.TestCase):
         code, rep = self.post({"dossier": repo, "projet": "demo"})
         self.assertEqual(code, 200)
         self.assertEqual(rep["projet"], "demo")
-        self.assertTrue(os.path.isfile(os.path.join(repo, ".claude", "settings.local.json")))
-        self.assertTrue(os.path.isfile(
-            os.path.join(repo, ".claude", "skills", "arkalabs-messenger", "SKILL.md")))
+        # le dépôt n'est que déclaré : rien de propre à un hôte n'y est écrit
         self.assertTrue(os.path.isfile(os.path.join(repo, ".messenger.json")))
+        self.assertFalse(os.path.exists(os.path.join(repo, ".claude")))
+        # l'hôte présent sur le poste est équipé, dans sa propre configuration
+        self.assertEqual([(h["id"], h["equipe"]) for h in rep["hotes"]], [("claude-code", True)])
+        self.assertTrue(os.path.isfile(os.path.join(self.home, ".claude.json")))
+        self.assertTrue(os.path.isfile(os.path.join(self.home, ".claude", "settings.json")))
 
     def test_activer_refuse_un_dossier_absent(self):
         code, rep = self.post({"dossier": os.path.join(self.dossier, "absent"), "projet": "demo"})

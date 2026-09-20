@@ -327,6 +327,21 @@ class Annuaire:
             return nom
         return local
 
+    def nom_libre(self, adresse: str, projet: Optional[str], machine: Optional[str]) -> Tuple[str, Optional[Compte]]:
+        """Le premier nom disponible pour un agent de `machine`, à partir d'`adresse`.
+
+        Rend `(nom, compte)` : le compte s'il existe déjà **et vient de la même machine** — c'est le
+        même agent qui revient, on le réutilise. Un homonyme d'une autre machine reçoit `-2`, `-3`…
+        """
+        n = 1
+        while True:
+            candidat = adresse if n == 1 else f"{adresse[:29]}-{n}"
+            nom = qualifier(candidat, projet)
+            existant = self.compte(nom)
+            if existant is None or (existant.machine or "") == (machine or ""):
+                return nom, existant
+            n += 1
+
     def inscrire(self, compte: Compte, mise_a_jour: bool = False) -> bool:
         """Ajoute le compte, ou met à jour le sien. Rend True s'il est créé."""
         existant = self.compte(compte.nom)

@@ -48,13 +48,22 @@ export interface Source {
   activable: boolean;
 }
 
-/** Le résumé rendu après l'activation (connexion) d'un dépôt local. */
+/** Où en est un hôte IA du poste (Claude Code, Codex, Kimi Code…) après qu'on l'a équipé. */
+export interface HoteEquipe {
+  id: string;
+  nom: string;
+  present: boolean;
+  /** Serveur MCP et relève posés et conformes. */
+  equipe: boolean;
+  note: string | null;
+}
+
+/** Le résumé rendu après la connexion d'un dépôt local : le dépôt déclaré, les hôtes du poste équipés. */
 export interface Activation {
   dossier: string;
   projet: string | null;
   boite: string | null;
-  hooks: string;
-  skill: string;
+  hotes: HoteEquipe[];
 }
 
 /** Le résultat de la création d'une boîte depuis l'interface. */

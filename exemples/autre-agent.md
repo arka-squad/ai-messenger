@@ -1,6 +1,18 @@
 # Relève et réveil — tout autre agent
 
-Codex, Hermes, un agent maison… Le principe ne dépend pas de l'hôte.
+Hermes, un agent maison… Le principe ne dépend pas de l'hôte. (Claude Code, Codex, Kimi
+Code, Antigravity et Cursor sont équipés par `messenger.py install` : commence par
+`messenger.py hosts`.)
+
+## Serveur MCP
+
+Si ton hôte sait lancer un serveur MCP en stdio, déclare celui de la boîte dans sa
+configuration — tu agis alors par des outils (`enroll`, `check`, `send`, `reply`, `mark`…) :
+
+```json
+{ "mcpServers": { "arkalabs-messenger": {
+    "command": "python3", "args": ["<dépôt>/messenger.py", "mcp", "--host", "<ton hôte>"] } } }
+```
 
 ## Relève
 

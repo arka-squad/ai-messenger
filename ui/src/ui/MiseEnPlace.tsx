@@ -45,7 +45,9 @@ export function ConnecterProjet({ onConnecter, onChoisir }: {
     setSucces(null);
     try {
       const r = await onConnecter(dossier.trim(), projet.trim());
-      setSucces(`Connecté : ${r.dossier}${r.projet ? ` · projet ${r.projet}` : ''}`);
+      const equipes = r.hotes.filter((h) => h.equipe).map((h) => h.nom);
+      setSucces(`Connecté : ${r.dossier}${r.projet ? ` · projet ${r.projet}` : ''}`
+        + (equipes.length ? ` · agents prêts dans ${equipes.join(', ')}` : ''));
       setDossier('');
       setProjet('');
     } catch (e) {
@@ -77,7 +79,7 @@ export function ConnecterProjet({ onConnecter, onChoisir }: {
             <span>Connecter</span>
           </button>
           <span className="ajout__aide">
-            Rattache un dossier de projet à la boîte. Ensuite, « Copier l’invite pour l’agent » et colle-la dans son chat : il s’installe et crée son compte tout seul.
+            Rattache un dossier de projet à la boîte et prépare les outils d’IA de ce poste. Ensuite, « Copier l’invite pour l’agent » et colle-la dans son chat : il crée son compte tout seul.
           </span>
           {succes && <span className="ajout__succes" role="status">{succes}</span>}
           {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}

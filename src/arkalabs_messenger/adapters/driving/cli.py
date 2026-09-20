@@ -20,14 +20,12 @@ from ...domain import (
     Annuaire,
     ErreurMessenger,
     Message,
-    composer_identite,
     qualifier,
-    slugifier,
     valider_adresse,
     valider_nom,
 )
 from ..codec import annuaire_vers_dict, en_json, message_vers_dict
-from . import poste
+from . import hotes, poste
 
 SORTIE_ERREUR, SORTIE_COURRIER, SORTIE_ECHEANCE = 1, 2, 3
 
@@ -96,33 +94,22 @@ def _setup(args: argparse.Namespace, usine: Usine) -> int:
 def _enroll(args: argparse.Namespace, usine: Usine) -> int:
     """S'inscrire avec une identité lisible déduite de l'hôte, de la tâche et du poste."""
     hote = args.host or "claude-code"
-    poste_code = args.poste or _poste_code()
-    adresse_slug, affichage = composer_identite(hote, args.task, poste_code)
-    machine = args.machine or platform.node()
-    messagerie = usine.ouvrir(_boite(args))
-    comptes = {c.nom: c for c in messagerie.comptes(tous=True)}
-    nom, existant = _slug_libre(adresse_slug, _projet(args), comptes, machine)
-    if existant is not None and not args.update:
-        compte, etat = existant, "déjà inscrit"
-    else:
-        compte, cree = messagerie.inscrire(
-            nom, hote, args.role or f"{hote} — {args.task}",
-            machine=machine, humain=args.human,
-            releve=args.wake or "hooks (messenger.py check --hook)",
-            affichage=affichage, mise_a_jour=existant is not None)
-        etat = "compte créé" if cree else "compte mis à jour"
+    compte, cree = usine.ouvrir(_boite(args)).enroler(
+        hote, args.task, args.poste or poste.code_du_poste(), _projet(args), args.machine or platform.node(),
+        role=args.role, humain=args.human, releve=args.wake or "hooks (messenger.py check --hook)",
+        mise_a_jour=args.update)
+    etat = "compte créé" if cree else "compte mis à jour" if args.update else "déjà inscrit"
+    poste.memoriser_identite(hote, os.getcwd(), compte.nom)
     if args.session:
         poste.memoriser_session(args.session, compte.nom)
     print(f"{etat} : {compte.affichage or compte.nom}  (adresse {compte.nom})")
     if args.session:
         print(f"session {args.session} rattachée à {compte.nom} : cette session te reconnaît sans variable")
-    else:
-        print("astuce : passe --session <id de session> pour être reconnu automatiquement à chaque tour")
     return 0
 
 
 def _activate(args: argparse.Namespace, usine: Usine) -> int:
-    """Activer ce dépôt : boîte du poste, projet du dépôt, hooks et skill installés dans .claude/."""
+    """Connecter ce dépôt à la boîte : boîte du poste, projet du dépôt, hôtes IA du poste équipés."""
     if args.box is not None:
         messagerie = usine.ouvrir(args.box)
         messagerie.instantane()  # refuse une boîte illisible
@@ -130,20 +117,60 @@ def _activate(args: argparse.Namespace, usine: Usine) -> int:
     else:
         chemin = poste.resoudre_boite(None)
         if not chemin:
-            raise _Refus("aucune boîte sur ce poste : passe --box <chemin>, "
-                         "ou fais d'abord `messenger.py setup --box <chemin>`")
+            raise _Refus("aucune boîte sur ce poste : passe --box <dossier>, "
+                         "ou fais d'abord `messenger.py setup --box <dossier>`")
     projet = valider_nom(args.project, "projet") if args.project else None
     try:
-        resume = poste.activer_depot(os.getcwd(), projet, usine.depot(), box=chemin)
+        resume = poste.activer_depot(os.getcwd(), projet, usine.depot(), box=chemin, releve=not args.no_releve)
     except poste.ActivationRefusee as e:
         raise _Refus(str(e)) from None
-    print(f"dépôt activé : {resume['dossier']}")
+    print(f"dépôt connecté : {resume['dossier']}")
     print(f"  boîte (poste) : {resume['boite']}")
     print(f"  projet        : {resume['projet'] or '— (compte commun)'}")
-    print(f"  hooks         : {resume['hooks']}")
-    print(f"  skill         : {resume['skill']}")
-    print("Chaque session ouverte ici sera invitée à s'enrôler (messenger.py enroll), puis relèvera seule.")
+    _afficher_hotes(resume["hotes"])
+    print("Chaque session ouverte ici sera invitée à s'enrôler, puis relèvera seule.")
     return 0
+
+
+def _install(args: argparse.Namespace, usine: Usine) -> int:
+    """Équiper les hôtes IA de ce poste : serveur MCP et relève, dans la configuration de chacun."""
+    try:
+        etats = hotes.equiper_presents(hotes.contexte(usine.depot()), releve=not args.no_releve,
+                                       forcer=args.force, seulement=args.host or None)
+    except hotes.EquipementRefuse as e:
+        raise _Refus(str(e)) from None
+    if not etats:
+        print("aucun hôte IA trouvé sur ce poste (Claude Code, Codex, Kimi Code, Antigravity, Cursor)")
+        return 0
+    _afficher_hotes(etats)
+    print("Pris en compte à la prochaine session de chaque hôte (Codex peut demander de valider ses hooks).")
+    return 0
+
+
+def _uninstall(args: argparse.Namespace, usine: Usine) -> int:
+    ctx = hotes.contexte(usine.depot())
+    try:
+        etats = [hotes.retirer(h, ctx) for h in ([hotes.hote(i) for i in args.host] if args.host
+                                                 else hotes.presents(ctx))]
+    except hotes.EquipementRefuse as e:
+        raise _Refus(str(e)) from None
+    _afficher_hotes(etats)
+    return 0
+
+
+def _hosts(args: argparse.Namespace, usine: Usine) -> int:
+    etats = hotes.etats(hotes.contexte(usine.depot()))
+    if args.json:
+        print(en_json([e.vers_dict() for e in etats]), end="")
+    else:
+        _afficher_hotes(etats)
+    return 0
+
+
+def _mcp(args: argparse.Namespace, usine: Usine) -> int:
+    from .mcp import servir  # chargé à la demande : la CLI des agents n'en a pas besoin
+
+    return servir(usine, args.box, args.agent, args.project, args.host)
 
 
 def _start(args: argparse.Namespace, usine: Usine) -> int:
@@ -203,22 +230,24 @@ def _send(args: argparse.Namespace, usine: Usine) -> int:
 def _check(args: argparse.Namespace, usine: Usine) -> int:
     """Silencieuse, en code 0, si la boîte est injoignable : une relève ne bloque jamais une session.
 
-    Avec `--hook`, lit la charge JSON du hook Claude Code sur l'entrée standard : elle donne le
-    `session_id` (qui rattache la session à son agent enrôlé) et le `cwd` (qui donne le projet).
-    Une session encore sans identité, au démarrage, reçoit une invitation à s'enrôler.
+    Avec `--hook`, lit la charge JSON que l'hôte donne à ses hooks sur l'entrée standard, quand il en
+    donne une : le `session_id` rattache la session à son agent, le `cwd` donne le dépôt. La relève est
+    posée par machine : elle tourne donc dans toutes les sessions de l'hôte, et ne dit rien hors d'un
+    dépôt connecté. Dans un dépôt connecté, une session sans identité est invitée, à son démarrage,
+    à s'enrôler.
     """
-    session, dossier, evenement = getattr(args, "session", None), None, None
-    if getattr(args, "hook", False):
+    session, dossier, evenement = args.session, os.getcwd(), args.event
+    if args.hook:
         charge = _lire_hook()
         session = session or (charge.get("session_id") if isinstance(charge.get("session_id"), str) else None)
-        dossier = charge.get("cwd") if isinstance(charge.get("cwd"), str) else None
-        evenement = charge.get("hook_event_name")
+        dossier = charge.get("cwd") if isinstance(charge.get("cwd"), str) else dossier
+        evenement = evenement or charge.get("hook_event_name")
     try:
         chemin = poste.resoudre_boite(args.box)
-        nom = poste.resoudre_agent(args.agent, session)
+        nom = poste.resoudre_agent(args.agent, session, args.host, dossier)
         if not nom:
-            if getattr(args, "hook", False) and evenement in (None, "SessionStart"):
-                _annoncer_enrolement(chemin, _projet(args, dossier), session)
+            if args.hook and evenement == "SessionStart" and poste.trouver_fichier_projet(dossier):
+                _annoncer_enrolement(chemin, _projet(args, dossier), session, usine.depot(), args.host)
             return 0
         if not chemin:
             return 0
@@ -359,24 +388,15 @@ def _projet(args: argparse.Namespace, dossier: Optional[str] = None) -> Optional
     return valider_nom(projet, "projet") if projet else None
 
 
-def _poste_code() -> str:
-    """Le code du poste pour l'identité : `win`, `mac`, `lnx`, ou trois lettres du système."""
-    systeme = platform.system()
-    return {"Windows": "win", "Darwin": "mac", "Linux": "lnx"}.get(systeme) or (slugifier(systeme)[:3] or "pc")
-
-
-def _slug_libre(adresse_slug: str, projet: Optional[str], comptes: dict, machine: str):
-    """Le premier slug libre pour cette machine : réutilise le tien, sinon suffixe -2, -3…"""
-    n = 1
-    while True:
-        candidat = adresse_slug if n == 1 else f"{adresse_slug[:29]}-{n}"
-        nom = qualifier(candidat, projet)
-        existant = comptes.get(nom)
-        if existant is None:
-            return nom, None
-        if (existant.machine or "") == (machine or ""):
-            return nom, existant  # c'est le tien : on le réutilise
-        n += 1
+def _afficher_hotes(etats) -> None:
+    for e in etats:
+        if not e.present:
+            print(f"  {e.nom:12} non installé sur ce poste")
+            continue
+        marque = "équipé" if e.equipe else "à équiper"
+        print(f"  {e.nom:12} {marque:10} serveur MCP : {e.mcp} · relève : {e.releve} · skill : {e.skill}")
+        if e.note:
+            print(f"  {'':12} {e.note}")
 
 
 def _lire_hook() -> dict:
@@ -394,20 +414,21 @@ def _lire_hook() -> dict:
         return {}
 
 
-def _annoncer_enrolement(chemin: Optional[str], projet: Optional[str], session: Optional[str]) -> None:
-    """Invite une session sans identité à s'enrôler dans un dépôt activé."""
-    option_session = f" --session {session}" if session else ""
+def _annoncer_enrolement(chemin: Optional[str], projet: Optional[str], session: Optional[str],
+                         depot: str, hote: Optional[str]) -> None:
+    """Invite une session sans identité à s'enrôler, dans un dépôt connecté à la boîte."""
+    messenger = os.path.join(depot, "messenger.py")
+    options = (f" --host {hote}" if hote else "") + (f" --session {session}" if session else "")
     boite = f" · Boîte : {chemin}" if chemin else (
-        " · Boîte : non configurée sur ce poste (`messenger.py setup --box <chemin>`, ou demande à ton humain)")
+        " · Boîte : non configurée sur ce poste (`messenger.py setup --box <dossier>`, ou demande à ton humain)")
     sys.stdout.write("\n".join([
-        "📬 arkalabs-messenger — une boîte est active pour ce dépôt, mais tu n'y es pas encore enrôlé.",
+        "📬 arkalabs-messenger — ce dépôt est connecté à une boîte aux lettres, mais tu n'y es pas encore enrôlé.",
         f"Projet : {projet or '— (compte commun)'}" + boite,
-        "Pour recevoir et écrire du courrier, en une fois :",
-        "1. Charge la skill « arkalabs-messenger » (lire, répondre, ignorer ce qui n'est pas pour toi).",
-        "2. Choisis un intitulé de tâche court et durable, puis enregistre-toi :",
-        f"   python messenger.py enroll --task \"<ta tâche>\"{option_session}",
-        "   Ton adresse (cl-agent-<tâche>-win) et ton nom lisible (CL_Agent-<Tâche>_WIN) se déduisent",
-        "   de ton hôte et de ton poste. Ensuite, ta relève se fait toute seule.",
+        "Choisis un intitulé de tâche court et durable, puis crée ton compte :",
+        "- si ton hôte a le serveur MCP « arkalabs-messenger » : appelle son outil `enroll` ;",
+        f"- sinon : python \"{messenger}\" enroll --task \"<ta tâche>\"{options}",
+        "Ton adresse (cl-agent-<tâche>-win) et ton nom lisible (CL_Agent-<Tâche>_WIN) se déduisent de ton",
+        "hôte et de ton poste. Ensuite, ta relève se fait toute seule.",
     ]) + "\n")
 
 
@@ -441,8 +462,23 @@ def _parseur() -> argparse.ArgumentParser:
     commande("init", "crée une boîte vide, son manifeste et sa vue", _init, agent=False, projet=False)
     commande("setup", "mémorise la boîte de ce poste (--box) et/ou le projet de ce dépôt (--project)", _setup,
              agent=False)
-    commande("activate", "active ce dépôt : boîte du poste, projet, hooks et skill dans .claude/", _activate,
-             agent=False)
+    x = commande("activate", "connecte ce dépôt à la boîte : boîte du poste, projet, hôtes IA équipés", _activate,
+                 agent=False)
+    x.add_argument("--no-releve", action="store_true", help="poser le serveur MCP sans la relève (hooks)")
+
+    ids = ", ".join(h.id for h in hotes.HOTES)
+    x = commande("install", "équipe les hôtes IA de ce poste : serveur MCP et relève", _install,
+                 agent=False, projet=False)
+    x.add_argument("--host", action="append", help=f"un hôte précis, répétable ({ids}) ; défaut : ceux du poste")
+    x.add_argument("--no-releve", action="store_true", help="poser le serveur MCP sans la relève (hooks)")
+    x.add_argument("--force", action="store_true",
+                   help="remplacer l'entrée d'une autre installation d'arkalabs-messenger")
+    x = commande("uninstall", "retire des hôtes IA ce que `install` y a posé", _uninstall, agent=False, projet=False)
+    x.add_argument("--host", action="append", help=f"un hôte précis, répétable ({ids})")
+    x = commande("hosts", "où en sont les hôtes IA de ce poste", _hosts, agent=False, projet=False)
+    x.add_argument("--json", action="store_true", help="sortie JSON")
+    x = commande("mcp", "le serveur MCP de la boîte, sur l'entrée et la sortie standard (lancé par l'hôte)", _mcp)
+    x.add_argument("--host", help=f"l'hôte qui lance ce serveur ({ids})")
 
     x = commande("register", "crée ou met à jour ton compte", _register)
     x.add_argument("--host", required=True, help="ton hôte : claude-code, kimi-code, codex, hermes, humain…")
@@ -484,6 +520,8 @@ def _parseur() -> argparse.ArgumentParser:
     x.add_argument("--hook", action="store_true",
                    help="lit la charge JSON du hook Claude Code (session_id, cwd) sur l'entrée standard")
     x.add_argument("--session", help="l'id de session (sinon lu du hook avec --hook)")
+    x.add_argument("--host", help="l'hôte qui lance cette relève (posé par `install`)")
+    x.add_argument("--event", help="le moment de la relève : SessionStart ou UserPromptSubmit (posé par `install`)")
 
     x = commande("mark", "fait avancer le statut d'un message reçu", _mark)
     x.add_argument("--id", required=True)

@@ -16,6 +16,7 @@ from ..domain import (
     Message,
     MessageInvalide,
     NomInvalide,
+    composer_identite,
     projet_de,
     qualifier,
     valider_adresse,
@@ -112,6 +113,24 @@ class Messagerie:
                                releve=releve, affichage=affichage, cree=self._horodatage())
         with self._annuaire.transaction() as annuaire:
             cree = annuaire.inscrire(compte, mise_a_jour)
+            return annuaire.compte(nom), cree
+
+    def enroler(self, hote: str, tache: str, poste: str, projet: Optional[str], machine: Optional[str], *,
+                role: Optional[str] = None, humain: Optional[str] = None, releve: Optional[str] = None,
+                mise_a_jour: bool = False) -> Tuple[Compte, bool]:
+        """Inscrit un agent sous une identité lisible déduite de son hôte, de sa tâche et de son poste.
+
+        Le même agent qui revient (même machine) retrouve son compte ; un homonyme d'une autre
+        machine reçoit un suffixe. Rend le compte, et s'il vient d'être créé.
+        """
+        adresse, affichage = composer_identite(hote, tache, poste)
+        with self._annuaire.transaction() as annuaire:
+            nom, existant = annuaire.nom_libre(adresse, projet, machine)
+            if existant is not None and not mise_a_jour:
+                return existant, False
+            compte = Compte.ouvrir(nom, hote, role or f"{hote} — {tache}", machine=machine, humain=humain,
+                                   releve=releve, affichage=affichage, cree=self._horodatage())
+            cree = annuaire.inscrire(compte, mise_a_jour=existant is not None)
             return annuaire.compte(nom), cree
 
     def desactiver(self, nom: str) -> None:

@@ -28,6 +28,10 @@ donc communiquer comme des collègues : **par courrier**.
 - **Une relève automatique** : chaque agent relève son courrier au début de ses
   sessions et à chaque message que vous lui envoyez, et peut se faire réveiller
   quand un message lui arrive.
+- **Un serveur MCP** : la boîte s'utilise aussi par des outils (`check`, `send`,
+  `reply`, `mark`…) dans Claude Code, Codex, Kimi Code, Antigravity et Cursor. Une
+  commande, `install`, équipe tous ceux du poste — sans rien écraser de leur
+  configuration.
 - **Plusieurs projets, une boîte** : comme une adresse électronique, une adresse
   est `nom@projet`. La même IA a une boîte par dépôt (`claude-windows@cortex`,
   `claude-windows@talos`), un nom court désigne un agent du même projet, et
@@ -61,9 +65,10 @@ donc communiquer comme des collègues : **par courrier**.
    > `<chemin du dépôt>`). La boîte est `<chemin de la boîte>`, le projet de ce
    > dépôt est `<projet>`.
 
-L'agent fait le reste : il attache le projet au dépôt (un `.messenger.json` à
-versionner), crée son compte, installe sa relève dans son propre environnement,
-échange un message de test avec un autre agent, et vous le dit.
+L'agent fait le reste : il équipe le poste (`install` : serveur MCP et relève dans
+chaque outil d'IA présent), attache le projet au dépôt (un `.messenger.json` à
+versionner), crée son compte, échange un message de test avec un autre agent, et
+vous le dit.
 Vous voyez qui est inscrit avec `python3 messenger.py agents`, et vous lisez le
 courrier dans `boite.md` — ou dans l'interface ci-dessous.
 
@@ -82,9 +87,10 @@ pièce jointe et son fil, et le bouton qui fait avancer un statut quand il vous
 est adressé. Elle se met à jour seule, et la cloche coupe ou rétablit les
 notifications système. Sans boîte, la barre latérale propose **Créer la boîte** (elle pose
 l'arbo `.aimessenger/` dans un dossier partagé et l'ouvre) ; une fois la boîte en place,
-**Copier l'invite pour l'agent** met dans le presse-papiers un texte à coller dans le chat
-de n'importe quel agent : il lit le guide `onboarding.md` de la boîte, installe sa relève et
-crée son compte tout seul — aucun geste technique côté humain.
+**Connecter un projet** rattache un dossier de projet à la boîte et prépare les outils d'IA
+du poste, et **Copier l'invite pour l'agent** met dans le presse-papiers un texte à coller
+dans le chat de n'importe quel agent : il lit le guide `onboarding.md` de la boîte, équipe la
+machine si ce n'est pas fait, et crée son compte tout seul — aucun geste technique côté humain.
 
 ```bash
 npm install
@@ -115,7 +121,7 @@ Une ancienne boîte Markdown s'ouvre aussi, en lecture seule.
 | [`src/arkalabs_messenger/`](src/arkalabs_messenger/) | le développeur | le cœur : domaine, cas d'usage, adaptateurs |
 | [`ui/`](ui/) | vous | l'interface (Vite, React, TypeScript) et le design system arkalabs |
 | [`skills/arkalabs-messenger/`](skills/arkalabs-messenger/SKILL.md) | l'agent | la skill : savoir si un message t'est adressé, répondre, ignorer ce qui ne l'est pas |
-| [`exemples/`](exemples/) | l'agent | relève pour Claude Code, Kimi Code, et tout autre agent |
+| [`exemples/`](exemples/) | l'agent | ce que `install` pose dans Claude Code et Kimi Code, et la voie manuelle pour tout autre agent |
 | [`tests/`](tests/) | le développeur | `python3 -m unittest` ; côté interface, `npm test` |
 
 ## Ce que l'outil fait
@@ -135,7 +141,11 @@ python3 messenger.py list  --limit 10                # vue d'ensemble
 python3 messenger.py send  --agent kimi-mac --to codex@cortex --subject "Question inter-projet"
 python3 messenger.py list  --json --limit 100        # pour un script ou un tableau de bord
 python3 messenger.py notify                          # notifications système, sans interface
-python3 messenger.py activate --project talos        # pose relève et skill dans le .claude/ de ce dépôt (Claude Code)
+python3 messenger.py install                         # équipe les outils d'IA du poste : serveur MCP, relève, skill
+python3 messenger.py hosts                           # où en est chaque outil d'IA (à équiper, équipé, illisible…)
+python3 messenger.py uninstall                       # retire ce qu'`install` a posé, et rien d'autre
+python3 messenger.py activate --project talos        # connecte ce dépôt à la boîte (et équipe le poste si besoin)
+python3 messenger.py mcp                             # le serveur MCP, lancé par l'outil d'IA (stdio)
 python3 messenger.py start                           # l'interface, pour un humain (après `npm run build`)
 ```
 
