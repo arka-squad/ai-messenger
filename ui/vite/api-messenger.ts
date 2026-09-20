@@ -5,13 +5,16 @@
  * - L'API démarre quand Vite écoute : elle connaît alors l'adresse de l'interface, que
  *   les notifications système ouvrent au clic.
  * - Si l'API ne tourne pas, /api et /pj répondent la vraie raison, pas un 502 muet.
+ * - Vite recharge le front à chaud ; l'API, elle, garderait son ancien code jusqu'à la fin de la
+ *   session. Elle redémarre donc dès qu'un fichier Python du dépôt change : la page et l'API ne
+ *   peuvent plus être de deux versions différentes.
  * - Les écritures restent protégées : l'origine n'est réécrite vers l'API que pour une
  *   requête venue de cette page elle-même ; toute autre origine est retirée, et l'API refuse.
  */
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
-import { createServer } from 'node:net';
-import { join } from 'node:path';
-import type { Logger, Plugin, ProxyOptions } from 'vite';
+import { connect, createServer } from 'node:net';
+import { join, relative } from 'node:path';
+import { type Logger, type Plugin, type ProxyOptions, normalizePath } from 'vite';
 
 export interface OptionsApi {
   /** Racine du dépôt, où se trouve messenger.py. */
@@ -47,6 +50,20 @@ export function apiMessenger(options: OptionsApi): Plugin {
         reponse.end(JSON.stringify({ erreur: api.panne }));
       });
 
+      // Le code Python du dépôt : `src/` et `messenger.py`. Un changement relance l'API (regroupés : un
+      // `git pull` touche vingt fichiers d'un coup).
+      const surveilles = [join(options.depot, 'src'), join(options.depot, 'messenger.py')];
+      serveur.watcher.add(surveilles);
+      const racines = surveilles.map((chemin) => normalizePath(chemin));
+      let minuterie: ReturnType<typeof setTimeout> | null = null;
+      const surChangement = (fichier: string) => {
+        const chemin = normalizePath(fichier);
+        if (!chemin.endsWith('.py') || !racines.some((r) => chemin === r || chemin.startsWith(`${r}/`))) return;
+        if (minuterie) clearTimeout(minuterie);
+        minuterie = setTimeout(() => api.relancer(normalizePath(relative(options.depot, fichier))), 300);
+      };
+      for (const evenement of ['add', 'change', 'unlink'] as const) serveur.watcher.on(evenement, surChangement);
+
       const http = serveur.httpServer;
       if (!http) {
         api.demarrer(null);
@@ -71,7 +88,9 @@ class ApiPython {
   readonly #journal: Logger;
   readonly #erreurs: string[] = [];
   #processus: ChildProcess | null = null;
+  #adresseInterface: string | null = null;
   #arretVoulu = false;
+  #relance = false;
 
   constructor(options: OptionsApi, port: number, journal: Logger) {
     this.#options = options;
@@ -80,6 +99,8 @@ class ApiPython {
   }
 
   demarrer(adresseInterface: string | null): void {
+    this.#adresseInterface = adresseInterface;
+    this.#erreurs.length = 0;
     let interpreteur: string;
     try {
       interpreteur = trouverPython(this.#options.python);
@@ -107,12 +128,35 @@ class ApiPython {
       this.#dire('error', l);
     }));
     processus.on('error', (e) => this.#tomber(`l'API Python n'a pas pu démarrer : ${e.message}`));
+    // L'API n'écoute pas à l'instant où elle est lancée : tant que son port ne répond pas, on le dit.
+    this.panne = "l'API Python démarre — un instant";
+    void attendrePort(this.#port).then((pret) => {
+      if (this.#processus === processus && pret) this.panne = null;
+    });
     processus.on('exit', (code) => {
-      this.#processus = null;
-      if (this.#arretVoulu) return;
+      if (this.#processus === processus) this.#processus = null;
+      if (this.#arretVoulu || this.#relance) return;
       this.#tomber(`l'API Python s'est arrêtée : ${this.#erreurs.at(-1) ?? `code ${code ?? '?'}`}`);
       this.#dire('info', 'Corrige ui/.env.local (MESSENGER_BOX=…) : Vite redémarre tout seul.');
     });
+  }
+
+  /** Arrête l'API puis la relance avec le code à jour. Sans API en cours (elle était tombée), la lance. */
+  relancer(fichier: string): void {
+    if (this.#arretVoulu || this.#relance) return;
+    this.#dire('info', `${fichier} a changé : l'API Python redémarre`);
+    const processus = this.#processus;
+    if (!processus) {
+      this.demarrer(this.#adresseInterface);
+      return;
+    }
+    this.#relance = true;
+    this.panne = "l'API Python redémarre (code modifié) — un instant";
+    processus.once('exit', () => {
+      this.#relance = false;
+      if (!this.#arretVoulu) this.demarrer(this.#adresseInterface);
+    });
+    processus.kill();
   }
 
   arreter(): void {
@@ -159,6 +203,26 @@ function trouverPython(explicite: string | undefined): string {
     if (essai.status === 0) return candidat;
   }
   throw new Error('Python 3.8 ou plus est introuvable : installe-le, ou indique-le dans MESSENGER_PYTHON.');
+}
+
+/** Attend que l'API écoute sur son port. Rend false si elle ne répond pas dans le délai. */
+function attendrePort(port: number, delaiMs = 15000): Promise<boolean> {
+  const fin = Date.now() + delaiMs;
+  return new Promise((resoudre) => {
+    const essayer = () => {
+      const prise = connect({ port, host: '127.0.0.1' });
+      prise.once('connect', () => {
+        prise.destroy();
+        resoudre(true);
+      });
+      prise.once('error', () => {
+        prise.destroy();
+        if (Date.now() > fin) resoudre(false);
+        else setTimeout(essayer, 120);
+      });
+    };
+    essayer();
+  });
 }
 
 function portLibre(): Promise<number> {

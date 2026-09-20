@@ -2,6 +2,16 @@
 import type { PortBoite } from '../application/ports.ts';
 import type { Activation, Creation, Etat, Message, Statut } from '../domain/types.ts';
 
+/** Ce qu'on dit à l'humain quand l'API refuse. Une route que l'API ne connaît pas (`404 introuvable`) veut
+ *  dire qu'elle est plus ancienne que cette page : un serveur resté ouvert pendant une mise à jour. */
+export function messageDErreur(statut: number, erreur: string | null): string {
+  if (statut === 404 && (erreur === null || erreur === 'introuvable')) {
+    return "cette fonction n'existe pas dans l'application en cours : elle date d'avant une mise à jour — "
+      + 'ferme-la et relance-la';
+  }
+  return erreur ?? `l'API locale ne répond pas (HTTP ${statut}) — voir le terminal`;
+}
+
 export class ApiHttp implements PortBoite {
   readonly #base: string;
 
@@ -80,7 +90,7 @@ export class ApiHttp implements PortBoite {
     }
     if (!reponse.ok) {
       const erreur = corps && typeof corps === 'object' && 'erreur' in corps ? String(corps.erreur) : null;
-      throw new Error(erreur ?? `l'API locale ne répond pas (HTTP ${reponse.status}) — voir le terminal`);
+      throw new Error(messageDErreur(reponse.status, erreur));
     }
     return corps as T;
   }

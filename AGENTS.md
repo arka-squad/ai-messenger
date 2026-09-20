@@ -76,7 +76,7 @@ réveil, règles) et la voie manuelle.
 python3 <dépôt>/messenger.py --version
 ```
 
-Attendu : `0.1.8`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
+Attendu : `0.1.9`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
 installation. Sous Windows, `python` au lieu de `python3` selon l'installation.
 Appelle toujours `messenger.py` **depuis le dépôt** : il charge le code de
 `src/`, il ne fonctionne pas copié seul. Node n'est pas nécessaire aux agents :

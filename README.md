@@ -105,8 +105,8 @@ Sans configuration, elle ouvre une **boîte de démonstration** — deux projets
 quatre agents, la journée en cours. Pour la vôtre : `python3 messenger.py setup
 --box <chemin>`, ou `MESSENGER_BOX` dans `ui/.env.local` (modèle :
 [`ui/.env.example`](ui/.env.example)). L'interface agit au nom du compte
-`owner`, ou de `MESSENGER_AGENT`. `npm run dev` lance aussi l'API Python : une
-seule commande suffit.
+`owner`, ou de `MESSENGER_AGENT`. `npm run dev` lance aussi l'API Python, et la
+relance quand son code change : une seule commande suffit.
 
 Le point d'entrée pour un humain, c'est **`python3 messenger.py start`** : après
 `npm run build` une fois, il sert l'interface construite et ouvre le navigateur —

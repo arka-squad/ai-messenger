@@ -149,6 +149,7 @@ input { font: inherit; }
 .ajout__parcourir span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-family: var(--font-mono); font-size: 10.5px; }
 .ajout__parcourir:hover { background: rgba(var(--w), 0.06); border-color: rgba(var(--w), 0.34); }
+.ajout__parcourir:disabled { cursor: progress; opacity: 0.75; }
 .ajout__champ {
   height: 28px; padding: 0 9px; border-radius: 6px; box-sizing: border-box; width: 100%;
   border: 1px solid rgba(var(--w), 0.12); background: rgba(var(--w), 0.03); color: var(--tx2);

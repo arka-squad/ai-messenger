@@ -167,20 +167,30 @@ function ChampDossier({ dossier, invite, etiquette, onDossier, onChoisir, onEntr
   onChoisir: Choisir;
   onEntree: () => void;
 }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [panne, setPanne] = useState<string | null>(null);
   const parcourir = async () => {
+    if (ouvert) return;
+    setOuvert(true);
+    setPanne(null);
     try {
       const choisi = await onChoisir();
       if (choisi) onDossier(choisi);
-    } catch {
-      // sélecteur natif indisponible sur ce poste : le champ texte reste utilisable
+    } catch (e) {
+      // La fenêtre n'a pas pu s'ouvrir : on le dit, et le champ texte reste utilisable.
+      setPanne(e instanceof Error ? e.message : String(e));
+    } finally {
+      setOuvert(false);
     }
   };
   return (
     <>
-      <button type="button" className="ajout__parcourir" onClick={() => void parcourir()}>
-        <FolderOpen className="ic" size={13} />
-        <span>{dossier || invite}</span>
+      <button type="button" className="ajout__parcourir" disabled={ouvert} onClick={() => void parcourir()}>
+        {ouvert ? <LoaderCircle className="ic spin" size={13} /> : <FolderOpen className="ic" size={13} />}
+        <span>{ouvert ? 'Fenêtre de choix ouverte…' : dossier || invite}</span>
       </button>
+      {ouvert && <span className="ajout__aide">Choisis le dossier dans la fenêtre qui vient de s’ouvrir. Si tu ne la vois pas, elle est derrière cette page.</span>}
+      {panne && <span className="ajout__erreur" role="alert">{panne}</span>}
       <input
         className="ajout__champ" value={dossier} placeholder="…ou colle le chemin" aria-label={etiquette}
         onChange={(e) => onDossier(e.target.value)}

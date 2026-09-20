@@ -57,7 +57,7 @@ grep -rn "import" src/arkalabs_messenger/adapters/driving | grep "driven"
 | `adapters/driving/web.py` | l'API locale de l'interface (et l'interface construite) : lecture, avancée de statut, création de boîte (`/api/creer`) et connexion d'un projet (`/api/activer`), boîte résolue à chaque requête |
 | `adapters/driving/mcp.py` | le serveur MCP de la boîte : JSON-RPC 2.0 sur l'entrée et la sortie standard, écrit en bibliothèque standard ; outils (`whoami`, `enroll`, `identify`, `check`, `list`, `read`, `send`, `reply`, `mark`, `agents`, `contacts`, `contact_add`, `contact_remove`, `wait`), ressources `messenger://…`, appels annulables |
 | `adapters/driving/hotes.py` | équiper les hôtes IA du poste (Claude Code, Codex, Kimi Code, Antigravity, Cursor) : serveur MCP, relève et skill posés dans la configuration propre à chacun — fusion sans écrasement, idempotence, divergence réparée, autre installation respectée, fichier illisible jamais réécrit, écriture atomique |
-| `adapters/driving/poste.py` | la boîte du poste (`setup --box`), le projet du dépôt (`.messenger.json`), l'identité d'un agent (par session, puis par hôte et par dépôt), la connexion d'un dépôt (`activate`), l'environnement |
+| `adapters/driving/poste.py` | la boîte du poste (`setup --box`), le projet du dépôt (`.messenger.json`), l'identité d'un agent (par session, puis par hôte et par dépôt), la connexion d'un dépôt (`activate`), le sélecteur de dossier natif (au premier plan, une fenêtre à la fois, une panne jamais prise pour une annulation), l'environnement |
 | `bootstrap.py` | l'assemblage : choisit les adaptateurs selon la disposition de la boîte |
 | `demonstration.py` | la boîte de démonstration, écrite par les cas d'usage eux-mêmes |
 
@@ -76,7 +76,7 @@ Même découpage, en TypeScript :
 | `src/ui/` | les composants React et leur feuille de style |
 | `src/design/` | les jetons du design system arkalabs |
 | `src/main.tsx` | l'assemblage |
-| `vite/api-messenger.ts` | le plugin qui lance l'API Python avec `npm run dev` |
+| `vite/api-messenger.ts` | le plugin qui lance l'API Python avec `npm run dev`, et la relance dès qu'un fichier Python du dépôt change : la page et l'API ne sont jamais de deux versions |
 
 **Les règles restent en Python.** L'interface ne décide jamais qui peut faire
 avancer un statut : l'API le dit, message par message, dans le champ `suite`,

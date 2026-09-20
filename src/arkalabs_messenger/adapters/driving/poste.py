@@ -16,7 +16,8 @@ import json
 import os
 import platform
 import subprocess
-from typing import Any, Dict, Optional
+import threading
+from typing import Any, Dict, List, Optional
 
 from . import hotes
 
@@ -167,34 +168,98 @@ class ActivationRefusee(Exception):
 
 
 class SelecteurIndisponible(Exception):
-    """Aucun sélecteur de dossier natif sur ce poste : l'humain saisira le chemin à la main."""
+    """Le sélecteur de dossier natif ne peut pas servir : l'humain saisira le chemin à la main."""
+
+
+_TITRE_SELECTEUR = "Choisir le dossier"
+_DELAI_SELECTEUR = 600
+"""Au-delà de dix minutes, la fenêtre est sans doute oubliée : on la ferme et on le dit."""
+
+_selecteur_ouvert = threading.Lock()
+
+# La fenêtre appartient à une fenêtre invisible « toujours au-dessus » : lancée par un serveur en
+# arrière-plan, elle s'ouvrirait sinon derrière le navigateur, et l'interface semblerait figée.
+# La sortie est en UTF-8 sans BOM : un chemin accentué arrive intact.
+_SCRIPT_WINDOWS = "; ".join([
+    "$ErrorActionPreference = 'Stop'",
+    "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false",
+    "Add-Type -AssemblyName System.Windows.Forms",
+    "Add-Type -AssemblyName System.Drawing",
+    "$proprietaire = New-Object System.Windows.Forms.Form",
+    "$proprietaire.TopMost = $true",
+    "$proprietaire.ShowInTaskbar = $false",
+    "$proprietaire.Opacity = 0",
+    "$proprietaire.StartPosition = 'CenterScreen'",
+    "$proprietaire.Size = New-Object System.Drawing.Size(1, 1)",
+    "$proprietaire.Show()",
+    "$proprietaire.Activate()",
+    "$f = New-Object System.Windows.Forms.FolderBrowserDialog",
+    f"$f.Description = '{_TITRE_SELECTEUR}'",
+    "$f.ShowNewFolderButton = $true",
+    "$r = $f.ShowDialog($proprietaire)",
+    "$proprietaire.Close()",
+    "if ($r -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($f.SelectedPath) }",
+])
+
+
+def commandes_selecteur(systeme: str) -> List[List[str]]:
+    """Les commandes à essayer, dans l'ordre, pour ouvrir le sélecteur natif de `systeme`."""
+    if systeme == "Windows":
+        return [["powershell", "-STA", "-NoProfile", "-NonInteractive", "-Command", _SCRIPT_WINDOWS]]
+    if systeme == "Darwin":
+        # `tell me to activate` : le panneau passe devant le navigateur au lieu de s'ouvrir derrière.
+        return [["osascript", "-e", "tell me to activate",
+                 "-e", f'POSIX path of (choose folder with prompt "{_TITRE_SELECTEUR}")']]
+    return [["zenity", "--file-selection", "--directory", "--title", _TITRE_SELECTEUR],
+            ["kdialog", "--title", _TITRE_SELECTEUR, "--getexistingdirectory", os.path.expanduser("~")]]
+
+
+def lire_selecteur(systeme: str, code: int, sortie: bytes, erreurs: bytes) -> Optional[str]:
+    """Le dossier choisi, ou None si l'humain a annulé. Lève `SelecteurIndisponible` si la fenêtre
+    n'a pas pu s'ouvrir : une panne ne doit jamais passer pour une annulation."""
+    chemin = sortie.decode("utf-8", "replace").lstrip("\ufeff").strip()
+    if code == 0:
+        return chemin or None
+    detail = " ".join(erreurs.decode("utf-8", "replace").split())
+    annule = (systeme == "Darwin" and "-128" in detail) or (systeme not in ("Windows", "Darwin") and code == 1)
+    if annule:
+        return None
+    raise SelecteurIndisponible(
+        f"la fenêtre de choix n'a pas pu s'ouvrir (code {code}{' : ' + detail[:200] if detail else ''}) : "
+        "colle le chemin à la main")
 
 
 def choisir_dossier() -> Optional[str]:
     """Ouvre le sélecteur de dossier natif de l'OS et rend le chemin choisi, ou None si annulé.
 
-    L'app tourne sur la machine de l'humain : la fenêtre s'ouvre sur son bureau. Un sous-processus
-    par OS (PowerShell / osascript / zenity) évite toute dépendance et les soucis de thread.
+    L'app tourne sur la machine de l'humain : la fenêtre s'ouvre sur son bureau, au premier plan. Un
+    sous-processus par OS (PowerShell / osascript / zenity, kdialog) évite toute dépendance et les soucis
+    de thread. Une seule fenêtre à la fois : un second clic ne doit pas en empiler une autre.
     """
-    systeme = platform.system()
-    if systeme == "Windows":
-        script = ("Add-Type -AssemblyName System.Windows.Forms | Out-Null;"
-                  "$f = New-Object System.Windows.Forms.FolderBrowserDialog;"
-                  "$f.Description = 'Choisir le dossier';"
-                  "if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) "
-                  "{ [Console]::Out.Write($f.SelectedPath) }")
-        commande = ["powershell", "-STA", "-NoProfile", "-Command", script]
-    elif systeme == "Darwin":
-        commande = ["osascript", "-e", 'POSIX path of (choose folder with prompt "Choisir le dossier")']
-    else:
-        commande = ["zenity", "--file-selection", "--directory", "--title", "Choisir le dossier"]
+    if not _selecteur_ouvert.acquire(blocking=False):
+        raise SelecteurIndisponible("une fenêtre de choix est déjà ouverte : regarde derrière le navigateur, "
+                                    "ou colle le chemin à la main")
     try:
-        resultat = subprocess.run(commande, capture_output=True, text=True)
-    except (OSError, ValueError) as e:
-        raise SelecteurIndisponible(
-            f"sélecteur de dossier natif indisponible ({e}) : saisis le chemin à la main") from None
-    chemin = (resultat.stdout or "").strip()
-    return chemin or None
+        systeme = platform.system()
+        manquants = []
+        for commande in commandes_selecteur(systeme):
+            try:
+                resultat = subprocess.run(commande, capture_output=True, timeout=_DELAI_SELECTEUR,
+                                          creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            except FileNotFoundError:
+                manquants.append(commande[0])
+                continue
+            except subprocess.TimeoutExpired:
+                raise SelecteurIndisponible("la fenêtre de choix est restée ouverte trop longtemps : je l'ai fermée — "
+                                            "rouvre-la, ou colle le chemin à la main") from None
+            except (OSError, ValueError) as e:
+                raise SelecteurIndisponible(f"la fenêtre de choix n'a pas pu s'ouvrir ({e}) : "
+                                            "colle le chemin à la main") from None
+            return lire_selecteur(systeme, resultat.returncode, resultat.stdout, resultat.stderr)
+        raise SelecteurIndisponible(f"pas de fenêtre de choix sur ce poste ({', '.join(manquants)} introuvable) : "
+                                    "colle le chemin à la main")
+    finally:
+        _selecteur_ouvert.release()
 
 
 def activer_depot(dossier: str, projet: Optional[str], depot: str, box: Optional[str] = None,
