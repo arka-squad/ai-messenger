@@ -330,12 +330,15 @@ class Compte:
     cree: Optional[str] = None
     actif: bool = True
     contacts: Tuple[Contact, ...] = ()
-    """Son carnet d'adresses : lui seul le modifie."""
+    """Son carnet d'adresses."""
+    rattachement: Optional[str] = None
+    """Le projet auquel on a rattaché ce compte **commun** : son adresse n'en porte pas, et ne change pas."""
     autres: Dict[str, Any] = field(default_factory=dict, compare=False, hash=False)
 
     @property
     def projet(self) -> Optional[str]:
-        return projet_de(self.nom)
+        """Le projet du compte : celui de son adresse (`nom@projet`), sinon celui auquel on l'a rattaché."""
+        return projet_de(self.nom) or self.rattachement
 
     def contact(self, alias: str) -> Optional[Contact]:
         return next((c for c in self.contacts if c.alias == alias), None)
@@ -371,6 +374,25 @@ class Annuaire:
         """Les projets connus : ceux qu'on a connectés, et ceux des comptes."""
         return sorted({p.nom for p in self.declares} | {c.projet for c in self.comptes if c.projet})
 
+    def projet_de(self, adresse: str) -> Optional[str]:
+        """Le projet d'une adresse : celui de son compte s'il existe (rattachement compris), sinon celui qu'elle porte."""
+        compte = self.compte(adresse)
+        return compte.projet if compte else projet_de(adresse)
+
+    def rattacher(self, nom: str, projet: Optional[str], date: Optional[str] = None) -> Compte:
+        """Range un compte **commun** dans un projet (ou l'en sort, avec None). Son adresse ne change pas :
+        ses messages, son carnet et ce que les autres ont noté de lui restent valables."""
+        compte = self.compte(nom)
+        if compte is None:
+            raise CompteInconnu(f"compte introuvable : {nom}")
+        if projet_de(nom):
+            raise MessageInvalide(f"« {nom} » porte déjà son projet dans son adresse : il ne se range pas ailleurs")
+        if projet:
+            self.declarer(projet, date)
+        nouveau = replace(compte, rattachement=projet or None)
+        self._remplacer(compte, nouveau)
+        return nouveau
+
     def declarer(self, projet: str, date: Optional[str] = None) -> bool:
         """Note qu'un projet est connecté à la boîte. Rend True s'il ne l'était pas."""
         valider_nom(projet, "projet")
@@ -405,8 +427,15 @@ class Annuaire:
             candidat = adresse if n == 1 else f"{adresse[:29]}-{n}"
             nom = qualifier(candidat, projet)
             existant = self.compte(nom)
-            if existant is None or (existant.machine or "") == (machine or ""):
+            if existant is not None and (existant.machine or "") == (machine or ""):
                 return nom, existant
+            if existant is None:
+                # Le même agent, enrôlé avant que son dépôt ait un projet : on le retrouve sous son adresse
+                # commune plutôt que de lui créer un second compte, qui laisserait son courrier orphelin.
+                commun = self.compte(candidat) if projet else None
+                if commun is not None and (commun.machine or "") == (machine or ""):
+                    return candidat, commun
+                return nom, None
             n += 1
 
     def inscrire(self, compte: Compte, mise_a_jour: bool = False) -> bool:
@@ -429,6 +458,7 @@ class Annuaire:
             cree=existant.cree or compte.cree,
             actif=True,
             contacts=existant.contacts,
+            rattachement=existant.rattachement,
             autres=existant.autres,
         )
         self.comptes[self.comptes.index(existant)] = fusion
@@ -462,8 +492,8 @@ class Annuaire:
         Ce n'est que si aucun compte ne porte ce nom qu'on ouvre le carnet de l'expéditeur. Rend les
         adresses, et les alias développés (`{alias: adresses}`) pour le dire à celui qui envoie.
         """
-        projet = projet_de(de)
         expediteur = self.compte(de)
+        projet = expediteur.projet if expediteur else projet_de(de)
         adresses: List[str] = []
         developpes: Dict[str, Tuple[str, ...]] = {}
         for d in destinataires:

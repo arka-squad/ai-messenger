@@ -1,6 +1,6 @@
 /** La boîte à travers l'API locale (`messenger.py ui`), relayée par Vite en développement. */
 import type { PortBoite } from '../application/ports.ts';
-import type { Activation, Creation, Etat, Message, Statut } from '../domain/types.ts';
+import type { Activation, Creation, Etat, Invitation, Message, Poste, Statut } from '../domain/types.ts';
 
 /** Ce qu'on dit à l'humain quand l'API refuse. Une route que l'API ne connaît pas (`404 introuvable`) veut
  *  dire qu'elle est plus ancienne que cette page : un serveur resté ouvert pendant une mise à jour. */
@@ -68,6 +68,42 @@ export class ApiHttp implements PortBoite {
       body: '{}',
     });
     return reponse.dossier;
+  }
+
+  async inviter(invitation: Invitation): Promise<string> {
+    return (await this.#poster<{ invite: string }>('/api/invite', invitation)).invite;
+  }
+
+  async rattacher(compte: string, projet: string | null): Promise<void> {
+    await this.#poster('/api/rattacher', { compte, projet });
+  }
+
+  async noterContact(compte: string, alias: string, adresses: string[], note: string, remplacer: boolean): Promise<void> {
+    await this.#poster('/api/contact', { compte, alias, adresses, note, remplacer });
+  }
+
+  async retirerContact(compte: string, alias: string): Promise<void> {
+    await this.#poster('/api/contact-retirer', { compte, alias });
+  }
+
+  poste(): Promise<Poste> {
+    return this.#demander<Poste>('/api/poste');
+  }
+
+  preparer(): Promise<Poste> {
+    return this.#poster<Poste>('/api/preparer', {});
+  }
+
+  async eteindre(): Promise<void> {
+    await this.#poster('/api/eteindre', {});
+  }
+
+  #poster<T>(chemin: string, corps: unknown): Promise<T> {
+    return this.#demander<T>(chemin, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corps),
+    });
   }
 
   lienPieceJointe(nom: string): string {

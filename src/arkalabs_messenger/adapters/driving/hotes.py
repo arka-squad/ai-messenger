@@ -13,7 +13,9 @@ Règles de pose, les mêmes pour tous :
 
 - **fusionner, jamais écraser** : on ne touche qu'à notre entrée, le reste du fichier est conservé ;
 - **idempotent** : une entrée déjà conforme n'est pas réécrite ;
-- **divergence détectée** : une entrée périmée (chemin ou interpréteur changés) est réparée ;
+- **divergence détectée** : une entrée périmée (chemin changé, interpréteur disparu) est réparée — mais un
+  autre interpréteur Python **qui existe** est respecté : deux agents du poste n'ont pas forcément le même,
+  et ne doivent pas se « réparer » l'un l'autre à tour de rôle ;
 - **une autre installation est respectée** : une entrée qui pointe vers un autre
   `messenger.py` existant est laissée en place, sauf demande explicite (`forcer`) ;
 - **un fichier illisible n'est jamais réécrit** : on le dit, l'humain tranche ;
@@ -266,7 +268,7 @@ def _comparer(entree: Any, attendu: Dict[str, Any]) -> str:
         return DIVERGENT
     commande, args = entree.get("command"), entree.get("args")
     if (isinstance(commande, str) and isinstance(args, list) and args and all(isinstance(a, str) for a in args)
-            and _meme_chemin(commande, attendu["command"]) and _meme_chemin(args[0], attendu["args"][0])
+            and _interpreteur_valable(commande, attendu["command"]) and _meme_chemin(args[0], attendu["args"][0])
             and args[1:] == attendu["args"][1:] and entree.get("type") == attendu.get("type")):
         return VERIFIE
     autre = args[0] if isinstance(args, list) and args and isinstance(args[0], str) else None
@@ -314,7 +316,9 @@ def _etat_releve(h: Hote, ctx: Contexte) -> str:
         return ILLISIBLE
     if not trouvees:
         return ABSENT
-    if sorted(trouvees) == sorted(zip(EVENEMENTS, attendues)):
+    if len(trouvees) == len(EVENEMENTS) and all(
+            any(e == evenement and _meme_releve(commande, attendue) for e, commande in trouvees)
+            for evenement, attendue in zip(EVENEMENTS, attendues)):
         return VERIFIE
     for _, commande in trouvees:
         if _autre_installation(_messenger_dans(commande), ctx.messenger):
@@ -601,6 +605,21 @@ def _portable(chemin: str) -> str:
 
 def _meme_chemin(a: str, b: str) -> bool:
     return os.path.normcase(os.path.normpath(a)) == os.path.normcase(os.path.normpath(b))
+
+
+def _interpreteur_valable(pose: str, le_notre: str) -> bool:
+    """L'interpréteur posé est le nôtre, ou un autre qui existe : il lancera l'outil tout aussi bien."""
+    return _meme_chemin(pose, le_notre) or (os.path.isabs(pose) and os.path.isfile(pose))
+
+
+def _meme_releve(commande: str, attendue: str) -> bool:
+    """La même relève, à l'interpréteur près : `"<python>" "<messenger.py>" check --hook …`."""
+    forme = re.compile(r'^"([^"]+)" "([^"]+)" (.*)$')
+    posee, voulue = forme.match(commande.strip()), forme.match(attendue)
+    if not posee or not voulue:
+        return commande.strip() == attendue
+    return (_interpreteur_valable(posee.group(1), voulue.group(1)) and _meme_chemin(posee.group(2), voulue.group(2))
+            and posee.group(3).split() == voulue.group(3).split())
 
 
 def _messenger_dans(commande: str) -> Optional[str]:

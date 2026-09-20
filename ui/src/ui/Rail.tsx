@@ -6,12 +6,14 @@ import {
   type Filtre,
   type GroupeAgents,
   type Projet,
+  anciennete,
   cleJour,
   heure,
   horodatage,
   teinteProjet,
 } from '../domain/boite.ts';
-import type { Activation, Creation } from '../domain/types.ts';
+import type { Activation, Creation, Invitation, Poste } from '../domain/types.ts';
+import { CePoste } from './CePoste.tsx';
 import { EtiquetteProjet } from './EtiquettesProjet.tsx';
 import { ConnecterProjet, CreerBoite, InviterAgent } from './MiseEnPlace.tsx';
 
@@ -27,8 +29,10 @@ interface Props {
   activable: boolean;
   /** Quand il n'y a pas de boîte inscriptible : le motif (boîte Markdown…), ou null pour offrir la création. */
   motifCreation: string | null;
-  /** Le texte d'invite à copier pour un agent, si une vraie boîte est ouverte. */
-  invite: string | null;
+  onInviter: (invitation: Invitation) => Promise<string>;
+  onPoste: () => Promise<Poste>;
+  onPreparer: () => Promise<Poste>;
+  onEteindre: () => Promise<void>;
   onActiver: (dossier: string, projet: string) => Promise<Activation>;
   onCreer: (dossier: string) => Promise<Creation>;
   onChoisir: () => Promise<string | null>;
@@ -37,7 +41,7 @@ interface Props {
 }
 
 export function Rail({ compte, compteurs, projets, groupes, filtre, onFiltre, activable, motifCreation,
-  invite, onActiver, onCreer, onChoisir, derniereReleve, constat }: Props) {
+  onInviter, onPoste, onPreparer, onEteindre, onActiver, onCreer, onChoisir, derniereReleve, constat }: Props) {
   const boites: [Classement, string, LucideIcon, number][] = [
     ['toutes', 'Tous les messages', Inbox, compteurs.total],
     ['fils', 'Réponses', Reply, compteurs.fils],
@@ -92,8 +96,8 @@ export function Rail({ compte, compteurs, projets, groupes, filtre, onFiltre, ac
               <span className="compteur">{p.messages}</span>
             </button>
           ))}
-          {activable && <InviterAgent invite={invite} />}
-          {activable && <ConnecterProjet onConnecter={onActiver} onChoisir={onChoisir} />}
+          {activable && <ConnecterProjet onConnecter={onActiver} onChoisir={onChoisir} onInviter={onInviter} />}
+          {activable && <InviterAgent projets={projets.map((p) => p.nom)} projetCourant={filtre.projet} onInviter={onInviter} />}
         </div>
       )}
 
@@ -124,6 +128,8 @@ export function Rail({ compte, compteurs, projets, groupes, filtre, onFiltre, ac
           </div>
         ))}
       </div>
+
+      <CePoste onPoste={onPoste} onPreparer={onPreparer} onEteindre={onEteindre} />
 
       <div className="rail__releve">
         <span className="eyebrow">Relève</span>
@@ -168,7 +174,11 @@ function LigneAgent({ agent: a, filtre, onFiltre, aujourdhui }: {
         <span className="rail-agent__nom">{a.affichage ?? a.nom.split('@')[0]}</span>
         <span className="rail-agent__meta">
           <span className="rail-agent__dernier">{dernier}</span>
-          {a.enAttente > 0 && <span className="rail-agent__attente">{a.enAttente} en attente</span>}
+          {a.enAttente > 0 && (
+            <span className="rail-agent__attente" title={a.attenteDepuis ? `Le plus ancien attend ${anciennete(a.attenteDepuis)}` : undefined}>
+              {a.enAttente} en attente{a.attenteDepuis ? ` ${anciennete(a.attenteDepuis)}` : ''}
+            </span>
+          )}
           {a.contacts.length > 0 && (
             <span className="rail-agent__carnet"><BookUser className="ic" size={10} />{a.contacts.length}</span>
           )}

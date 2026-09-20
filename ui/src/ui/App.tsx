@@ -10,12 +10,14 @@ import {
   filtrer,
   groupesAgents,
   projets,
+  projetsDesComptes,
   recents,
   toucheLeProjet,
 } from '../domain/boite.ts';
 import type { Message, Statut } from '../domain/types.ts';
 import { Detail } from './Detail.tsx';
 import { Entete } from './Entete.tsx';
+import { FicheAgent } from './FicheAgent.tsx';
 import { Liste } from './Liste.tsx';
 import { Outils } from './Outils.tsx';
 import { Pied } from './Pied.tsx';
@@ -56,7 +58,9 @@ export function App({ veille, preferences }: Props) {
   const etat = v.etat;
   const compte = etat?.compte ?? 'owner';
   const tous = useMemo(() => recents(etat?.messages ?? []), [etat]);
-  const visibles = useMemo(() => filtrer(tous, filtre, compte), [tous, filtre, compte]);
+  // Le projet d'une adresse vient de son compte : un compte commun rangé dans un projet en fait partie.
+  const projetDe = useMemo(() => projetsDesComptes(etat?.comptes ?? []), [etat]);
+  const visibles = useMemo(() => filtrer(tous, filtre, compte, projetDe), [tous, filtre, compte, projetDe]);
   const compteurs = useMemo(() => compter(tous, compte), [tous, compte]);
   const listeAgents = useMemo(() => agents(etat?.comptes ?? [], tous, filtre.projet), [etat, tous, filtre.projet]);
   const listeProjets = useMemo(() => projets(etat?.projets ?? [], tous, etat?.comptes ?? []), [etat, tous]);
@@ -79,8 +83,8 @@ export function App({ veille, preferences }: Props) {
   }, [etat]);
   // Le trafic suit le projet choisi, pas les autres filtres : il montre la journée du projet.
   const duProjet = useMemo(
-    () => (filtre.projet ? tous.filter((m) => toucheLeProjet(m, filtre.projet as string)) : tous),
-    [tous, filtre.projet],
+    () => (filtre.projet ? tous.filter((m) => toucheLeProjet(m, filtre.projet as string, projetDe)) : tous),
+    [tous, filtre.projet, projetDe],
   );
   const choisi = (choix ? tous.find((m) => m.id === choix) : undefined) ?? visibles[0] ?? tous[0] ?? null;
   const idsVisibles = useMemo(() => visibles.map((m) => m.id), [visibles]);
@@ -94,7 +98,28 @@ export function App({ veille, preferences }: Props) {
 
   useNavigationClavier(idsVisibles, choisi?.id ?? null, setChoix);
 
+  const tousLesAgents = useMemo(() => agents(etat?.comptes ?? [], tous), [etat, tous]);
+  const agentChoisi = filtre.agent ? tousLesAgents.find((a) => a.nom === filtre.agent) ?? null : null;
+  // Les gestes passent par la veille, qui recharge ensuite : stables, pour ne pas relancer les effets.
+  const inviter = useCallback((i: Parameters<Veille['inviter']>[0]) => veille.inviter(i), [veille]);
+  const lirePoste = useCallback(() => veille.poste(), [veille]);
+  const preparer = useCallback(() => veille.preparer(), [veille]);
+  const eteindre = useCallback(() => veille.eteindre(), [veille]);
+
   const chargement = !etat && !v.erreur;
+  if (v.eteinte) {
+    return (
+      <div className="app app--eteinte">
+        <div className="eteinte">
+          <span className="eteinte__titre">La boîte est éteinte</span>
+          <span className="eteinte__texte">
+            Tes agents continuent de s’écrire : seule cette fenêtre s’est arrêtée. Pour la rouvrir, double-clique
+            sur l’icône <b>Messenger</b>. Tu peux fermer cet onglet.
+          </span>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="app">
       <Entete
@@ -118,7 +143,10 @@ export function App({ veille, preferences }: Props) {
           onFiltre={setFiltre}
           activable={etat?.source.activable ?? false}
           motifCreation={motifCreation}
-          invite={etat?.invite ?? null}
+          onInviter={inviter}
+          onPoste={lirePoste}
+          onPreparer={preparer}
+          onEteindre={eteindre}
           onActiver={(dossier, projet) => veille.activer(dossier, projet)}
           onCreer={(dossier) => veille.creer(dossier)}
           onChoisir={() => veille.choisirDossier()}
@@ -137,6 +165,20 @@ export function App({ veille, preferences }: Props) {
             agentFiltre={filtre.agent}
             onChoix={setChoix}
           />
+          {agentChoisi && (
+            <FicheAgent
+              key={agentChoisi.nom}
+              agent={agentChoisi}
+              agents={tousLesAgents}
+              projets={etat?.projets ?? []}
+              modifiable={etat?.source.activable ?? false}
+              onRattacher={(c, p) => veille.rattacher(c, p)}
+              onNoterContact={(c, alias, adresses, note) => veille.noterContact(c, alias, adresses, note)}
+              onRetirerContact={(c, alias) => veille.retirerContact(c, alias)}
+              onInviter={inviter}
+              onFermer={() => setFiltre({ ...filtre, agent: null })}
+            />
+          )}
           <div className="panneaux">
             <Liste
               cle={`${filtre.classement}|${filtre.agent ?? ''}`}
@@ -144,6 +186,7 @@ export function App({ veille, preferences }: Props) {
               erreur={etat ? null : v.erreur}
               messages={visibles}
               projet={filtre.projet}
+              projetDe={projetDe}
               affichages={affichages}
               arrivees={arrivees}
               total={tous.length}
@@ -154,6 +197,7 @@ export function App({ veille, preferences }: Props) {
               message={choisi}
               tous={tous}
               projet={filtre.projet}
+              projetDe={projetDe}
               affichages={affichages}
               lectureSeule={etat?.source.lecture_seule ?? true}
               lienPieceJointe={(nom) => veille.lienPieceJointe(nom)}

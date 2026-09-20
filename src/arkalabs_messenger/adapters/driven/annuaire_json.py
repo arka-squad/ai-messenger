@@ -9,7 +9,7 @@ from typing import Iterator
 from ...application.ports import BoiteIndisponible, DepotAnnuaire
 from ...domain import Annuaire
 from ..codec import FormatInvalide, annuaire_depuis_dict, annuaire_vers_dict, en_json
-from .fichiers import ecrire_atomique, verrou
+from .fichiers import ecrire_atomique, empreinte, verrou
 
 
 class DepotAnnuaireJson(DepotAnnuaire):
@@ -46,6 +46,9 @@ class DepotAnnuaireJson(DepotAnnuaire):
             annuaire = self.lire()
             yield annuaire
             self._ecrire(annuaire)
+
+    def version(self) -> str:
+        return empreinte(self._chemin)
 
     def _ecrire(self, annuaire: Annuaire) -> None:
         ecrire_atomique(self._chemin, en_json(annuaire_vers_dict(annuaire, self._nom_boite)))

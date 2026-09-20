@@ -2,7 +2,7 @@
  * La veille : charge la boîte, la relève à intervalle, signale les nouveaux messages.
  * Sans React : l'interface s'y abonne (`useSyncExternalStore`).
  */
-import type { Activation, Creation, Etat, Message, Statut } from '../domain/types.ts';
+import type { Activation, Creation, Etat, Invitation, Message, Poste, Statut } from '../domain/types.ts';
 import type { PortBoite } from './ports.ts';
 
 export interface EtatVeille {
@@ -14,6 +14,8 @@ export interface EtatVeille {
   constat: string;
   /** Les messages arrivés depuis le chargement précédent. */
   arrivees: readonly Message[];
+  /** L'humain vient d'éteindre la boîte depuis cette page. */
+  eteinte: boolean;
 }
 
 type Abonne = () => void;
@@ -23,7 +25,8 @@ export class Veille {
   readonly #intervalle: number;
   readonly #abonnes = new Set<Abonne>();
   #minuteur: ReturnType<typeof setInterval> | null = null;
-  #etat: EtatVeille = { etat: null, erreur: null, active: true, derniereReleve: null, constat: '', arrivees: [] };
+  #etat: EtatVeille = { etat: null, erreur: null, active: true, derniereReleve: null, constat: '', arrivees: [],
+    eteinte: false };
 
   constructor(boite: PortBoite, intervalleMs = 3000) {
     this.#boite = boite;
@@ -116,6 +119,43 @@ export class Veille {
   /** Ouvre le sélecteur de dossier natif du poste. */
   choisirDossier(): Promise<string | null> {
     return this.#boite.choisirDossier();
+  }
+
+  /** L'invite à coller à un agent ; un projet nouveau apparaît aussitôt. */
+  async inviter(invitation: Invitation): Promise<string> {
+    const invite = await this.#boite.inviter(invitation);
+    await this.recharger();
+    return invite;
+  }
+
+  async rattacher(compte: string, projet: string | null): Promise<void> {
+    await this.#boite.rattacher(compte, projet);
+    await this.recharger();
+  }
+
+  async noterContact(compte: string, alias: string, adresses: string[], note: string, remplacer = false): Promise<void> {
+    await this.#boite.noterContact(compte, alias, adresses, note, remplacer);
+    await this.recharger();
+  }
+
+  async retirerContact(compte: string, alias: string): Promise<void> {
+    await this.#boite.retirerContact(compte, alias);
+    await this.recharger();
+  }
+
+  poste(): Promise<Poste> {
+    return this.#boite.poste();
+  }
+
+  preparer(): Promise<Poste> {
+    return this.#boite.preparer();
+  }
+
+  /** Éteint la boîte allumée d'ici : la veille s'arrête, il n'y a plus personne à relever. */
+  async eteindre(): Promise<void> {
+    await this.#boite.eteindre();
+    this.arreter();
+    this.#publier({ active: false, constat: 'boîte éteinte', eteinte: true });
   }
 
   lienPieceJointe(nom: string): string {

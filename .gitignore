@@ -2,9 +2,8 @@
 __pycache__/
 *.pyc
 
-# Node
+# Node — `ui/dist` est versionné : l'interface construite est livrée avec l'outil (voir ui/vite/tampon.ts)
 node_modules/
-ui/dist/
 
 # Boîte de démonstration, régénérée au besoin par l'interface
 .demo/

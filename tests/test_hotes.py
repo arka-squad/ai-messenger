@@ -103,6 +103,24 @@ class ClaudeCode(Poste):
         self.assertEqual(hotes.etat(self.hote, self.ctx).mcp, DIVERGENT)
         self.assertEqual(hotes.equiper(self.hote, self.ctx).mcp, VERIFIE)
 
+    def test_un_autre_python_du_poste_n_est_pas_une_divergence(self):
+        """Deux agents du même poste n'ont pas forcément le même Python : ils ne se « réparent » pas l'un l'autre."""
+        premier = hotes.Contexte(DEPOT, home=self.home, env={}, python=self.ecrire("bin/python3.9", ""))
+        second = hotes.Contexte(DEPOT, home=self.home, env={}, python=self.ecrire("bin/python3.14", ""))
+        hotes.equiper(self.hote, premier)
+        avant = (self.lire(".claude.json"), self.lire(".claude/settings.json"))
+        etat = hotes.equiper(self.hote, second)  # le second agent, avec son Python à lui
+        self.assertEqual((etat.mcp, etat.releve), (VERIFIE, VERIFIE))
+        self.assertEqual((self.lire(".claude.json"), self.lire(".claude/settings.json")), avant)  # rien réécrit
+
+    def test_un_interpreteur_disparu_est_repare(self):
+        disparu = hotes.Contexte(DEPOT, home=self.home, env={}, python=os.path.join(self.home, "bin", "python-parti"))
+        hotes.equiper(self.hote, disparu)
+        etat = hotes.etat(self.hote, self.ctx)
+        self.assertEqual((etat.mcp, etat.releve), (DIVERGENT, DIVERGENT))
+        repare = hotes.equiper(self.hote, self.ctx)
+        self.assertEqual((repare.mcp, repare.releve), (VERIFIE, VERIFIE))
+
     def test_respecte_une_autre_installation(self):
         autre = self.ecrire("outils/messenger.py", "# une autre installation\n")
         self.ecrire(".claude.json", json.dumps({"mcpServers": {"arkalabs-messenger": {

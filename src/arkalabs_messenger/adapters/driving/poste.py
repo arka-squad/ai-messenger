@@ -77,8 +77,36 @@ def memoriser_session(session: str, agent: str) -> str:
 
 
 def identite_memorisee(hote: Optional[str], dossier: Optional[str]) -> Optional[str]:
-    """Le dernier agent enrôlé par cet hôte dans ce dossier, ou None."""
-    return _memo("identites", _cle_identite(hote, dossier)) if hote and dossier else None
+    """Le dernier agent enrôlé par cet hôte dans ce dossier — ou dans le plus proche dossier qui le contient :
+    un agent enrôlé à la racine de son dépôt est reconnu dans ses sous-dossiers."""
+    if not hote or not dossier:
+        return None
+    courant = os.path.abspath(dossier)
+    while True:
+        agent = _memo("identites", _cle_identite(hote, courant))
+        if agent:
+            return agent
+        parent = os.path.dirname(courant)
+        if parent == courant:
+            return None
+        courant = parent
+
+
+def deja_annonce(session: Optional[str], adresses: List[str]) -> bool:
+    """A-t-on déjà dit à cette session que du courrier attendait ces comptes ? Sans `session_id`, on ne sait pas."""
+    if not session:
+        return False
+    vus = lire_config().get("annonces")
+    connus = vus.get(session) if isinstance(vus, dict) else None
+    return isinstance(connus, list) and set(adresses) <= set(connus)
+
+
+def noter_annonce(session: str, adresses: List[str]) -> None:
+    conf = lire_config()
+    vus = conf.get("annonces") if isinstance(conf.get("annonces"), dict) else {}
+    vus[session] = sorted(set(vus.get(session) or []) | set(adresses))
+    conf["annonces"] = dict(list(vus.items())[-_MEMOIRE_MAX:])
+    _ecrire_config(conf)
 
 
 def memoriser_identite(hote: str, dossier: str, agent: str) -> str:
@@ -103,13 +131,18 @@ def _memo(table: str, cle: str) -> Optional[str]:
     return valeur if isinstance(valeur, str) and valeur else None
 
 
+_MEMOIRE_MAX = 300
+"""Les sessions passent : on ne garde que les dernières, la config du poste ne grossit pas sans fin."""
+
+
 def _memoriser(table: str, cle: str, valeur: str) -> str:
     conf = lire_config()
     valeurs = conf.get(table)
     if not isinstance(valeurs, dict):
         valeurs = {}
+    valeurs.pop(cle, None)  # réinsérée en dernier : les plus anciennes partent d'abord
     valeurs[cle] = valeur
-    conf[table] = valeurs
+    conf[table] = dict(list(valeurs.items())[-_MEMOIRE_MAX:])
     _ecrire_config(conf)
     return CONFIG
 

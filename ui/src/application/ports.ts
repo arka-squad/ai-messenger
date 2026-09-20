@@ -1,5 +1,5 @@
 /** Les ports du front : ce dont l'application a besoin, implémenté dans `adapters/`. */
-import type { Activation, Creation, Etat, Message, Statut } from '../domain/types.ts';
+import type { Activation, Creation, Etat, Invitation, Message, Poste, Statut } from '../domain/types.ts';
 
 /** La boîte, vue à travers l'API locale. */
 export interface PortBoite {
@@ -16,6 +16,17 @@ export interface PortBoite {
   creer(dossier: string): Promise<Creation>;
   /** Ouvre le sélecteur de dossier natif du poste ; rend le chemin choisi, ou null si annulé. */
   choisirDossier(): Promise<string | null>;
+  /** Le texte à coller à un agent ; un projet nouveau est créé au passage. */
+  inviter(invitation: Invitation): Promise<string>;
+  /** Range un compte commun dans un projet, ou l'en sort (`null`). */
+  rattacher(compte: string, projet: string | null): Promise<void>;
+  /** Note un contact dans le carnet d'un agent, ou le remplace. */
+  noterContact(compte: string, alias: string, adresses: string[], note: string, remplacer: boolean): Promise<void>;
+  retirerContact(compte: string, alias: string): Promise<void>;
+  poste(): Promise<Poste>;
+  /** Prépare les outils d'IA du poste (serveur MCP, relève) ; rend l'état obtenu. */
+  preparer(): Promise<Poste>;
+  eteindre(): Promise<void>;
   lienPieceJointe(nom: string): string;
 }
 

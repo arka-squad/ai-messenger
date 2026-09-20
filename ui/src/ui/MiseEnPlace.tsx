@@ -1,36 +1,136 @@
 /** La mise en place, pour un humain : créer la boîte, y connecter un projet, inviter un agent. */
-import { Check, Copy, FolderOpen, FolderPlus, Inbox, LoaderCircle } from 'lucide-react';
-import { useState } from 'react';
+import { Check, Copy, FolderOpen, FolderPlus, Inbox, LoaderCircle, X } from 'lucide-react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { projetPropose } from '../domain/boite.ts';
-import type { Activation, Creation } from '../domain/types.ts';
+import type { Activation, Creation, Invitation } from '../domain/types.ts';
 
 type Choisir = () => Promise<string | null>;
 
-/** Copier l'invite à coller dans le chat de son agent : il lit le guide d'accueil et s'enrôle seul. */
-export function InviterAgent({ invite }: { invite: string | null }) {
+type Portee = 'existant' | 'nouveau' | 'aucun';
+
+/** Met un texte dans le presse-papiers ; rend false si le navigateur le refuse (l'appelant le montre alors à copier). */
+export async function copierTexte(texte: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(texte);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Inviter un agent : on choisit d'abord son projet, puis on copie le texte à coller dans son chat.
+ *  L'invite porte le projet : l'agent crée son compte dedans, où que soit son dossier de travail. */
+export function InviterAgent({ projets, projetCourant, onInviter }: {
+  projets: readonly string[];
+  /** Le projet actuellement filtré : proposé d'office. */
+  projetCourant: string | null;
+  onInviter: (invitation: Invitation) => Promise<string>;
+}) {
+  const [ouvert, setOuvert] = useState(false);
+  const [portee, setPortee] = useState<Portee>(projets.length ? 'existant' : 'nouveau');
+  const [existant, setExistant] = useState('');
+  const [nouveau, setNouveau] = useState('');
+  const [envoi, setEnvoi] = useState(false);
   const [copie, setCopie] = useState(false);
-  if (!invite) return null;
+  const [aCopier, setACopier] = useState<string | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+
+  const choisi = existant || projetCourant || projets[0] || '';
+  const projet = portee === 'existant' ? choisi : portee === 'nouveau' ? projetPropose(nouveau) : null;
+  const pret = portee === 'aucun' || Boolean(projet);
+
   const copier = async () => {
+    if (!pret || envoi) return;
+    setEnvoi(true);
+    setErreur(null);
+    setACopier(null);
     try {
-      await navigator.clipboard.writeText(invite);
-      setCopie(true);
-      setTimeout(() => setCopie(false), 2500);
-    } catch {
-      // presse-papiers indisponible (contexte non sécurisé) : on ne casse rien
+      const invite = await onInviter({ projet: projet || null });
+      if (await copierTexte(invite)) {
+        setCopie(true);
+        setTimeout(() => setCopie(false), 4000);
+      } else {
+        setACopier(invite);  // presse-papiers refusé par le navigateur : on montre le texte
+      }
+      if (portee === 'nouveau' && projet) {
+        setExistant(projet);
+        setPortee('existant');
+        setNouveau('');
+      }
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : String(e));
+    } finally {
+      setEnvoi(false);
     }
   };
+
   return (
-    <button type="button" className="rail-boite" onClick={() => void copier()} title="Colle ce texte dans le chat de ton agent">
-      {copie ? <Check className="ic" size={15} /> : <Copy className="ic" size={15} />}
-      <span className="rail-boite__libelle">{copie ? 'Invite copiée — colle-la à ton agent' : "Copier l'invite pour l'agent"}</span>
-    </button>
+    <>
+      <button type="button" className={`rail-boite${ouvert ? ' rail-boite--actif' : ''}`} onClick={() => setOuvert((o) => !o)}>
+        <Copy className="ic" size={15} />
+        <span className="rail-boite__libelle">Copier l’invite pour l’agent</span>
+      </button>
+      {ouvert && (
+        <div className="ajout">
+          <span className="ajout__question">Dans quel projet ?</span>
+          {projets.length > 0 && (
+            <label className="ajout__choix">
+              <input type="radio" name="portee" checked={portee === 'existant'} onChange={() => setPortee('existant')} />
+              <select
+                className="ajout__champ" value={choisi} aria-label="Projet existant"
+                onFocus={() => setPortee('existant')} onChange={(e) => { setExistant(e.target.value); setPortee('existant'); }}
+              >
+                {projets.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </label>
+          )}
+          <label className="ajout__choix">
+            <input type="radio" name="portee" checked={portee === 'nouveau'} onChange={() => setPortee('nouveau')} />
+            <input
+              className="ajout__champ" value={nouveau} placeholder="Nouveau projet (ex. talos)" aria-label="Nouveau projet"
+              onFocus={() => setPortee('nouveau')} onChange={(e) => { setNouveau(e.target.value); setPortee('nouveau'); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') void copier(); }}
+            />
+          </label>
+          <label className="ajout__choix">
+            <input type="radio" name="portee" checked={portee === 'aucun'} onChange={() => setPortee('aucun')} />
+            <span className="ajout__choix-texte">Sans projet</span>
+          </label>
+          {portee === 'nouveau' && nouveau.trim() && projet !== nouveau.trim() && (
+            <span className="ajout__aide">Le projet s’appellera <b>{projet || '…'}</b> (minuscules, sans espace).</span>
+          )}
+          <button type="button" className="ajout__valider" disabled={!pret || envoi} onClick={() => void copier()}>
+            {envoi ? <LoaderCircle className="ic spin" size={13} /> : copie ? <Check className="ic" size={13} /> : <Copy className="ic" size={13} />}
+            <span>{copie ? 'Invite copiée' : 'Copier l’invite'}</span>
+          </button>
+          <span className="ajout__aide">
+            {copie
+              ? 'Colle-la dans le chat de ton agent : il crée son compte tout seul, dans ce projet.'
+              : 'Tu obtiens un texte à coller dans le chat de ton agent. Il y lit son projet et crée son compte tout seul.'}
+          </span>
+          {aCopier && <TexteACopier texte={aCopier} />}
+          {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Quand le navigateur refuse le presse-papiers : le texte, sélectionné d'un clic, à copier à la main. */
+export function TexteACopier({ texte }: { texte: string }) {
+  return (
+    <>
+      <span className="ajout__aide">Ton navigateur a refusé la copie automatique : sélectionne ce texte et copie-le.</span>
+      <textarea className="ajout__texte" readOnly value={texte} rows={6} onFocus={(e) => e.currentTarget.select()} />
+    </>
   );
 }
 
 /** Connecter un projet (un dépôt local) à la boîte. */
-export function ConnecterProjet({ onConnecter, onChoisir }: {
+export function ConnecterProjet({ onConnecter, onChoisir, onInviter }: {
   onConnecter: (dossier: string, projet: string) => Promise<Activation>;
   onChoisir: Choisir;
+  onInviter: (invitation: Invitation) => Promise<string>;
 }) {
   const [ouvert, setOuvert] = useState(false);
   const [dossier, setDossier] = useState('');
@@ -38,8 +138,9 @@ export function ConnecterProjet({ onConnecter, onChoisir }: {
   // Tant que l'humain n'a pas touché au nom du projet, il suit le dossier choisi : un projet a toujours un nom.
   const [projetSaisi, setProjetSaisi] = useState(false);
   const [envoi, setEnvoi] = useState(false);
-  const [succes, setSucces] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  // Le dossier est connecté : reste à inviter les agents du projet — une fenêtre le dit, invite à la main.
+  const [connecte, setConnecte] = useState<Activation | null>(null);
 
   const choisirDossier = (chemin: string) => {
     setDossier(chemin);
@@ -50,12 +151,9 @@ export function ConnecterProjet({ onConnecter, onChoisir }: {
     if (!dossier.trim() || envoi) return;
     setEnvoi(true);
     setErreur(null);
-    setSucces(null);
     try {
-      const r = await onConnecter(dossier.trim(), projet.trim());
-      const equipes = r.hotes.filter((h) => h.equipe).map((h) => h.nom);
-      setSucces(`Connecté : ${r.dossier}${r.projet ? ` · projet ${r.projet}` : ''}`
-        + (equipes.length ? ` · agents prêts dans ${equipes.join(', ')}` : ''));
+      setConnecte(await onConnecter(dossier.trim(), projet.trim()));
+      setOuvert(false);
       setDossier('');
       setProjet('');
       setProjetSaisi(false);
@@ -88,13 +186,81 @@ export function ConnecterProjet({ onConnecter, onChoisir }: {
             <span>Connecter</span>
           </button>
           <span className="ajout__aide">
-            Rattache un dossier de projet à la boîte et prépare les outils d’IA de ce poste. Le projet apparaît aussitôt dans la liste ; ses agents s’y rangeront. Ensuite, « Copier l’invite pour l’agent » et colle-la dans son chat : il crée son compte tout seul.
+            Rattache un dossier de projet à la boîte et prépare les outils d’IA de ce poste. Ensuite, tu copieras l’invite à envoyer aux agents du projet.
           </span>
-          {succes && <span className="ajout__succes" role="status">{succes}</span>}
           {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}
         </div>
       )}
+      {connecte && <ProjetConnecte activation={connecte} onInviter={onInviter} onFermer={() => setConnecte(null)} />}
     </>
+  );
+}
+
+/** La dernière étape après « Connecter un projet » : envoyer l'invite à l'agent, ou aux agents, du projet. */
+function ProjetConnecte({ activation, onInviter, onFermer }: {
+  activation: Activation;
+  onInviter: (invitation: Invitation) => Promise<string>;
+  onFermer: () => void;
+}) {
+  const [envoi, setEnvoi] = useState(false);
+  const [copie, setCopie] = useState(false);
+  const [aCopier, setACopier] = useState<string | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const prets = activation.hotes.filter((h) => h.equipe).map((h) => h.nom);
+
+  const copier = async () => {
+    if (envoi) return;
+    setEnvoi(true);
+    setErreur(null);
+    try {
+      const invite = await onInviter({ projet: activation.projet });
+      if (await copierTexte(invite)) setCopie(true);
+      else setACopier(invite);
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : String(e));
+    } finally {
+      setEnvoi(false);
+    }
+  };
+
+  return (
+    <Modale titre={activation.projet ? `Projet « ${activation.projet} » connecté` : 'Dossier connecté'} onFermer={onFermer}>
+      <span className="modale__chemin">{activation.dossier}</span>
+      <p className="modale__texte">
+        <b>Dernière étape : invite tes agents.</b> Copie l’invite, puis colle-la dans le chat de l’agent — ou de chacun
+        des agents — qui travaille sur ce projet. Chacun crée son compte {activation.projet ? <>dans <b>{activation.projet}</b> </> : ''}
+        tout seul, et apparaît ici.
+      </p>
+      <button type="button" className="modale__action" disabled={envoi} onClick={() => void copier()}>
+        {envoi ? <LoaderCircle className="ic spin" size={15} /> : copie ? <Check className="ic" size={15} /> : <Copy className="ic" size={15} />}
+        <span>{copie ? 'Invite copiée — colle-la à ton agent' : 'Copier l’invite'}</span>
+      </button>
+      {copie && <p className="modale__note">Tu peux la coller à plusieurs agents : la même invite sert à tous ceux du projet.</p>}
+      {aCopier && <TexteACopier texte={aCopier} />}
+      {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}
+      {prets.length > 0 && <p className="modale__note">Outils d’IA prêts sur ce poste : {prets.join(', ')}.</p>}
+    </Modale>
+  );
+}
+
+/** Une fenêtre au-dessus de la page : Échap ou un clic à côté la ferme. */
+export function Modale({ titre, onFermer, children }: { titre: string; onFermer: () => void; children: ReactNode }) {
+  useEffect(() => {
+    const surTouche = (e: KeyboardEvent) => { if (e.key === 'Escape') onFermer(); };
+    window.addEventListener('keydown', surTouche);
+    return () => window.removeEventListener('keydown', surTouche);
+  }, [onFermer]);
+  return (
+    <div className="modale__voile" role="presentation" onClick={onFermer}>
+      <div className="modale rise" role="dialog" aria-modal="true" aria-label={titre} onClick={(e) => e.stopPropagation()}>
+        <div className="modale__tete">
+          <span className="modale__titre">{titre}</span>
+          <button type="button" className="modale__fermer" aria-label="Fermer" onClick={onFermer}><X className="ic" size={15} /></button>
+        </div>
+        {children}
+        <button type="button" className="modale__terminer" onClick={onFermer}>Terminer</button>
+      </div>
+    </div>
   );
 }
 

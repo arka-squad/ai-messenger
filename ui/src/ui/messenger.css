@@ -354,3 +354,100 @@ input { font: inherit; }
   background: var(--bar); border-top: 1px solid rgba(var(--w), 0.07);
   font-family: var(--font-mono); font-size: 9.5px; color: var(--tx5);
 }
+
+/* -- Inviter : le choix du projet ------------------------------------------ */
+.ajout__question { font-size: 11.5px; color: var(--tx3); font-weight: 600; }
+.ajout__choix { display: flex; align-items: center; gap: 7px; min-width: 0; cursor: pointer; }
+.ajout__choix input[type="radio"] { accent-color: var(--arka-red); margin: 0; flex-shrink: 0; }
+.ajout__choix .ajout__champ { flex: 1; min-width: 0; }
+.ajout__choix-texte { font-size: 11.5px; color: var(--tx3); }
+select.ajout__champ { appearance: auto; cursor: pointer; }
+.ajout__texte {
+  width: 100%; box-sizing: border-box; resize: vertical; border-radius: 6px; padding: 7px 9px;
+  border: 1px solid rgba(var(--w), 0.14); background: rgba(var(--w), 0.04); color: var(--tx2);
+  font-family: var(--font-mono); font-size: 10.5px; line-height: 1.5;
+}
+
+/* -- Ce poste --------------------------------------------------------------- */
+.poste__ligne { display: flex; align-items: flex-start; gap: 7px; padding: 2px 8px; font-size: 11.5px; line-height: 1.45; color: var(--tx3); }
+.poste__ligne .ic { margin-top: 2px; flex-shrink: 0; }
+.poste__ligne--ok .ic { color: var(--pass-tx); }
+.poste__ligne--attention { color: var(--warn-tx); }
+.rail__section > .ajout__valider, .rail__section > .ajout__aide { margin: 3px 8px; }
+
+/* -- Fenêtre (modale) -------------------------------------------------------- */
+.modale__voile {
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: color-mix(in srgb, var(--zone) 35%, rgba(0, 0, 0, 0.62)); backdrop-filter: blur(3px);
+}
+.modale {
+  width: min(480px, 100%); max-height: 90vh; overflow-y: auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px;
+  padding: 20px 22px; border-radius: 12px; background: var(--bar); border: 1px solid rgba(var(--w), 0.12);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+.modale__tete { display: flex; align-items: flex-start; gap: 10px; }
+.modale__titre { flex: 1; font-size: 16px; font-weight: 700; color: var(--tx1); line-height: 1.3; }
+.modale__fermer { display: inline-flex; padding: 4px; border-radius: 6px; background: transparent; color: var(--tx4); cursor: pointer; }
+.modale__fermer:hover { background: rgba(var(--w), 0.08); color: var(--tx1); }
+.modale__chemin { font-family: var(--font-mono); font-size: 10.5px; color: var(--tx5); word-break: break-all; }
+.modale__texte { margin: 0; font-size: 13px; line-height: 1.6; color: var(--tx2); }
+.modale__note { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--tx4); }
+.modale__action {
+  display: flex; align-items: center; justify-content: center; gap: 9px; height: 42px; border-radius: 8px; cursor: pointer;
+  background: var(--arka-red); color: #fff; font-size: 13.5px; font-weight: 600; transition: filter 130ms ease;
+}
+.modale__action:hover { filter: brightness(1.1); }
+.modale__action:disabled { opacity: 0.7; cursor: progress; }
+.modale__terminer {
+  align-self: flex-end; height: 30px; padding: 0 14px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  background: transparent; color: var(--tx3); border: 1px solid rgba(var(--w), 0.14);
+}
+.modale__terminer:hover { background: rgba(var(--w), 0.06); color: var(--tx1); }
+
+/* -- Fiche agent -------------------------------------------------------------- */
+.fiche {
+  flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 18px 16px; max-height: 46vh; overflow-y: auto;
+  background: var(--bar); border-bottom: 1px solid rgba(var(--w), 0.08);
+}
+.fiche__tete { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+.fiche__nom { font-size: 14px; font-weight: 700; color: var(--tx1); }
+.fiche__adresse { font-family: var(--font-mono); font-size: 10.5px; color: var(--tx5); }
+.fiche__infos { font-size: 12px; line-height: 1.5; color: var(--tx3); }
+.fiche__alerte {
+  font-size: 12px; line-height: 1.55; color: var(--warn-tx); padding: 8px 11px; border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--warn-tx) 35%, transparent); background: color-mix(in srgb, var(--warn-tx) 8%, transparent);
+}
+.fiche__colonnes { display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap; }
+.fiche__bloc { display: flex; flex-direction: column; gap: 7px; width: 250px; min-width: 0; }
+.fiche__bloc--large { flex: 1; min-width: 280px; width: auto; }
+.fiche__bloc .eyebrow { display: inline-flex; align-items: center; gap: 6px; }
+.fiche__aide { font-size: 11px; line-height: 1.45; color: var(--tx5); }
+.fiche__ligne { display: flex; align-items: center; gap: 7px; }
+.fiche__ligne .ajout__champ { flex: 1; min-width: 0; }
+.fiche__formulaire { display: flex; flex-direction: column; gap: 7px; padding: 10px; border-radius: 8px; border: 1px dashed rgba(var(--w), 0.16); }
+.fiche__choix { display: flex; flex-wrap: wrap; gap: 5px; }
+.fiche__ajouter, .fiche__annuler {
+  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; height: 26px; padding: 0 9px; border-radius: 6px;
+  cursor: pointer; background: transparent; color: var(--tx3); font-size: 11.5px; border: 1px dashed rgba(var(--w), 0.2);
+}
+.fiche__ajouter:hover, .fiche__annuler:hover { background: rgba(var(--w), 0.05); color: var(--tx1); }
+.fiche__annuler { border-style: solid; border-color: transparent; }
+.puce {
+  display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 999px; cursor: pointer;
+  font-family: var(--font-mono); font-size: 10px; color: var(--tx3); background: transparent; border: 1px solid rgba(var(--w), 0.16);
+}
+.puce:hover { border-color: rgba(var(--w), 0.34); }
+.puce--cochee { color: var(--tx1); border-color: var(--arka-green); background: color-mix(in srgb, var(--arka-green) 14%, transparent); }
+.contact { display: flex; align-items: baseline; gap: 7px; min-width: 0; flex-wrap: wrap; padding: 3px 0; }
+.contact__alias { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; color: var(--tx1); }
+.contact__fleche { color: var(--tx5); font-size: 11px; }
+.contact__adresses { font-family: var(--font-mono); font-size: 10.5px; color: var(--tx3); }
+.contact__note { font-size: 11px; color: var(--tx5); }
+.contact__retirer { display: inline-flex; padding: 3px; border-radius: 5px; background: transparent; color: var(--tx5); cursor: pointer; margin-left: auto; }
+.contact__retirer:hover { color: var(--fail-tx); background: rgba(var(--w), 0.06); }
+
+/* -- Boîte éteinte ------------------------------------------------------------ */
+.app--eteinte { align-items: center; justify-content: center; }
+.eteinte { display: flex; flex-direction: column; gap: 10px; max-width: 440px; padding: 32px; text-align: center; }
+.eteinte__titre { font-size: 20px; font-weight: 700; color: var(--tx1); }
+.eteinte__texte { font-size: 13.5px; line-height: 1.65; color: var(--tx3); }

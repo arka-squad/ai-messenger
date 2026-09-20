@@ -58,6 +58,8 @@ grep -rn "import" src/arkalabs_messenger/adapters/driving | grep "driven"
 | `adapters/driving/mcp.py` | le serveur MCP de la boîte : JSON-RPC 2.0 sur l'entrée et la sortie standard, écrit en bibliothèque standard ; outils (`whoami`, `enroll`, `identify`, `check`, `list`, `read`, `send`, `reply`, `mark`, `agents`, `contacts`, `contact_add`, `contact_remove`, `wait`), ressources `messenger://…`, appels annulables |
 | `adapters/driving/hotes.py` | équiper les hôtes IA du poste (Claude Code, Codex, Kimi Code, Antigravity, Cursor) : serveur MCP, relève et skill posés dans la configuration propre à chacun — fusion sans écrasement, idempotence, divergence réparée, autre installation respectée, fichier illisible jamais réécrit, écriture atomique |
 | `adapters/driving/poste.py` | la boîte du poste (`setup --box`), le projet du dépôt (`.messenger.json`), l'identité d'un agent (par session, puis par hôte et par dépôt), la connexion d'un dépôt (`activate`), le sélecteur de dossier natif (au premier plan, une fenêtre à la fois, une panne jamais prise pour une annulation), l'environnement |
+| `adapters/driving/raccourci.py` | l'icône « Messenger » du bureau (`shortcut`) : `.lnk` vers `pythonw` sous Windows, application minimale sous macOS, entrée `.desktop` sous Linux — un double-clic lance `start`, sans console, avec un journal |
+| `ressources/` | l'icône, en PNG, ICO et ICNS — dessinée par `scripts/generer_icone.py`, bibliothèque standard |
 | `bootstrap.py` | l'assemblage : choisit les adaptateurs selon la disposition de la boîte |
 | `demonstration.py` | la boîte de démonstration, écrite par les cas d'usage eux-mêmes |
 
@@ -95,6 +97,12 @@ thèmes clair et sombre) : l'écran n'écrit aucune couleur en dur.
   chaque écriture et ne se relit jamais.
 - **Chaque écriture relit la boîte sous verrou.** Une transaction ne travaille
   jamais sur un état périmé ; une erreur en cours de route n'écrit rien.
+- **L'interface est livrée construite.** `ui/dist` est versionné : un humain allume sa boîte sans Node.
+  Chaque build y pose l'empreinte de ses sources (`ui/vite/tampon.ts`), et `tests/test_interface.py`
+  refuse une interface en retard sur son code.
+- **Un projet est une étiquette, pas un dossier.** Il naît d'une invite, d'un dossier connecté ou d'un
+  rangement ; un compte y entre par son adresse (`nom@projet`) ou parce qu'on l'y a rangé — son adresse,
+  donc son courrier et son carnet, ne bougent jamais.
 - **L'API n'écoute que 127.0.0.1**, refuse un hôte inconnu, et n'accepte une
   écriture que d'une page de même origine, en JSON.
 - **Le serveur MCP est écrit à la main, en stdio.** Le SDK officiel demande

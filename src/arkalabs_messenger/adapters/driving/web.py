@@ -27,10 +27,14 @@ import urllib.parse
 import webbrowser
 from typing import Any, Dict, Optional, Tuple
 
+from ... import __version__
 from ...application import Annonceur, BoiteExistante, BoiteIndisponible, Messagerie
-from ...domain import ErreurMessenger, valider_nom
+from ...domain import Compte, ErreurMessenger, valider_nom
 from ..codec import compte_vers_dict, message_vers_dict
-from . import poste
+from . import hotes, poste
+
+OUTIL = "arkalabs-messenger"
+"""Ce que `/api/version` répond à qui demande « qui écoute ici ? » — `start` s'y reconnaît."""
 
 _TEXTE = {".md", ".txt", ".log", ".csv", ".yml", ".yaml", ".toml", ".py", ".ps1", ".sh",
           ".rs", ".ts", ".js", ".html", ".svg", ".xml"}
@@ -55,7 +59,8 @@ def etat(messagerie: Messagerie, compte: str, demonstration: bool = False,
         d["pj_presente"] = bool(m.pj) and messagerie.piece_jointe(m.pj) is not None
         messages.append(d)
     if messagerie.annuaire_present():
-        comptes = [compte_vers_dict(c) for c in messagerie.comptes(tous=True)]
+        # `projet` : celui que porte l'adresse, sinon celui auquel le compte a été rattaché — l'interface range par lui
+        comptes = [{**compte_vers_dict(c), "projet": c.projet} for c in messagerie.comptes(tous=True)]
     else:
         comptes = [{"nom": nom, "actif": True} for nom in boite.participants()]
     return {
@@ -77,18 +82,48 @@ def etat(messagerie: Messagerie, compte: str, demonstration: bool = False,
     }
 
 
-def _invite(messagerie: Messagerie, demonstration: bool, depot: Optional[str]) -> Optional[str]:
-    """Le texte que l'humain copie et colle à son agent pour qu'il s'enrôle. None si pas de vraie boîte."""
+_PROJET_DU_DEPOT = object()
+"""L'humain n'a pas choisi de projet pour cette invite : l'agent prendra celui de son dépôt, s'il en a un."""
+
+
+def _invite(messagerie: Messagerie, demonstration: bool, depot: Optional[str],
+            projet: Any = _PROJET_DU_DEPOT, compte: Optional[Compte] = None) -> Optional[str]:
+    """Le texte que l'humain copie et colle à son agent. None si pas de vraie boîte.
+
+    `projet` : le projet que l'humain a choisi pour cet agent (`None` : sans projet, compte commun).
+    `compte` : l'invite s'adresse à un agent qui a **déjà** un compte — il le reprend au lieu d'en créer un.
+    """
     if demonstration or messagerie.lecture_seule:
         return None
     onboarding = os.path.join(messagerie.racine, "onboarding.md")
     outil = os.path.join(depot, "messenger.py") if depot else "messenger.py (dépôt arkalabs-messenger)"
     agents = os.path.join(depot, "AGENTS.md") if depot else "AGENTS.md du dépôt arkalabs-messenger"
+    if compte is not None:
+        return "\n".join([
+            f"Tu es l'agent « {compte.affichage or compte.nom} » (adresse {compte.nom}) de la boîte aux lettres "
+            "partagée des agents. Du courrier t'y attend peut-être, et ta relève ne te reconnaît pas encore ici.",
+            f"Boîte : {messagerie.emplacement}",
+            f"Outil : {outil} (lis {agents})",
+            "Depuis ton dossier de travail, reprends ton compte — ta relève saura ensuite qui tu es :",
+            f"- si ton hôte a le serveur MCP « arkalabs-messenger » : outil `identify` avec address \"{compte.nom}\" ;",
+            f"- sinon : python3 \"{outil}\" identify --address {compte.nom} --host <ton hôte>",
+            "Puis relève ton courrier (`check`), lis les pièces jointes, réponds, et marque « traité ».",
+            f"Si la machine n'est pas encore équipée, suis d'abord l'étape 1 de {onboarding}.",
+        ])
+    if projet is _PROJET_DU_DEPOT:
+        consigne = []
+    elif projet:
+        consigne = [f"Ton projet : {projet} — crée ton compte DANS ce projet : outil MCP `enroll` avec "
+                    f"project \"{projet}\", ou `enroll --task \"<ta tâche>\" --project {projet}`."]
+    else:
+        consigne = ["Ton projet : aucun — crée un compte commun à tous les projets : outil MCP `enroll` avec "
+                    "project \"\", ou `enroll --task \"<ta tâche>\" --project \"\"`."]
     return "\n".join([
         "Tu es un agent IA sur cette machine. Une boîte aux lettres partagée est active : "
         "présente-toi et relève ton courrier.",
         f"Boîte : {messagerie.emplacement}",
         f"Outil : {outil} (lis {agents})",
+        *consigne,
         f"Lis {onboarding} et suis-le : équipe cette machine si personne ne l'a encore fait "
         "(étape 1), puis crée ton compte (étape 2), puis relève ton courrier.",
     ])
@@ -101,14 +136,17 @@ class _Serveur(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 def creer_serveur(messagerie: Messagerie, compte: str, port: int = 0, front: Optional[str] = None,
                   demonstration: bool = False, annonceur: Optional[Annonceur] = None,
-                  depot: Optional[str] = None, resolveur=None, usine=None) -> http.server.HTTPServer:
+                  depot: Optional[str] = None, resolveur=None, usine=None,
+                  eteignable: bool = False) -> http.server.HTTPServer:
     """Un serveur prêt à `serve_forever()`. Port 0 : un port libre est choisi.
 
     `resolveur()` rend `(messagerie, demonstration)` à chaque requête : la boîte peut ainsi
     changer en cours de route (création depuis l'interface). Sans lui, la boîte donnée est fixe.
+    `eteignable` : l'humain a allumé la boîte lui-même (`start`), il peut l'éteindre depuis l'interface.
     """
     resolveur = resolveur or (lambda: (messagerie, demonstration))
-    serveur = _Serveur(("127.0.0.1", port), _gestionnaire(resolveur, compte, front, depot, annonceur, usine))
+    serveur = _Serveur(("127.0.0.1", port),
+                       _gestionnaire(resolveur, compte, front, depot, annonceur, usine, eteignable))
     return serveur
 
 
@@ -122,7 +160,8 @@ def servir(messagerie: Messagerie, compte: str, port: int, front: Optional[str],
     """
     messagerie.instantane()  # échoue tôt si la boîte est illisible
     try:
-        serveur = creer_serveur(messagerie, compte, port, front, demonstration, annonceur, depot, resolveur, usine)
+        serveur = creer_serveur(messagerie, compte, port, front, demonstration, annonceur, depot, resolveur, usine,
+                                eteignable=bool(front) and not lie_au_parent)
     except OSError:
         raise BoiteIndisponible(f"le port {port} est occupé : relance avec --port <autre>") from None
     url = f"http://127.0.0.1:{serveur.server_address[1]}/"
@@ -167,7 +206,7 @@ def _attendre_la_fin_du_parent(serveur: http.server.HTTPServer) -> None:
 
 
 def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[str] = None,
-                  annonceur: Optional[Annonceur] = None, usine=None):
+                  annonceur: Optional[Annonceur] = None, usine=None, eteignable: bool = False):
     class Gestionnaire(http.server.BaseHTTPRequestHandler):
         server_version = "arkalabs-messenger"
 
@@ -222,7 +261,10 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                     return self._json(200, etat(messagerie, compte, demonstration,
                                                  annonceur.actif if annonceur else None, depot))
                 if chemin == "/api/version":
-                    return self._json(200, {"version": self._courant()[0].version()})
+                    return self._json(200, {"version": self._courant()[0].version(), "outil": OUTIL,
+                                            "logiciel": __version__})
+                if chemin == "/api/poste":
+                    return self._json(200, self._poste())
                 if chemin.startswith("/pj/"):
                     return self._piece_jointe(urllib.parse.unquote(chemin[len("/pj/"):]))
                 if front and not chemin.startswith("/api/"):
@@ -238,7 +280,8 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                 return self._erreur(403, "requête refusée : origine inconnue")
             chemin = urllib.parse.urlsplit(self.path).path
             if chemin not in ("/api/statut", "/api/notifications", "/api/activer", "/api/creer",
-                              "/api/choisir-dossier"):
+                              "/api/choisir-dossier", "/api/preparer", "/api/eteindre", "/api/invite",
+                              "/api/rattacher", "/api/contact", "/api/contact-retirer"):
                 return self._erreur(404, "introuvable")
             if not self.headers.get("Content-Type", "").startswith("application/json"):
                 return self._erreur(415, "JSON attendu")
@@ -255,6 +298,12 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                     return self._creer(demande)
                 if chemin == "/api/choisir-dossier":
                     return self._choisir_dossier()
+                if chemin in ("/api/invite", "/api/rattacher", "/api/contact", "/api/contact-retirer"):
+                    return self._organiser(chemin, demande)
+                if chemin == "/api/preparer":
+                    return self._preparer()
+                if chemin == "/api/eteindre":
+                    return self._eteindre()
                 messagerie = self._courant()[0]
                 message = messagerie.marquer(compte, str(demande["id"]), str(demande["statut"]))
             except (ValueError, KeyError, TypeError):
@@ -266,6 +315,75 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
             except OSError as e:
                 return self._erreur(503, f"boîte injoignable : {e.strerror or e}")
             return self._json(200, {"message": message_vers_dict(message), "version": messagerie.version()})
+
+        def _organiser(self, chemin: str, demande: Any) -> None:
+            """Les gestes de l'humain qui organise sa boîte : inviter un agent dans un projet, ranger un compte
+            dans un projet, tenir le carnet d'adresses d'un agent."""
+            messagerie, demonstration = self._courant()
+            if demonstration or messagerie.lecture_seule:
+                return self._erreur(409, "aucune boîte inscriptible : crée d'abord la boîte")
+            if not isinstance(demande, dict):
+                return self._erreur(400, "demande illisible : un objet JSON est attendu")
+            try:
+                if chemin == "/api/invite":
+                    return self._json(200, {"invite": self._inviter(messagerie, demande)})
+                adresse = str(demande["compte"])
+                if chemin == "/api/rattacher":
+                    messagerie.rattacher(adresse, str(demande["projet"]) if demande.get("projet") else None)
+                elif chemin == "/api/contact":
+                    adresses = demande["adresses"]
+                    if not isinstance(adresses, list) or not all(isinstance(a, str) for a in adresses):
+                        return self._erreur(400, 'demande illisible : "adresses" est une liste d\'adresses')
+                    note = demande.get("note")
+                    messagerie.noter_contact(adresse, str(demande["alias"]), adresses,
+                                             str(note) if note else None, remplacer=bool(demande.get("remplacer")))
+                else:
+                    messagerie.retirer_contact(adresse, str(demande["alias"]))
+            except KeyError as e:
+                return self._erreur(400, f"demande illisible : champ {e} attendu")
+            except ErreurMessenger as e:
+                return self._erreur(409, str(e))
+            except OSError as e:
+                return self._erreur(503, f"boîte injoignable : {e.strerror or e}")
+            return self._json(200, {"version": messagerie.version()})
+
+        def _inviter(self, messagerie: Messagerie, demande: Dict[str, Any]) -> Optional[str]:
+            """L'invite à coller à un agent : pour un compte existant, ou pour un nouveau dans le projet choisi
+            (créé au passage s'il est nouveau ; `null` : sans projet)."""
+            if demande.get("compte"):
+                compte = next((c for c in messagerie.comptes(tous=True) if c.nom == str(demande["compte"])), None)
+                if compte is None:
+                    raise KeyError("compte")
+                return _invite(messagerie, False, depot, compte=compte)
+            projet = valider_nom(str(demande["projet"]), "projet") if demande.get("projet") else None
+            if projet:
+                messagerie.declarer_projet(projet)
+            return _invite(messagerie, False, depot, projet=projet)
+
+        def _poste(self) -> Dict[str, Any]:
+            """Où en est ce poste : ses outils d'IA sont-ils prêts, et peut-on éteindre la boîte d'ici ?"""
+            etats = hotes.etats(hotes.contexte(depot)) if depot else []
+            return {"hotes": [h.vers_dict() for h in etats if h.present], "eteignable": eteignable,
+                    "logiciel": __version__}
+
+        def _preparer(self) -> None:
+            """Équipe les outils d'IA du poste (voir `hotes.py`) : le geste de `messenger.py install`."""
+            if not depot:
+                return self._erreur(409, "préparation indisponible : dépôt de l'outil introuvable")
+            try:
+                hotes.equiper_presents(hotes.contexte(depot))
+            except hotes.EquipementRefuse as e:
+                return self._erreur(409, str(e))
+            except OSError as e:
+                return self._erreur(500, f"préparation impossible : {e.strerror or e}")
+            return self._json(200, self._poste())
+
+        def _eteindre(self) -> None:
+            """Arrête cette fenêtre sur la boîte. Les agents n'en dépendent pas : ils continuent de s'écrire."""
+            if not eteignable:
+                return self._erreur(409, "cette boîte n'a pas été allumée d'ici : ferme l'outil qui l'a lancée")
+            self._json(200, {"eteinte": True})
+            threading.Thread(target=self.server.shutdown, daemon=True).start()
 
         def _activer(self, demande: Any) -> None:
             """Connecte un projet : déclare le dépôt et équipe les hôtes IA du poste (voir `hotes.py`)."""

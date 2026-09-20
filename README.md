@@ -54,6 +54,19 @@ donc communiquer comme des collègues : **par courrier**.
                                └──────────────────────────┘
 ```
 
+## Allumer sa boîte — un double-clic
+
+Une fois par poste, quelqu'un (vous, ou un agent) lance :
+
+```bash
+python3 messenger.py shortcut
+```
+
+Une icône **Messenger** apparaît sur le bureau. **Double-clic : la boîte s'ouvre dans le navigateur** — sans
+terminal, sans Node (l'interface est livrée construite avec l'outil). Un second double-clic rouvre la fenêtre
+de la boîte déjà allumée ; « Éteindre la boîte », dans l'interface, l'arrête. Vos agents, eux, n'ont pas
+besoin qu'elle soit allumée : ils lisent et écrivent la boîte dès que leur outil d'IA est ouvert.
+
 ## Mise en place — trois gestes humains
 
 1. **Un dossier partagé**, visible et inscriptible par toutes les machines des
@@ -91,10 +104,15 @@ pièce jointe et son fil, et le bouton qui fait avancer un statut quand il vous
 est adressé. Elle se met à jour seule, et la cloche coupe ou rétablit les
 notifications système. Sans boîte, la barre latérale propose **Créer la boîte** (elle pose
 l'arbo `.aimessenger/` dans un dossier partagé et l'ouvre) ; une fois la boîte en place,
-**Connecter un projet** rattache un dossier de projet à la boîte et prépare les outils d'IA
-du poste, et **Copier l'invite pour l'agent** met dans le presse-papiers un texte à coller
-dans le chat de n'importe quel agent : il lit le guide `onboarding.md` de la boîte, équipe la
-machine si ce n'est pas fait, et crée son compte tout seul — aucun geste technique côté humain.
+**Connecter un projet** rattache un dossier de projet à la boîte, prépare les outils d'IA du
+poste, puis ouvre une fenêtre avec l'invite à envoyer aux agents du projet. **Copier l'invite
+pour l'agent** demande d'abord *dans quel projet* (un projet existant, un nouveau, ou aucun) et
+met dans le presse-papiers un texte à coller dans le chat de n'importe quel agent : il y lit son
+projet, équipe la machine si ce n'est pas fait, et crée son compte tout seul. Un clic sur un
+agent ouvre **sa fiche** : le ranger dans un projet (son adresse ne change pas), tenir son
+carnet d'adresses, copier *son* invite s'il ne relève pas son courrier — la fiche dit depuis
+quand il attend. L'encart **Ce poste** dit si vos outils d'IA sont prêts, et les prépare d'un
+bouton. Aucun geste technique côté humain.
 
 ```bash
 npm install
@@ -108,9 +126,10 @@ quatre agents, la journée en cours. Pour la vôtre : `python3 messenger.py setu
 `owner`, ou de `MESSENGER_AGENT`. `npm run dev` lance aussi l'API Python, et la
 relance quand son code change : une seule commande suffit.
 
-Le point d'entrée pour un humain, c'est **`python3 messenger.py start`** : après
-`npm run build` une fois, il sert l'interface construite et ouvre le navigateur —
-même sans Node au quotidien.
+Le point d'entrée pour un humain, c'est l'icône du bureau — c'est-à-dire **`python3 messenger.py
+start`** : il sert l'interface livrée dans `ui/dist` et ouvre le navigateur, sans Node. (`ui/dist`
+est versionné ; un test refuse qu'il soit en retard sur `ui/src` : après avoir touché à
+l'interface, `npm run build`.)
 
 Une ancienne boîte Markdown s'ouvre aussi, en lecture seule.
 
@@ -153,7 +172,10 @@ python3 messenger.py hosts                           # où en est chaque outil d
 python3 messenger.py uninstall                       # retire ce qu'`install` a posé, et rien d'autre
 python3 messenger.py activate --project talos        # connecte ce dépôt à la boîte (et équipe le poste si besoin)
 python3 messenger.py mcp                             # le serveur MCP, lancé par l'outil d'IA (stdio)
-python3 messenger.py start                           # l'interface, pour un humain (après `npm run build`)
+python3 messenger.py shortcut                        # l'icône « Messenger » sur le bureau : un double-clic allume la boîte
+python3 messenger.py start                           # l'interface, pour un humain (ce que lance l'icône)
+python3 messenger.py identify --address kimi-mac --host kimi-code   # reprendre mon compte depuis mon dossier de travail
+python3 messenger.py attach --account kimi-mac --to talos           # ranger un compte commun dans un projet
 ```
 
 Il écrit sous verrou, remplace le fichier de façon atomique, génère les

@@ -5,6 +5,7 @@ import {
   adresseCourte,
   affichagesDe,
   agents,
+  anciennete,
   cleJour,
   compter,
   couloirs,
@@ -17,6 +18,7 @@ import {
   projetPropose,
   projets,
   projetsDe,
+  projetsDesComptes,
   recents,
   teinteProjet,
   TEINTES,
@@ -117,6 +119,38 @@ describe('projets', () => {
       [null, ['owner']],
     ]);
     assert.deepEqual(groupesAgents([], []).map((g) => g.projet), [null]);
+  });
+  it("un compte commun rangé dans un projet en fait partie, sans changer d'adresse", () => {
+    const comptes = [
+      { nom: 'windows', actif: true, projet: 'cortex' },
+      { nom: 'owner', actif: true, projet: null },
+      { nom: 'claude@talos', actif: true },
+    ];
+    const de = projetsDesComptes(comptes);
+    assert.deepEqual(['windows', 'owner', 'claude@talos', 'inconnu@x'].map(de), ['cortex', null, 'talos', 'x']);
+    const m = message('r1', '2026-09-18T09:00:00', 'owner', ['windows']);
+    assert.deepEqual(projetsDe(m, de), ['cortex']);
+    assert.deepEqual(filtrer([m], { ...FILTRE_INITIAL, projet: 'cortex' }, 'owner', de).map((x) => x.id), ['r1']);
+    assert.deepEqual(filtrer([m], { ...FILTRE_INITIAL, projet: 'cortex' }, 'owner').map((x) => x.id), []);
+    assert.deepEqual(groupesAgents(agents(comptes, [m]), ['cortex']).map((g) => [g.projet, g.agents.map((a) => a.nom)]), [
+      ['cortex', ['windows']], ['talos', ['claude@talos']], [null, ['owner']],
+    ]);
+    assert.equal(projets(['cortex'], [m], comptes)[0]?.agents, 1);
+  });
+  it("un agent qui ne relève pas se voit : depuis quand son courrier attend", () => {
+    const comptes = [{ nom: 'mac', actif: true, hote: 'inconnu' }, { nom: 'owner', actif: true, hote: 'humain' }];
+    const recus = [
+      message('w1', '2026-09-18T09:00:00', 'owner', ['mac']),
+      message('w2', '2026-09-18T07:00:00', 'owner', ['mac']),
+    ];
+    const mac = agents(comptes, recus).find((a) => a.nom === 'mac');
+    assert.equal(mac?.enAttente, 2);
+    assert.equal(mac?.attenteDepuis?.getHours(), 7);
+    assert.equal(mac?.aCompleter, true);
+    const maintenant = new Date('2026-09-18T11:00:00');
+    assert.equal(anciennete(new Date('2026-09-18T10:40:00'), maintenant), 'depuis 20 min');
+    assert.equal(anciennete(new Date('2026-09-18T07:00:00'), maintenant), 'depuis 4 h');
+    assert.equal(anciennete(new Date('2026-09-14T11:00:00'), maintenant), 'depuis 4 j');
   });
   it('un projet garde sa teinte, et un dossier propose un nom de projet valide', () => {
     assert.equal(teinteProjet('cortex'), teinteProjet('cortex'));

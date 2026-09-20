@@ -80,6 +80,10 @@ class DepotAnnuaire(ABC):
     @abstractmethod
     def transaction(self) -> ContextManager[Annuaire]: ...
 
+    @abstractmethod
+    def version(self) -> str:
+        """Une empreinte qui change à chaque écriture : un compte créé ou rangé doit se voir sans attendre un message."""
+
 
 class PiecesJointes(ABC):
     """Les fichiers joints, rangés à côté de la boîte."""

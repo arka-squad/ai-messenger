@@ -42,9 +42,22 @@ export interface Compte {
   role?: string;
   /** Nom lisible pour un humain (`CL_Agent-MessengerAI_WIN`) ; `nom` reste l'adresse. */
   affichage?: string;
-  /** Son carnet d'adresses : lui seul le modifie. */
+  /** Son carnet d'adresses. */
   contacts?: Contact[];
+  /** Son projet : celui de son adresse (`nom@projet`), sinon celui où on l'a rangé ; null : compte commun. */
+  projet?: string | null;
 }
+
+/** Où en est ce poste : ses outils d'IA sont-ils prêts, et peut-on éteindre la boîte d'ici ? */
+export interface Poste {
+  hotes: HoteEquipe[];
+  /** L'humain a allumé la boîte lui-même (icône, `start`) : il peut l'éteindre depuis l'interface. */
+  eteignable: boolean;
+  logiciel: string;
+}
+
+/** À qui l'invite s'adresse : un nouvel agent dans un projet (`null` : sans projet), ou un agent qui a déjà son compte. */
+export type Invitation = { projet: string | null } | { compte: string };
 
 export interface Source {
   chemin: string;

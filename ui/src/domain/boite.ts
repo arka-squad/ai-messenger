@@ -25,9 +25,20 @@ export function projetDe(adresse: string): string | null {
   return i < 0 ? null : adresse.slice(i + 1);
 }
 
+/** Le projet d'une adresse. Par défaut celui qu'elle porte ; avec les comptes, celui où on a rangé un compte commun. */
+export type ProjetDe = (adresse: string) => string | null;
+
+/** Le projet de chaque adresse d'après les comptes : un compte commun rangé dans un projet en fait partie,
+ *  sans que son adresse ait changé. Une adresse sans compte garde le projet qu'elle porte. */
+export function projetsDesComptes(comptes: readonly Compte[]): ProjetDe {
+  const table = new Map<string, string | null>();
+  for (const c of comptes) table.set(c.nom, c.projet !== undefined ? c.projet : projetDe(c.nom));
+  return (adresse) => (table.has(adresse) ? table.get(adresse) ?? null : projetDe(adresse));
+}
+
 /** Écrit ou reçu par un compte du projet — la discussion avec les autres projets comprise. */
-export function toucheLeProjet(m: Message, projet: string): boolean {
-  return [m.de, ...m.a].some((x) => projetDe(x) === projet);
+export function toucheLeProjet(m: Message, projet: string, de: ProjetDe = projetDe): boolean {
+  return [m.de, ...m.a].some((x) => de(x) === projet);
 }
 
 /** Une adresse du projet affiché se lit sans son projet ; les autres le gardent. */
@@ -49,10 +60,10 @@ export function affichagesDe(comptes: readonly Compte[]): Map<string, string> {
 
 /** Les projets que ce message touche (émetteur et destinataires), sans doublon, dans l'ordre d'apparition.
  *  Un message entre comptes communs (`owner`) n'en touche aucun. */
-export function projetsDe(m: Message): string[] {
+export function projetsDe(m: Message, de: ProjetDe = projetDe): string[] {
   const vus: string[] = [];
   for (const adresse of [m.de, ...m.a]) {
-    const p = projetDe(adresse);
+    const p = de(adresse);
     if (p && !vus.includes(p)) vus.push(p);
   }
   return vus;
@@ -113,7 +124,7 @@ export function recents(messages: readonly Message[]): Message[] {
     .map(({ m }) => m);
 }
 
-export function filtrer(messages: readonly Message[], filtre: Filtre, compte: string): Message[] {
+export function filtrer(messages: readonly Message[], filtre: Filtre, compte: string, de: ProjetDe = projetDe): Message[] {
   const cherche = filtre.recherche.trim().toLowerCase();
   return messages.filter((m) => {
     if (filtre.statut && m.statut !== filtre.statut) return false;
@@ -121,7 +132,7 @@ export function filtrer(messages: readonly Message[], filtre: Filtre, compte: st
     if (filtre.classement === 'pj' && !m.pj) return false;
     if (filtre.classement === 'moi' && !m.a.includes(compte)) return false;
     if (filtre.agent && m.de !== filtre.agent && !m.a.includes(filtre.agent)) return false;
-    if (filtre.projet && !toucheLeProjet(m, filtre.projet)) return false;
+    if (filtre.projet && !toucheLeProjet(m, filtre.projet, de)) return false;
     if (cherche) {
       const texte = [m.id, titre(m), m.pj ?? '', m.de, ...m.a, ...m.corps].join(' ').toLowerCase();
       if (!texte.includes(cherche)) return false;
@@ -164,22 +175,28 @@ export interface Agent {
   dernierEnvoi: Date | null;
   /** Messages « nouveau » qui lui sont adressés. */
   enAttente: number;
+  /** Depuis quand le plus ancien attend : un agent qui ne relève pas se voit. */
+  attenteDepuis: Date | null;
+  /** Compte importé que son agent n'a jamais repris : il ne relève pas. */
+  aCompleter: boolean;
 }
 
 /** Les comptes actifs — ceux du projet et les comptes communs, si un projet est choisi —
  *  du plus récemment actif au silencieux. */
 export function agents(comptes: readonly Compte[], messages: readonly Message[], projet: string | null = null): Agent[] {
+  const de = projetsDesComptes(comptes);
   return comptes
-    .filter((c) => c.actif && (!projet || projetDe(c.nom) === projet || projetDe(c.nom) === null))
+    .filter((c) => c.actif && (!projet || de(c.nom) === projet || de(c.nom) === null))
     .map((c) => {
       const envoyes = messages.filter((m) => m.de === c.nom);
+      const attendus = messages.filter((m) => m.a.includes(c.nom) && m.statut === 'nouveau');
       const dernier = envoyes.reduce<Date | null>((acc, m) => {
         const d = instant(m);
         return !acc || d > acc ? d : acc;
       }, null);
       return {
         nom: c.nom,
-        projet: projetDe(c.nom),
+        projet: de(c.nom),
         role: c.role,
         affichage: c.affichage,
         hote: c.hote,
@@ -187,7 +204,9 @@ export function agents(comptes: readonly Compte[], messages: readonly Message[],
         contacts: c.contacts ?? [],
         envois: envoyes.length,
         dernierEnvoi: dernier,
-        enAttente: messages.filter((m) => m.a.includes(c.nom) && m.statut === 'nouveau').length,
+        enAttente: attendus.length,
+        attenteDepuis: attendus.reduce<Date | null>((acc, m) => (!acc || instant(m) < acc ? instant(m) : acc), null),
+        aCompleter: c.hote === 'inconnu',
       };
     })
     .sort((x, y) => (y.dernierEnvoi?.getTime() ?? -1) - (x.dernierEnvoi?.getTime() ?? -1));
@@ -251,15 +270,24 @@ export interface Projet {
 }
 
 export function projets(noms: readonly string[], messages: readonly Message[], comptes: readonly Compte[] = []): Projet[] {
+  const de = projetsDesComptes(comptes);
   return noms.map((nom) => {
-    const siens = messages.filter((m) => toucheLeProjet(m, nom));
+    const siens = messages.filter((m) => toucheLeProjet(m, nom, de));
     return {
       nom,
       messages: siens.length,
       nouveaux: siens.filter((m) => m.statut === 'nouveau').length,
-      agents: comptes.filter((c) => c.actif && projetDe(c.nom) === nom).length,
+      agents: comptes.filter((c) => c.actif && de(c.nom) === nom).length,
     };
   });
+}
+
+/** « depuis 4 h », « depuis 3 j » : l'ancienneté d'une attente, en un mot. */
+export function anciennete(depuis: Date, maintenant: Date = new Date()): string {
+  const minutes = Math.max(0, Math.round((maintenant.getTime() - depuis.getTime()) / 60000));
+  if (minutes < 60) return `depuis ${Math.max(1, minutes)} min`;
+  if (minutes < 48 * 60) return `depuis ${Math.round(minutes / 60)} h`;
+  return `depuis ${Math.round(minutes / 1440)} j`;
 }
 
 /** Le nom de projet qu'on propose pour un dossier : son dernier segment, réduit à ce qu'un projet admet. */

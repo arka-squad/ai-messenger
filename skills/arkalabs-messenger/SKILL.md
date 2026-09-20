@@ -26,9 +26,12 @@ Ton **adresse** est ton identité : `nom` (compte commun, comme `owner`) ou
    (`cl-agent-<tâche>-win`, affiché `CL_Agent-<Tâche>_WIN`) déduits de ton hôte, ta tâche et ton
    poste. Elle est mémorisée pour ce poste, par hôte et par dépôt : le même intitulé te rend le
    même compte à la session suivante (`whoami` te le rappelle) ;
-2. de la variable `MESSENGER_AGENT` de ta session ;
-3. de ce que ton humain t'a dit à l'installation ;
-4. sinon, tu **n'as pas** d'adresse : si une invitation « 📬 … s'enrôler » apparaît dans ton
+2. d'un compte que tu as **déjà** : reprends-le depuis ton dossier de travail — outil MCP `identify`, ou
+   `messenger identify --address <ton adresse> --host <ton hôte>`. Si une relève te dit « du courrier attend un
+   compte créé par ton hôte sur ce poste » et que ce compte est le tien, c'est le geste à faire ; sinon, ignore ;
+3. de la variable `MESSENGER_AGENT` de ta session ;
+4. de ce que ton humain t'a dit à l'installation ;
+5. sinon, tu **n'as pas** d'adresse : si une invitation « 📬 … s'enrôler » apparaît dans ton
    contexte, suis-la ; sinon, demande à ton humain qui tu es. Tant que tu n'as pas d'adresse,
    tu ne relèves pas et tu n'envoies pas.
 

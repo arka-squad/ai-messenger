@@ -112,6 +112,8 @@ def compte_vers_dict(c: Compte) -> Dict[str, Any]:
     d = {k: v for k, v in d.items() if v is not None}
     if c.contacts:
         d["contacts"] = [contact_vers_dict(x) for x in c.contacts]
+    if c.rattachement:
+        d["projet"] = c.rattachement
     d.update((k, v) for k, v in c.autres.items() if k not in d)
     return d
 
@@ -131,7 +133,9 @@ def compte_depuis_dict(d: Any) -> Compte:
         cree=d.get("cree"),
         actif=bool(d.get("actif", True)),
         contacts=tuple(contact_depuis_dict(x) for x in _liste(d, "contacts")),
-        autres={k: v for k, v in d.items() if k not in _CHAMPS_COMPTE + ("contacts",)},
+        # un rattachement n'a de sens que pour une adresse sans projet ; ailleurs, l'adresse fait foi
+        rattachement=(_texte_ou_nul(d, "projet") if "@" not in str(d.get("nom", "")) else None),
+        autres={k: v for k, v in d.items() if k not in _CHAMPS_COMPTE + ("contacts", "projet")},
     )
 
 

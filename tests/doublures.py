@@ -58,6 +58,10 @@ class BoiteMemoire(DepotBoite):
 class AnnuaireMemoire(DepotAnnuaire):
     def __init__(self, present: bool = True) -> None:
         self.annuaire: Optional[Annuaire] = Annuaire() if present else None
+        self.ecritures = 0
+
+    def version(self) -> str:
+        return str(self.ecritures)
 
     def existe(self) -> bool:
         return self.annuaire is not None
@@ -74,6 +78,7 @@ class AnnuaireMemoire(DepotAnnuaire):
         annuaire = self.lire()
         yield annuaire
         self.annuaire = annuaire
+        self.ecritures += 1
 
 
 class PiecesMemoire(PiecesJointes):

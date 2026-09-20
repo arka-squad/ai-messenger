@@ -138,6 +138,7 @@ sans changer `version`. Un changement incompatible incrémentera `version`.
 | `machine`, `modele`, `humain`, `releve` | facultatifs, informatifs |
 | `cree` | date de création, conservée lors des mises à jour |
 | `actif` | `false` après `deactivate` ; un compte n'est jamais supprimé |
+| `projet` | facultatif, seulement pour une adresse **sans** `@projet` : le projet où l'humain a rangé ce compte commun (`attach`, ou la fiche de l'agent dans l'interface). L'adresse ne change pas ; le compte compte dès lors parmi ceux du projet (groupes, filtres, résolution des noms courts) |
 | `contacts` | facultatif ; le **carnet d'adresses** du compte, que lui seul modifie (`contact-add`, `contact-remove`). Un `alias` (même forme qu'un nom) désigne une ou plusieurs `adresses` complètes, 20 au plus ; `note` tient en une ligne de 200 caractères ; 200 contacts au plus |
 
 `projets` (facultatif) liste les projets **connectés** à la boîte par `activate` ou « Connecter un
@@ -173,6 +174,13 @@ l'interface de `suite` (le statut qu'il peut donner, ou `null`) et de
 l'`invite` — le texte à coller à un agent pour qu'il s'enrôle (`null` sans vraie boîte).
 Les écritures (`POST /api/statut`, `/api/notifications`, `/api/creer`, `/api/activer`,
 `/api/choisir-dossier`) n'acceptent qu'une requête JSON venue de l'interface elle-même.
+`GET /api/version` rend l'empreinte de la boîte **et de son manifeste** (elle change à chaque écriture de
+l'un ou de l'autre), avec `outil: "arkalabs-messenger"` — c'est ainsi que `start` reconnaît une boîte déjà
+allumée. `GET /api/poste` dit où en sont les outils d'IA du poste et si la boîte peut être éteinte d'ici ;
+`POST /api/preparer` les équipe, `POST /api/eteindre` arrête une boîte allumée par `start`. Pour organiser :
+`POST /api/invite` (`{"projet": "<nom>"|null}` — le projet est créé au besoin — ou `{"compte": "<adresse>"}`)
+rend le texte à coller à un agent ; `POST /api/rattacher` (`{"compte", "projet"|null}`), `POST /api/contact`
+(`{"compte", "alias", "adresses", "note"?, "remplacer"?}`) et `POST /api/contact-retirer` (`{"compte", "alias"}`).
 `POST /api/activer` rend le dépôt connecté et, pour chaque hôte IA du poste, où il en est
 (`hotes` : `id`, `nom`, `present`, `equipe`, `mcp`, `releve`, `skill`, `note`).
 

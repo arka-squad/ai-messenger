@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { Activation, Creation, Etat, Message, Statut } from '../domain/types.ts';
+import type { Activation, Creation, Etat, Invitation, Message, Poste, Statut } from '../domain/types.ts';
 import type { PortBoite } from './ports.ts';
 import { Veille } from './veille.ts';
 
@@ -48,6 +48,33 @@ class BoiteFactice implements PortBoite {
   }
   async choisirDossier(): Promise<string | null> {
     return '/dossier/choisi';
+  }
+  invitations: Invitation[] = [];
+  eteinte = false;
+  async inviter(invitation: Invitation): Promise<string> {
+    this.invitations.push(invitation);
+    if ('projet' in invitation && invitation.projet) this.etat.projets = [...this.etat.projets, invitation.projet];
+    return 'invite de test';
+  }
+  async rattacher(compte: string, projet: string | null): Promise<void> {
+    this.etat.comptes = this.etat.comptes.map((c) => (c.nom === compte ? { ...c, projet } : c));
+  }
+  async noterContact(compte: string, alias: string, adresses: string[], note: string): Promise<void> {
+    this.etat.comptes = this.etat.comptes.map((c) => (c.nom === compte
+      ? { ...c, contacts: [...(c.contacts ?? []), { alias, adresses, note }] } : c));
+  }
+  async retirerContact(compte: string, alias: string): Promise<void> {
+    this.etat.comptes = this.etat.comptes.map((c) => (c.nom === compte
+      ? { ...c, contacts: (c.contacts ?? []).filter((x) => x.alias !== alias) } : c));
+  }
+  async poste(): Promise<Poste> {
+    return { hotes: [], eteignable: true, logiciel: 'test' };
+  }
+  async preparer(): Promise<Poste> {
+    return this.poste();
+  }
+  async eteindre(): Promise<void> {
+    this.eteinte = true;
   }
   lienPieceJointe(nom: string): string {
     return `/pj/${nom}`;
@@ -98,6 +125,31 @@ describe('veille', () => {
     assert.equal(veille.lire().etat?.notifications, false);
     await veille.basculerNotifications();
     assert.equal(veille.lire().etat?.notifications, true);
+  });
+
+  it("organise la boîte puis recharge : projet d'une invite, agent rangé, carnet tenu", async () => {
+    const boite = new BoiteFactice();
+    boite.etat.comptes = [{ nom: 'windows', actif: true }];
+    const veille = new Veille(boite);
+    await veille.recharger();
+    assert.equal(await veille.inviter({ projet: 'cortex' }), 'invite de test');
+    assert.deepEqual(veille.lire().etat?.projets, ['cortex']);
+    await veille.rattacher('windows', 'cortex');
+    assert.equal(veille.lire().etat?.comptes[0]?.projet, 'cortex');
+    await veille.noterContact('windows', 'chef', ['owner'], 'mon humain');
+    assert.deepEqual(veille.lire().etat?.comptes[0]?.contacts?.map((c) => c.alias), ['chef']);
+    await veille.retirerContact('windows', 'chef');
+    assert.deepEqual(veille.lire().etat?.comptes[0]?.contacts, []);
+  });
+
+  it("éteint la boîte : la veille s'arrête et le dit", async () => {
+    const boite = new BoiteFactice();
+    const veille = new Veille(boite);
+    await veille.recharger();
+    await veille.eteindre();
+    assert.equal(boite.eteinte, true);
+    assert.equal(veille.lire().eteinte, true);
+    assert.equal(veille.lire().active, false);
   });
 
   it('prévient ses abonnés', async () => {

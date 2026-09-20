@@ -1,6 +1,6 @@
 import { ArrowRight, Paperclip } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { heure, instant, nomAffiche, projetsDe, titre } from '../domain/boite.ts';
+import { type ProjetDe, heure, instant, nomAffiche, projetsDe, titre } from '../domain/boite.ts';
 import type { Message } from '../domain/types.ts';
 import { EtiquettesProjet } from './EtiquettesProjet.tsx';
 import { IconeStatut } from './IconeStatut.tsx';
@@ -13,6 +13,8 @@ interface Props {
   messages: readonly Message[];
   /** Le projet affiché : ses adresses se lisent sans leur projet. */
   projet: string | null;
+  /** Le projet d'une adresse, d'après les comptes (un compte commun peut être rangé dans un projet). */
+  projetDe: ProjetDe;
   /** Adresse → nom lisible, pour les comptes enrôlés. */
   affichages: ReadonlyMap<string, string>;
   /** Les messages arrivés à la dernière relève : ils s'animent en entrant. */
@@ -37,7 +39,7 @@ export function Liste(p: Props) {
   );
 }
 
-function Lignes({ messages, projet, affichages, arrivees, choisi, onChoix, total }: Props) {
+function Lignes({ messages, projet, projetDe, affichages, arrivees, choisi, onChoix, total }: Props) {
   // Comme la maquette : les douze premières lignes entrent au montage, puis chaque arrivée.
   const [entrees] = useState(() => new Set(messages.slice(0, 12).map((m) => m.id)));
   const choisie = useRef<HTMLButtonElement | null>(null);
@@ -73,7 +75,7 @@ function Lignes({ messages, projet, affichages, arrivees, choisi, onChoix, total
               <span className="adresse-a">{m.a.map((x) => nomAffiche(x, affichages, projet)).join(', ')}</span>
               <span className="vide" />
               {/* Chaque ligne dit à quel projet elle appartient ; celui qu'on filtre est en plein. */}
-              <EtiquettesProjet projets={projetsDe(m)} filtre={projet} />
+              <EtiquettesProjet projets={projetsDe(m, projetDe)} filtre={projet} />
               {m.pj && <Paperclip className="ic" size={12} />}
               <IconeStatut statut={m.statut} />
             </span>

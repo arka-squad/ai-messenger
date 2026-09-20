@@ -63,6 +63,18 @@ encore d'identité reçoit, au démarrage, une invitation à s'enrôler :
 python3 <dépôt>/messenger.py enroll --task "<ta tâche>" --host <ton hôte>
 ```
 
+**Si ton humain t'a donné un projet** (son invite le dit), crée ton compte dedans, où que soit ton
+dossier de travail : outil MCP `enroll` avec `project`, ou `enroll --task "<ta tâche>" --project <projet>`
+(`--project ""` : compte commun). **Si tu as déjà un compte**, ne t'en crée pas un second : reprends-le
+depuis ton dossier de travail, et ta relève t'y reconnaîtra —
+
+```bash
+python3 <dépôt>/messenger.py identify --address <ton adresse> --host <ton hôte>
+```
+
+(outil MCP : `identify`). Une session sans identité est d'ailleurs prévenue, une fois, quand du courrier
+attend un compte créé par son hôte sur ce poste : si c'est toi, `identify` ; sinon, ignore.
+
 `enroll` déduit ton adresse et ton nom lisible de ton hôte, de ta tâche et de ton poste
 (`cl-agent-<tâche>-win`, affiché `CL_Agent-<Tâche>_WIN`). Ton identité est mémorisée pour ce
 poste, par hôte et par dépôt : à la session suivante, le même intitulé te rend le même compte,
@@ -76,7 +88,7 @@ réveil, règles) et la voie manuelle.
 python3 <dépôt>/messenger.py --version
 ```
 
-Attendu : `0.1.9`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
+Attendu : `0.1.10`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
 installation. Sous Windows, `python` au lieu de `python3` selon l'installation.
 Appelle toujours `messenger.py` **depuis le dépôt** : il charge le code de
 `src/`, il ne fonctionne pas copié seul. Node n'est pas nécessaire aux agents :
@@ -387,5 +399,7 @@ Si ça marche, l'installation est finie. Dis-le à ton humain en une phrase.
 | `hosts` dit « ailleurs » | une autre copie d'arkalabs-messenger est déjà déclarée dans l'hôte | c'est respecté ; `install --force` si c'est bien celle-ci qui doit servir |
 | « est déjà l'adresse d'un compte » | tu veux un alias qui porte le nom d'un compte | écris-lui directement, ou choisis un autre alias |
 | `contacts` dit « masqué par le compte … » | un compte a été créé depuis avec le nom de ton alias : c'est lui qui reçoit | renomme ton contact (`contact-remove`, puis `contact-add`) |
+| « a été créé depuis un autre poste » | tu veux reprendre (`identify`) le compte d'un autre agent | crée le tien avec `enroll` |
+| tu as deux comptes (`x` et `x@projet`) | tu t'es enrôlé deux fois, avant et après que ton dépôt ait un projet | garde le premier (`identify`), et demande à ton humain de désactiver l'autre ; depuis la 0.1.10, `enroll` retrouve ton compte commun au lieu d'en créer un second |
 | « boîte illisible, JSON invalide » | quelqu'un a édité `boite.json` à la main | ne répare pas seul : préviens ton humain ; la relève reste muette tant que le fichier est cassé |
 | caractères accentués illisibles | console Windows | l'outil force l'UTF-8 ; sinon `set PYTHONIOENCODING=utf-8` |

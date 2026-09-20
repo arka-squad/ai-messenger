@@ -25,7 +25,7 @@ from ...domain import (
     valider_nom,
 )
 from ..codec import annuaire_vers_dict, contact_vers_dict, en_json, message_vers_dict
-from . import hotes, poste
+from . import hotes, poste, raccourci
 
 SORTIE_ERREUR, SORTIE_COURRIER, SORTIE_ECHEANCE = 1, 2, 3
 
@@ -108,6 +108,26 @@ def _enroll(args: argparse.Namespace, usine: Usine) -> int:
     return 0
 
 
+def _identify(args: argparse.Namespace, usine: Usine) -> int:
+    """Reprendre son compte depuis son dossier de travail : la relève de ce dossier saura qui tu es."""
+    hote = args.host or "claude-code"
+    messagerie = usine.ouvrir(_boite(args))
+    compte = messagerie.reprendre(messagerie.adresse(args.address, _projet(args)), hote, platform.node())
+    poste.memoriser_identite(hote, os.getcwd(), compte.nom)
+    if args.session:
+        poste.memoriser_session(args.session, compte.nom)
+    print(f"c'est bien toi : {compte.affichage or compte.nom}  (adresse {compte.nom})")
+    print(f"ta relève te reconnaît désormais dans {os.getcwd()} — relève ton courrier : check --agent {compte.nom}")
+    return 0
+
+
+def _attach(args: argparse.Namespace, usine: Usine) -> int:
+    """Ranger un compte commun dans un projet, ou l'en sortir : le geste de l'humain qui organise sa boîte."""
+    compte = usine.ouvrir(_boite(args)).rattacher(args.account, args.to or None)
+    print(f"{compte.nom} → {'projet ' + compte.projet if compte.projet else 'sans projet (compte commun)'}")
+    return 0
+
+
 def _activate(args: argparse.Namespace, usine: Usine) -> int:
     """Connecter ce dépôt à la boîte : boîte du poste, projet du dépôt, hôtes IA du poste équipés."""
     if args.box is not None:
@@ -187,12 +207,92 @@ def _mcp(args: argparse.Namespace, usine: Usine) -> int:
 
 
 def _start(args: argparse.Namespace, usine: Usine) -> int:
-    """Le point d'entrée humain : ouvre l'interface web locale (et son API)."""
+    """Le point d'entrée humain : allume la boîte — l'interface web locale et son API — d'un double-clic.
+
+    Déjà allumée ? On rouvre simplement sa fenêtre. Port pris par autre chose ? On prend le suivant :
+    un humain ne passe pas `--port`. Lancée sans console (raccourci du bureau), elle écrit son journal
+    dans un fichier, sinon une panne resterait invisible.
+    """
+    if args.log:
+        _journaliser(args.log)
+    if not usine.interface():
+        raise _Refus("l'interface n'est pas là (ui/dist) : récupère le dépôt en entier, ou lance `npm run build`")
+    import webbrowser
+    from .web import OUTIL
+
+    port = args.port
+    for port in range(args.port, args.port + 20):
+        outil = _qui_ecoute(port)
+        if outil == OUTIL:
+            print(f"la boîte est déjà allumée : http://127.0.0.1:{port}/", flush=True)
+            if not args.no_browser:
+                webbrowser.open(f"http://127.0.0.1:{port}/")
+            return 0
+        if outil is None and _port_libre(port):
+            break
+    else:
+        raise _Refus(f"aucun port libre entre {args.port} et {args.port + 19} : ferme ce qui les occupe")
+    args.port = port
     args.api = False
     args.front = None
     args.exit_with_parent = False
     args.link = None
     return _ui(args, usine)
+
+
+def _shortcut(args: argparse.Namespace, usine: Usine) -> int:
+    """Poser l'icône « Messenger » sur le bureau : un double-clic allumera la boîte, sans terminal."""
+    try:
+        if args.remove:
+            print("raccourci retiré du bureau" if raccourci.retirer() else "aucun raccourci sur le bureau")
+            return 0
+        if not usine.interface():
+            raise _Refus("l'interface n'est pas là (ui/dist) : récupère le dépôt en entier, ou lance `npm run build`")
+        cible = raccourci.poser(usine.depot())
+    except raccourci.RaccourciImpossible as e:
+        raise _Refus(str(e)) from None
+    print(f"icône posée sur le bureau : {cible}")
+    print("Double-clique dessus pour allumer la boîte : elle s'ouvre dans ton navigateur.")
+    if not poste.resoudre_boite(None):
+        print("(aucune boîte sur ce poste pour l'instant : l'interface proposera « Créer la boîte »)")
+    return 0
+
+
+def _qui_ecoute(port: int) -> Optional[str]:
+    """Le nom de l'outil qui répond sur ce port (`arkalabs-messenger`…), `""` si c'est autre chose, None si personne."""
+    import urllib.error
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/version", timeout=1.5) as r:
+            reponse = json.loads(r.read().decode("utf-8"))
+        return str(reponse.get("outil") or "") if isinstance(reponse, dict) else ""
+    except urllib.error.HTTPError:
+        return ""
+    except (OSError, ValueError):
+        return None
+
+
+def _port_libre(port: int) -> bool:
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("127.0.0.1", port))
+        except OSError:
+            return False
+    return True
+
+
+def _journaliser(chemin: str) -> None:
+    """Envoie la sortie et les erreurs dans un fichier : sans console, elles seraient perdues (ou fatales)."""
+    chemin = os.path.abspath(os.path.expanduser(chemin))
+    os.makedirs(os.path.dirname(chemin), exist_ok=True)
+    if os.path.isfile(chemin) and os.path.getsize(chemin) > 1_000_000:
+        os.replace(chemin, chemin + ".1")  # un seul ancien journal : il ne grossit pas sans fin
+    journal = open(chemin, "a", encoding="utf-8", buffering=1)  # noqa: SIM115 — vit autant que le processus
+    journal.write(f"\n--- {time.strftime('%Y-%m-%d %H:%M:%S')} — messenger.py start ({__version__})\n")
+    sys.stdout = sys.stderr = journal
 
 
 def _register(args: argparse.Namespace, usine: Usine) -> int:
@@ -292,7 +392,8 @@ def _check(args: argparse.Namespace, usine: Usine) -> int:
         chemin = poste.resoudre_boite(args.box)
         nom = poste.resoudre_agent(args.agent, session, args.host, dossier)
         if not nom:
-            if args.hook and evenement == "SessionStart" and poste.trouver_fichier_projet(dossier):
+            if args.hook and not _annoncer_courrier_en_attente(chemin, session, evenement, usine, args.host) \
+                    and evenement == "SessionStart" and poste.trouver_fichier_projet(dossier):
                 _annoncer_enrolement(chemin, _projet(args, dossier), session, usine.depot(), args.host)
             return 0
         if not chemin:
@@ -460,6 +561,37 @@ def _lire_hook() -> dict:
         return {}
 
 
+def _annoncer_courrier_en_attente(chemin: Optional[str], session: Optional[str], evenement: Optional[str],
+                                  usine: Usine, hote: Optional[str]) -> bool:
+    """Une session sans identité, mais du courrier attend un compte créé par cet hôte sur ce poste : on le lui
+    dit — c'est peut-être elle, enrôlée depuis un autre dossier. Une fois par session (ou au démarrage, faute
+    de `session_id`) : une session qui n'est pas ce compte n'est pas relancée à chaque message. Rend True si annoncé."""
+    if not chemin or not hote or not (session or evenement == "SessionStart"):
+        return False
+    messagerie = usine.ouvrir(chemin)
+    if not messagerie.annuaire_present():
+        return False
+    attendus = messagerie.en_attente_sur_ce_poste(hote, platform.node())
+    adresses = [c.nom for c, _ in attendus]
+    if not attendus or poste.deja_annonce(session, adresses):
+        return False
+    if session:
+        poste.noter_annonce(session, adresses)
+    messenger = os.path.join(usine.depot(), "messenger.py")
+    options = f" --host {hote}" + (f" --session {session}" if session else "")
+    sys.stdout.write("\n".join([
+        f"📬 arkalabs-messenger — du courrier attend un compte créé par {hote} sur ce poste, et cette session "
+        "n'a pas d'identité ici :",
+        *(f"- {c.nom}{' (' + c.affichage + ')' if c.affichage else ''} — {n} message(s) · {c.role}"
+          for c, n in attendus),
+        "Si l'un de ces comptes est le tien, reprends-le depuis ce dossier :",
+        "- si ton hôte a le serveur MCP « arkalabs-messenger » : outil `identify` (argument `address`), puis `check` ;",
+        f"- sinon : python \"{messenger}\" identify --address <adresse>{options}",
+        "Sinon, ignore ceci : ce courrier n'est pas pour toi — n'agis pas, ne le marque pas.",
+    ]) + "\n")
+    return True
+
+
 def _annoncer_enrolement(chemin: Optional[str], projet: Optional[str], session: Optional[str],
                          depot: str, hote: Optional[str]) -> None:
     """Invite une session sans identité à s'enrôler, dans un dépôt connecté à la boîte."""
@@ -547,6 +679,17 @@ def _parseur() -> argparse.ArgumentParser:
     x.add_argument("--session", help="l'id de session à rattacher à cet agent")
     x.add_argument("--update", action="store_true", help="mettre à jour ton compte existant")
 
+    x = commande("identify", "reprendre ton compte depuis ton dossier de travail (la relève saura qui tu es)",
+                 _identify, agent=False)
+    x.add_argument("--address", required=True, help="ton adresse : nom, ou nom@projet")
+    x.add_argument("--host", help="ton hôte : claude-code, codex, kimi-code… (défaut : claude-code)")
+    x.add_argument("--session", help="l'id de session à rattacher à cet agent")
+
+    x = commande("attach", "range un compte commun dans un projet, ou l'en sort (geste de l'humain)", _attach,
+                 agent=False, projet=False)
+    x.add_argument("--account", required=True, help="l'adresse du compte (sans @projet)")
+    x.add_argument("--to", default="", help="le projet ; vide pour le sortir de tout projet")
+
     x = commande("agents", "liste les comptes", _agents, agent=False)
     x.add_argument("--all", action="store_true", help="inclure les comptes désactivés")
     x.add_argument("--json", action="store_true", help="sortie JSON (le manifeste)")
@@ -613,6 +756,11 @@ def _parseur() -> argparse.ArgumentParser:
     x.add_argument("--port", type=int, default=8765)
     x.add_argument("--no-browser", action="store_true", help="ne pas ouvrir le navigateur")
     x.add_argument("--no-notify", action="store_true", help="sans notifications système")
+    x.add_argument("--log", help="écrire le journal dans ce fichier (lancement sans console : raccourci du bureau)")
+
+    x = commande("shortcut", "pose l'icône « Messenger » sur le bureau : un double-clic allume la boîte", _shortcut,
+                 agent=False, projet=False)
+    x.add_argument("--remove", action="store_true", help="retirer l'icône du bureau")
 
     x = commande("notify", "notifie chaque message qui passe, sans interface", _notify, projet=False)
     x.add_argument("--interval", type=float, default=5.0, help="secondes entre deux relèves")

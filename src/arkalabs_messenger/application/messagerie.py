@@ -13,6 +13,8 @@ from ..domain import (
     Boite,
     Brouillon,
     Compte,
+    CompteExistant,
+    CompteInconnu,
     Contact,
     Message,
     MessageInvalide,
@@ -95,7 +97,8 @@ class Messagerie:
         return self._boite.lire()
 
     def version(self) -> str:
-        return self._boite.version()
+        """Change à chaque écriture — d'un message comme d'un compte : l'interface recharge sur l'une ou l'autre."""
+        return f"{self._boite.version()}|{self._annuaire.version()}"
 
     # -- Les comptes ----------------------------------------------------------
     def annuaire_present(self) -> bool:
@@ -116,6 +119,14 @@ class Messagerie:
         vus = set(self._annuaire.lire().projets())
         vus.update(p for p in (projet_de(x) for x in self._boite.lire().participants()) if p)
         return sorted(vus)
+
+    def rattacher(self, compte: str, projet: Optional[str]) -> Compte:
+        """Range un compte commun dans un projet, ou l'en sort (`None`). Le geste de l'humain qui organise
+        sa boîte : l'adresse du compte ne change pas, son courrier et son carnet non plus."""
+        if projet:
+            valider_nom(projet, "projet")
+        with self._annuaire.transaction() as annuaire:
+            return annuaire.rattacher(valider_adresse(compte), projet or None, self._horodatage())
 
     def declarer_projet(self, projet: str) -> bool:
         """Note qu'un projet est connecté à la boîte : il est connu avant qu'un agent s'y enrôle.
@@ -146,12 +157,46 @@ class Messagerie:
         adresse, affichage = composer_identite(hote, tache, poste)
         with self._annuaire.transaction() as annuaire:
             nom, existant = annuaire.nom_libre(adresse, projet, machine)
+            if existant is not None and projet and existant.projet is None:
+                # il revient depuis un dépôt désormais connecté : son compte commun rejoint le projet
+                existant = annuaire.rattacher(existant.nom, projet, self._horodatage())
             if existant is not None and not mise_a_jour:
                 return existant, False
             compte = Compte.ouvrir(nom, hote, role or f"{hote} — {tache}", machine=machine, humain=humain,
                                    releve=releve, affichage=affichage, cree=self._horodatage())
             cree = annuaire.inscrire(compte, mise_a_jour=existant is not None)
             return annuaire.compte(nom), cree
+
+    def reprendre(self, adresse: str, hote: str, machine: Optional[str]) -> Compte:
+        """Un agent reprend un compte qui est le sien : créé depuis ce poste, ou importé et jamais complété.
+
+        Un compte créé depuis un autre poste appartient à un autre agent : refusé. Un compte importé
+        (`hôte inconnu`, sans machine) est complété au passage — c'est ainsi qu'il cesse d'être « à compléter ».
+        """
+        with self._annuaire.transaction() as annuaire:
+            compte = annuaire.compte(valider_adresse(adresse))
+            if compte is None or not compte.actif:
+                raise CompteInconnu(f"pas de compte actif « {adresse} » : crée le tien avec `enroll`")
+            if compte.machine and (compte.machine or "") != (machine or ""):
+                raise CompteExistant(f"« {adresse} » a été créé depuis un autre poste ({compte.machine}) : "
+                                     "ce n'est pas le tien — crée ton compte avec `enroll`")
+            if not compte.machine or compte.hote == "inconnu":
+                complet = Compte.ouvrir(compte.nom, hote if compte.hote == "inconnu" else compte.hote, compte.role,
+                                        machine=machine)
+                annuaire.inscrire(complet, mise_a_jour=True)
+                compte = annuaire.compte(compte.nom)
+            return compte
+
+    def en_attente_sur_ce_poste(self, hote: str, machine: Optional[str]) -> List[Tuple[Compte, int]]:
+        """Les comptes créés par `hote` sur ce poste qui ont du courrier « nouveau », et combien."""
+        boite = self._boite.lire()
+        trouves = []
+        for c in self._annuaire.lire().comptes:
+            if c.actif and c.hote == hote and c.machine and c.machine == machine:
+                n = len(boite.nouveaux_pour(c.nom))
+                if n:
+                    trouves.append((c, n))
+        return trouves
 
     def desactiver(self, nom: str) -> None:
         with self._annuaire.transaction() as annuaire:
@@ -210,10 +255,18 @@ class Messagerie:
     def lister(self, compte: Optional[str] = None, statut: Optional[str] = None,
                limite: Optional[int] = None, projet: Optional[str] = None) -> List[Message]:
         """Du plus récent au plus ancien, filtré par compte (émis ou reçu), statut et projet."""
+        du_projet = self._dans_le_projet(projet) if projet else None
         messages = [m for m in self._boite.lire().recents()
                     if (compte is None or m.concerne(compte)) and (statut is None or m.statut == statut)
-                    and (projet is None or m.touche_le_projet(projet))]
+                    and (du_projet is None or any(du_projet(x) for x in (m.de, *m.a)))]
         return messages if limite is None else messages[:limite]
+
+    def _dans_le_projet(self, projet: str):
+        """Dit si une adresse est du projet — rattachements compris, quand la boîte a un annuaire."""
+        if self._annuaire.existe():
+            annuaire = self._annuaire.lire()
+            return lambda adresse: annuaire.projet_de(adresse) == projet
+        return lambda adresse: projet_de(adresse) == projet
 
     def guetter(self, compte: str, intervalle: float, heures: float) -> List[Message]:
         """Attend un message nouveau adressé à `compte`, arrivé après le début de l'attente.

@@ -235,7 +235,9 @@ class ServeurMcp:
                 self._enroll,
                 {"task": {**texte, "description": "L'intitulé de ma tâche, court et durable (ex. « MessengerAI »)."},
                  "role": {**texte, "description": "Ce que je fais, en une ligne : quand m'écrire."},
-                 "human": {**texte, "description": "L'humain responsable."}},
+                 "human": {**texte, "description": "L'humain responsable."},
+                 "project": {**texte, "description": "Le projet où créer mon compte, si mon humain me l'a donné "
+                                                     "(sinon : celui du dépôt). Vide : compte commun."}},
                 ("task",)),
             "identify": outil(
                 "Reprend un compte existant qui est le mien (créé depuis ce poste). Refusé pour le compte d'un autre.",
@@ -300,8 +302,10 @@ class ServeurMcp:
 
     def _enroll(self, a: Dict[str, Any], _: threading.Event) -> Dict[str, Any]:
         hote = self._hote if self._hote != "inconnu" else "agent"
+        # le projet donné par l'humain (dans son invite) l'emporte sur celui du dépôt ; vide : compte commun
+        projet = (valider_nom(a["project"], "projet") if a["project"] else None) if "project" in a             else self._projet_courant()
         compte, cree = self._messagerie().enroler(
-            hote, a["task"], poste.code_du_poste(), self._projet_courant(), platform.node(),
+            hote, a["task"], poste.code_du_poste(), projet, platform.node(),
             role=a.get("role"), humain=a.get("human"), releve="serveur MCP + hooks")
         self._adopter(compte.nom)
         return {"address": compte.nom, "display": compte.affichage, "created": cree}
@@ -309,12 +313,7 @@ class ServeurMcp:
     def _identify(self, a: Dict[str, Any], _: threading.Event) -> Dict[str, Any]:
         messagerie = self._messagerie()
         adresse = messagerie.adresse(a["address"], self._projet_courant())
-        compte = next((c for c in messagerie.comptes(tous=True) if c.nom == adresse), None)
-        if compte is None or not compte.actif:
-            raise _ErreurOutil(f"pas de compte actif « {adresse} » : crée le tien avec `enroll`")
-        if (compte.machine or "") != platform.node():
-            raise _ErreurOutil(f"« {adresse} » a été créé depuis un autre poste ({compte.machine or 'inconnu'}) : "
-                               "ce n'est pas le tien. Crée ton compte avec `enroll`.")
+        compte = messagerie.reprendre(adresse, self._hote, platform.node())
         self._adopter(compte.nom)
         return {"address": compte.nom, "display": compte.affichage}
 
