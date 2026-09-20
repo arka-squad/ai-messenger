@@ -70,6 +70,10 @@ export class ApiHttp implements PortBoite {
     return reponse.dossier;
   }
 
+  async ouvrirBoite(dossier: string): Promise<string> {
+    return (await this.#poster<{ boite: string }>('/api/boite-du-poste', { dossier })).boite;
+  }
+
   async inviter(invitation: Invitation): Promise<string> {
     return (await this.#poster<{ invite: string }>('/api/invite', invitation)).invite;
   }

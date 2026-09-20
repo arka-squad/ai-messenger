@@ -149,6 +149,8 @@ export function App({ veille, preferences }: Props) {
           onEteindre={eteindre}
           onActiver={(dossier, projet) => veille.activer(dossier, projet)}
           onCreer={(dossier) => veille.creer(dossier)}
+          onOuvrirBoite={(dossier) => veille.ouvrirBoite(dossier)}
+          source={etat?.source ?? null}
           onChoisir={() => veille.choisirDossier()}
           derniereReleve={v.derniereReleve}
           constat={v.constat}

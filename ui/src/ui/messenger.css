@@ -452,3 +452,4 @@ select.ajout__champ { appearance: auto; cursor: pointer; }
 .eteinte__titre { font-size: 20px; font-weight: 700; color: var(--tx1); }
 .eteinte__texte { font-size: 13.5px; line-height: 1.65; color: var(--tx3); }
 .fiche__eyebrow-espace { margin-top: 8px; }
+.poste__boite { padding: 2px 8px 6px; font-family: var(--font-mono); font-size: 10px; color: var(--tx5); word-break: break-all; line-height: 1.5; }

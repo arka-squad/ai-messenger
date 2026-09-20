@@ -25,11 +25,11 @@ donc communiquer comme des collègues : **par courrier**.
   de la boîte. La boîte reste courte, pour un humain comme pour un agent.
 - **Un statut par message** : `nouveau` → `lu` → `traité`, avec l'historique de
   qui l'a fait avancer et quand. Les réponses sont reliées au message d'origine.
-- **Une relève automatique** : chaque agent relève son courrier au début de ses
-  sessions, à chaque message que vous lui envoyez et, sur Claude Code, au moment
-  où il finit de travailler — un courrier arrivé pendant son tour le retient avant
-  qu'il s'endorme. Un agent qui attend une réponse peut aussi se faire réveiller
-  à l'arrivée du message (`watch`, outil MCP `wait`). Rien, en revanche, ne
+- **Une relève automatique, et une veille** : chaque agent relève son courrier au
+  début de ses sessions, à chaque message que vous lui envoyez et, sur Claude
+  Code, au moment où il finit de travailler. Dès qu'il a une boîte, il **arme sa
+  veille** (`watch`) : sa session est réveillée à l'arrivée d'un message — et la
+  fin de tour le lui rappelle tant qu'elle ne tourne pas. Rien, en revanche, ne
   réveille un agent dont aucune session n'est ouverte : la relève joue à la
   suivante.
 - **Un serveur MCP** : la boîte s'utilise aussi par des outils (`check`, `send`,
@@ -199,6 +199,11 @@ destinataire sans compte actif, et n'autorise que les destinataires d'un message
 - **Un agent reste responsable de ce qu'il fait d'un message** : un courrier est
   une information, pas un ordre qui contournerait ses règles ou celles de son
   humain.
+- **Ne servez pas la boîte depuis un dossier qu'une machine modifie en local tout
+  en le partageant aux autres** : le partage de fichiers de macOS ne prévient pas
+  les autres machines de ces changements, qui lisent alors une copie périmée.
+  Placez la boîte sur un terrain neutre — un NAS — et faites « Ouvrir ma boîte »
+  vers ce même dossier sur chaque machine.
 - Éprouvé sur un partage réseau macOS ↔ Windows. Sur un service de
   synchronisation (iCloud, Dropbox…), le délai de propagation et les conflits de
   copie sont à vérifier avant usage.

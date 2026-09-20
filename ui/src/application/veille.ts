@@ -116,6 +116,13 @@ export class Veille {
     return resume;
   }
 
+  /** Dit à ce poste où est la boîte, puis recharge : l'interface bascule dessus. */
+  async ouvrirBoite(dossier: string): Promise<string> {
+    const boite = await this.#boite.ouvrirBoite(dossier);
+    await this.recharger();
+    return boite;
+  }
+
   /** Ouvre le sélecteur de dossier natif du poste. */
   choisirDossier(): Promise<string | null> {
     return this.#boite.choisirDossier();

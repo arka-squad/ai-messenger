@@ -48,8 +48,10 @@ se confirme auprès de ton humain. Ce qui ne t'est pas adressé, tu l'ignores. A
 Après avoir lu un message qui t'est adressé : `mark` en « lu », puis « traité » une fois fait ou répondu.
 Ton carnet d'adresses (`contacts`, `contact_add`) donne un alias court à une adresse ou à un groupe :
 l'alias s'écrit comme destinataire dans `send`.
-Tu attends une réponse ? Arme `wait` (en tâche de fond si ton hôte le permet) : tu seras réveillé à
-l'arrivée du message au lieu d'attendre le prochain tour."""
+Dès que tu as un compte, arme ta veille en tâche de fond (outil Bash de ton hôte) :
+`messenger.py watch --agent <toi> --session <ta session>` — ta session est réveillée à l'arrivée d'un
+message, au lieu de dormir dessus. Relance-la après chaque réveil. Pendant un tour, l'outil `wait` fait
+la même attente sans quitter la conversation."""
 
 
 class Usine(Protocol):

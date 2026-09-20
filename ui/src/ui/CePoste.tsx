@@ -1,15 +1,20 @@
-/** Ce poste : ses outils d'IA sont-ils prêts à lire la boîte ? Et de quoi éteindre la boîte qu'on a allumée. */
-import { Check, LoaderCircle, Power, TriangleAlert, Wrench } from 'lucide-react';
+/** Ce poste : où est sa boîte, ses outils d'IA sont-ils prêts, et de quoi éteindre la boîte qu'on a allumée. */
+import { Check, FolderInput, LoaderCircle, Power, TriangleAlert, Wrench } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { Poste } from '../domain/types.ts';
+import type { Poste, Source } from '../domain/types.ts';
+import { ChampDossier } from './MiseEnPlace.tsx';
 
 interface Props {
+  /** La boîte que ce poste lit en ce moment (null tant que l'état n'est pas chargé). */
+  source: Source | null;
   onPoste: () => Promise<Poste>;
   onPreparer: () => Promise<Poste>;
   onEteindre: () => Promise<void>;
+  onOuvrirBoite: (dossier: string) => Promise<string>;
+  onChoisir: () => Promise<string | null>;
 }
 
-export function CePoste({ onPoste, onPreparer, onEteindre }: Props) {
+export function CePoste({ source, onPoste, onPreparer, onEteindre, onOuvrirBoite, onChoisir }: Props) {
   const [poste, setPoste] = useState<Poste | null>(null);
   const [occupe, setOccupe] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -40,6 +45,7 @@ export function CePoste({ onPoste, onPreparer, onEteindre }: Props) {
   return (
     <div className="rail__section">
       <span className="eyebrow">Ce poste</span>
+      <BoiteDuPoste source={source} onOuvrirBoite={onOuvrirBoite} onChoisir={onChoisir} />
       {poste.hotes.length === 0 && (
         <span className="ajout__aide">Aucun outil d’IA trouvé sur ce poste (Claude Code, Codex, Kimi Code, Antigravity, Cursor).</span>
       )}
@@ -72,5 +78,64 @@ export function CePoste({ onPoste, onPreparer, onEteindre }: Props) {
       )}
       {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}
     </div>
+  );
+}
+
+/** Où est la boîte de ce poste, et de quoi la changer : chaque machine désigne le même dossier
+ *  partagé, vu par son propre chemin (X:\… sur Windows, /Volumes/… sur le Mac). */
+function BoiteDuPoste({ source, onOuvrirBoite, onChoisir }: {
+  source: Source | null;
+  onOuvrirBoite: (dossier: string) => Promise<string>;
+  onChoisir: () => Promise<string | null>;
+}) {
+  const [ouvert, setOuvert] = useState(false);
+  const [dossier, setDossier] = useState('');
+  const [envoi, setEnvoi] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
+
+  const soumettre = async () => {
+    if (!dossier.trim() || envoi) return;
+    setEnvoi(true);
+    setErreur(null);
+    try {
+      await onOuvrirBoite(dossier.trim());  // la relève recharge : l'interface bascule sur cette boîte
+      setOuvert(false);
+      setDossier('');
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : String(e));
+    } finally {
+      setEnvoi(false);
+    }
+  };
+
+  return (
+    <>
+      {source && (
+        <span className="poste__boite" title={source.chemin}>
+          {source.demonstration ? 'Boîte de démonstration (aucune boîte encore désignée)' : `Boîte : ${source.chemin}`}
+        </span>
+      )}
+      <button type="button" className={`rail-boite${ouvert ? ' rail-boite--actif' : ''}`} onClick={() => setOuvert((o) => !o)}>
+        <FolderInput className="ic" size={15} />
+        <span className="rail-boite__libelle">{source?.demonstration ? 'Ouvrir ma boîte' : 'Changer de boîte'}</span>
+      </button>
+      {ouvert && (
+        <div className="ajout">
+          <ChampDossier
+            dossier={dossier} invite="Choisir le dossier de la boîte…" etiquette="Dossier partagé de la boîte"
+            onDossier={setDossier} onChoisir={onChoisir} onEntree={() => void soumettre()}
+          />
+          <button type="button" className="ajout__valider" disabled={!dossier.trim() || envoi} onClick={() => void soumettre()}>
+            {envoi ? <LoaderCircle className="ic spin" size={13} /> : <FolderInput className="ic" size={13} />}
+            <span>Ouvrir cette boîte</span>
+          </button>
+          <span className="ajout__aide">
+            Montre à ce poste le dossier partagé où vit la boîte (sur ton NAS, par exemple). Fais le même geste
+            sur chaque machine, vers le même dossier : tout le monde lit alors le même courrier.
+          </span>
+          {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}
+        </div>
+      )}
+    </>
   );
 }

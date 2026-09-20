@@ -12,7 +12,7 @@ import {
   horodatage,
   teinteProjet,
 } from '../domain/boite.ts';
-import type { Activation, Creation, Invitation, Poste } from '../domain/types.ts';
+import type { Activation, Creation, Invitation, Poste, Source } from '../domain/types.ts';
 import { CePoste } from './CePoste.tsx';
 import { EtiquetteProjet } from './EtiquettesProjet.tsx';
 import { ConnecterProjet, CreerBoite, InviterAgent } from './MiseEnPlace.tsx';
@@ -35,13 +35,17 @@ interface Props {
   onEteindre: () => Promise<void>;
   onActiver: (dossier: string, projet: string) => Promise<Activation>;
   onCreer: (dossier: string) => Promise<Creation>;
+  onOuvrirBoite: (dossier: string) => Promise<string>;
+  /** La boîte que ce poste lit, pour l'encart « Ce poste ». */
+  source: Source | null;
   onChoisir: () => Promise<string | null>;
   derniereReleve: Date | null;
   constat: string;
 }
 
 export function Rail({ compte, compteurs, projets, groupes, filtre, onFiltre, activable, motifCreation,
-  onInviter, onPoste, onPreparer, onEteindre, onActiver, onCreer, onChoisir, derniereReleve, constat }: Props) {
+  onInviter, onPoste, onPreparer, onEteindre, onActiver, onCreer, onOuvrirBoite, source, onChoisir,
+  derniereReleve, constat }: Props) {
   const boites: [Classement, string, LucideIcon, number][] = [
     ['toutes', 'Tous les messages', Inbox, compteurs.total],
     ['fils', 'Réponses', Reply, compteurs.fils],
@@ -129,7 +133,8 @@ export function Rail({ compte, compteurs, projets, groupes, filtre, onFiltre, ac
         ))}
       </div>
 
-      <CePoste onPoste={onPoste} onPreparer={onPreparer} onEteindre={onEteindre} />
+      <CePoste source={source} onPoste={onPoste} onPreparer={onPreparer} onEteindre={onEteindre}
+        onOuvrirBoite={onOuvrirBoite} onChoisir={onChoisir} />
 
       <div className="rail__releve">
         <span className="eyebrow">Relève</span>

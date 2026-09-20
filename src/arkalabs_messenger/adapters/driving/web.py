@@ -283,7 +283,8 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
             chemin = urllib.parse.urlsplit(self.path).path
             if chemin not in ("/api/statut", "/api/notifications", "/api/activer", "/api/creer",
                               "/api/choisir-dossier", "/api/preparer", "/api/eteindre", "/api/invite",
-                              "/api/rattacher", "/api/contact", "/api/contact-retirer", "/api/fusionner"):
+                              "/api/rattacher", "/api/contact", "/api/contact-retirer", "/api/fusionner",
+                              "/api/boite-du-poste"):
                 return self._erreur(404, "introuvable")
             if not self.headers.get("Content-Type", "").startswith("application/json"):
                 return self._erreur(415, "JSON attendu")
@@ -298,6 +299,8 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                     return self._activer(demande)
                 if chemin == "/api/creer":
                     return self._creer(demande)
+                if chemin == "/api/boite-du-poste":
+                    return self._boite_du_poste(demande)
                 if chemin == "/api/choisir-dossier":
                     return self._choisir_dossier()
                 if chemin in ("/api/invite", "/api/rattacher", "/api/contact", "/api/contact-retirer",
@@ -441,6 +444,29 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
             except OSError as e:
                 return self._erreur(500, f"création impossible : {e.strerror or e}")
             return self._json(200, {"cree": True, "boite": messagerie.emplacement})
+
+        def _boite_du_poste(self, demande: Any) -> None:
+            """Dit à ce poste où est la boîte : l'interface bascule dessus à la prochaine relève.
+
+            C'est le geste de l'humain quand la boîte vit sur un dossier partagé (NAS) : chaque machine
+            désigne le même endroit, vu par son propre chemin.
+            """
+            if not isinstance(demande, dict) or not isinstance(demande.get("dossier"), str) \
+                    or not demande["dossier"].strip():
+                return self._erreur(400, 'demande illisible : {"dossier": "<chemin local du dossier partagé>"}')
+            boite = poste.trouver_boite(demande["dossier"].strip())
+            if boite is None:
+                return self._erreur(404, "aucune boîte dans ce dossier : vérifie le chemin, "
+                                         "ou crée-la ici avec « Créer la boîte »")
+            try:
+                if usine is None:
+                    return self._erreur(409, "changement de boîte indisponible pour cette interface")
+                messagerie = usine.ouvrir(boite)
+                messagerie.instantane()  # refuse une boîte illisible avant de la mémoriser
+            except (ErreurMessenger, OSError) as e:
+                return self._erreur(409, f"cette boîte ne s'ouvre pas : {e}")
+            poste.memoriser_boite(messagerie.emplacement)
+            return self._json(200, {"boite": messagerie.emplacement})
 
         def _choisir_dossier(self) -> None:
             """Ouvre le sélecteur de dossier natif du poste et rend le chemin choisi (ou null si annulé)."""

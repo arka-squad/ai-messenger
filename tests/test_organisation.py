@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -151,17 +152,62 @@ class Releve(unittest.TestCase):
         self.assertEqual(reponse["decision"], "block")
         self.assertIn("arrivé(s) pendant que tu travaillais", reponse["reason"])
         self.assertIn("Tu me reçois ?", reponse["reason"])
+        self.assertIn("ARME TA VEILLE", reponse["reason"])  # la session n'a pas de veille : on le lui dit
         # la prolongation ne bloque pas une seconde fois : pas de boucle
         charge["stop_hook_active"] = True
         self.assertEqual(self.cmd("check", "--hook", "--host", "claude-code", "--event", "Stop",
                                   entree=json.dumps(charge)), "")
-        # sans courrier, on laisse s'endormir
+        # courrier traité : la fin de tour réclame encore la veille — une seule fois
         self.cmd("mark", "--agent", self.adresse, "--id",
                  json.loads(self.cmd("check", "--agent", self.adresse, "--json"))["nouveaux"][0]["id"],
                  "--status", "lu")
+        charge = {"session_id": "s6", "cwd": self.ici, "hook_event_name": "Stop"}
+        rappel = json.loads(self.cmd("check", "--hook", "--host", "claude-code", "--event", "Stop",
+                                     entree=json.dumps(charge)))
+        self.assertIn("ARME TA VEILLE", rappel["reason"])
+        self.assertIn(f"watch --agent {self.adresse} --session s6", rappel["reason"])
         self.assertEqual(self.cmd("check", "--hook", "--host", "claude-code", "--event", "Stop",
-                                  entree=json.dumps({"session_id": "s6", "cwd": self.ici,
-                                                     "hook_event_name": "Stop"})), "")
+                                  entree=json.dumps(charge)), "")
+
+    def test_la_veille_couvre_la_session_puis_reveille_et_se_relance(self):
+        """La boucle complète : veille armée → fin de tour silencieuse → message → réveil → veille à relancer."""
+        # le message du décor est traité : ce test observe la veille, pas le courrier en attente
+        self.cmd("mark", "--agent", self.adresse, "--id",
+                 json.loads(self.cmd("check", "--agent", self.adresse, "--json"))["nouveaux"][0]["id"],
+                 "--status", "lu")
+        charge = json.dumps({"session_id": "v1", "cwd": self.ici, "hook_event_name": "Stop"})
+        veilleur = subprocess.Popen(
+            [sys.executable, MESSENGER, "watch", "--agent", self.adresse, "--session", "v1",
+             "--interval", "0.3", "--max-hours", "0.05"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.env, cwd=self.dossier)
+        try:
+            veilles = os.path.join(self.dossier, ".arkalabs-messenger.veilles")
+            for _ in range(100):  # la trace de veille apparaît
+                if os.path.isdir(veilles) and os.listdir(veilles):
+                    break
+                time.sleep(0.1)
+            else:
+                self.fail("la veille ne s'est pas armée")
+            # la session veille : la fin de tour la laisse s'endormir, sans rien réclamer
+            self.assertEqual(self.cmd("check", "--hook", "--host", "claude-code", "--event", "Stop",
+                                      entree=charge), "")
+            # un message arrive : la veille rend la main et le donne
+            self.cmd("send", "--agent", "owner", "--to", self.adresse, "--subject", "Réveil")
+            sortie, _ = veilleur.communicate(timeout=30)
+            self.assertEqual(veilleur.returncode, 0)
+            self.assertIn("Réveil", sortie.decode("utf-8"))
+            self.assertIn("relance ta veille", sortie.decode("utf-8"))
+        finally:
+            if veilleur.poll() is None:
+                veilleur.kill()
+        self.assertEqual(os.listdir(veilles), [])  # la trace est retirée
+        # la veille est finie : la fin de tour la réclame à nouveau, une fois
+        self.cmd("mark", "--agent", self.adresse, "--id",
+                 json.loads(self.cmd("check", "--agent", self.adresse, "--json"))["nouveaux"][-1]["id"],
+                 "--status", "lu")
+        rappel = json.loads(self.cmd("check", "--hook", "--host", "claude-code", "--event", "Stop",
+                                     entree=charge))
+        self.assertIn("ARME TA VEILLE", rappel["reason"])
 
     def test_la_fin_de_tour_ne_derange_pas_une_session_sans_identite(self):
         """Et ne consomme pas l'annonce « du courrier attend » : elle reste due au prochain vrai moment."""
@@ -196,7 +242,7 @@ class Interface(unittest.TestCase):
         self.lancer()
 
     def lancer(self, **options):
-        self.serveur = creer_serveur(self.messagerie, "owner", port=0, depot=DEPOT, **options)
+        self.serveur = creer_serveur(self.messagerie, "owner", port=0, depot=DEPOT, usine=Usine(), **options)
         self.base = f"http://127.0.0.1:{self.serveur.server_address[1]}"
         threading.Thread(target=self.serveur.serve_forever, daemon=True).start()
 
@@ -261,6 +307,19 @@ class Interface(unittest.TestCase):
         self.assertEqual(code, 409)
         self.assertIn("déjà fusionné", rep["erreur"])
 
+    def test_dire_au_poste_ou_est_la_boite(self):
+        """Le geste NAS : chaque machine désigne le même dossier partagé, vu par son propre chemin."""
+        ailleurs = os.path.join(self.dossier, "nas", "aimessenger")
+        autre = Usine().ouvrir(ailleurs)
+        autre.initialiser()
+        code, rep = self.post("/api/boite-du-poste", {"dossier": ailleurs})
+        self.assertEqual(code, 200)
+        self.assertEqual(rep["boite"], autre.emplacement)
+        self.assertEqual(poste.resoudre_boite(None), autre.emplacement)  # mémorisé pour ce poste
+        code, rep = self.post("/api/boite-du-poste", {"dossier": os.path.join(self.dossier, "vide")})
+        self.assertEqual(code, 404)
+        self.assertIn("aucune boîte dans ce dossier", rep["erreur"])
+
     def test_ce_poste_et_sa_preparation(self):
         avant = self.get("/api/poste")
         self.assertEqual([(h["id"], h["equipe"]) for h in avant["hotes"]], [("claude-code", False)])
@@ -276,6 +335,25 @@ class Interface(unittest.TestCase):
         self.serveur.server_close()
         self.lancer(eteignable=True)
         self.assertEqual(self.post("/api/eteindre", {}), (200, {"eteinte": True}))
+
+
+class TrouverBoite(unittest.TestCase):
+    def test_ce_que_designe_un_chemin(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertIsNone(poste.trouver_boite(os.path.join(d, "rien")))
+            plat = os.path.join(d, "plat")
+            os.makedirs(plat)
+            self.assertIsNone(poste.trouver_boite(plat))  # un dossier sans boîte n'en est pas une
+            with open(os.path.join(plat, "boite.json"), "w", encoding="utf-8") as f:
+                f.write("{}")
+            self.assertEqual(poste.trouver_boite(plat), os.path.join(plat, "boite.json"))
+            self.assertEqual(poste.trouver_boite(os.path.join(plat, "boite.json")),
+                             os.path.join(plat, "boite.json"))
+            os.makedirs(os.path.join(d, "arbo", ".aimessenger", "mail"))
+            with open(os.path.join(d, "arbo", ".aimessenger", "mail", "boite.json"), "w", encoding="utf-8") as f:
+                f.write("{}")
+            self.assertEqual(poste.trouver_boite(os.path.join(d, "arbo")), os.path.join(d, "arbo"))
+            self.assertIsNone(poste.trouver_boite(os.path.join(d, "arbo", ".aimessenger", "pas-la")))
 
 
 class Allumer(unittest.TestCase):

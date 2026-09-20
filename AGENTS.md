@@ -91,7 +91,7 @@ réveil, règles) et la voie manuelle.
 python3 <dépôt>/messenger.py --version
 ```
 
-Attendu : `0.1.15`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
+Attendu : `0.1.16`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
 installation. Sous Windows, `python` au lieu de `python3` selon l'installation.
 Appelle toujours `messenger.py` **depuis le dépôt** : il charge le code de
 `src/`, il ne fonctionne pas copié seul. Node n'est pas nécessaire aux agents :
@@ -267,24 +267,26 @@ python3 messenger.py send --agent <nom> --to <nom> --subject "Test de relève"
 Ton hôte doit t'injecter « COURRIER — 1 message(s)… ». Marque-le ensuite
 `traité` (étape 6).
 
-## 5. Installe ton réveil — si ton hôte le permet
+## 5. Arme ta veille — obligatoire dès que tu as une boîte
 
-**But** : être prévenu quand un message t'arrive pendant que ta session attend.
+**But** : être réveillé quand un message t'arrive pendant que ta session attend,
+au lieu de dormir dessus jusqu'au prochain message de ton humain.
 
 ```bash
-python3 messenger.py watch --agent <nom>
+python3 messenger.py watch --agent <ton adresse> --session <id de ta session>
 ```
 
 Cette commande attend, puis **rend la main dès qu'un nouveau message t'est
-adressé**. Elle ne se réveille ni sur tes propres envois, ni sur les messages
-adressés aux autres, ni sur les changements de statut. Sans courrier, elle sort
-en code 3 au bout de 12 heures (`--max-hours`).
+adressé** — ton hôte te notifie alors qu'elle s'est terminée : c'est ton réveil.
+Elle ne se réveille ni sur tes propres envois, ni sur les messages adressés aux
+autres, ni sur les changements de statut. Sans courrier, elle sort en code 3 au
+bout de 12 heures (`--max-hours`) : relance-la.
 
-Lance-la **en tâche de fond**, avec l'outil de ton hôte qui te notifie quand une
-commande se termine. À chaque réveil :
-
-1. lis le courrier (`check`) et traite-le ;
-2. relance `watch`.
+Lance-la **en tâche de fond** (Claude Code : outil Bash, `run_in_background`).
+À chaque réveil : lis, agis, marque (`mark`), puis **relance-la**. Avec
+`--session`, elle tient la **veille** de ta session : la relève de fin de tour
+sait que tu es joignable — et tant qu'aucune veille ne tourne, elle te retient
+une fois, en fin de tour, pour te le rappeler.
 
 **Ne remplace pas ce réveil par une relève à intervalle fixe** : chaque relève
 vide produit un tour pour rien, que ton humain paie, et qu'une mémoire d'agent

@@ -10,6 +10,7 @@ import json
 import os
 import platform
 import sys
+import threading
 import time
 from typing import Optional, Protocol, Sequence
 
@@ -420,18 +421,31 @@ def _check(args: argparse.Namespace, usine: Usine) -> int:
     except (ErreurMessenger, OSError):
         return 0
     if fin_de_tour:
-        # Du courrier est arrivé pendant le tour : on retient l'agent avant qu'il s'endorme — une fois.
-        # `stop_hook_active` dit que ce tour est déjà une prolongation : on laisse s'arrêter, pas de boucle.
-        if not trouves or charge.get("stop_hook_active") is True:
+        # Fin de tour : du courrier arrivé pendant le travail se traite avant de s'endormir, et une
+        # session joignable garde sa veille armée. `stop_hook_active` = déjà une prolongation : on
+        # laisse s'arrêter, jamais de boucle.
+        if charge.get("stop_hook_active") is True:
             return 0
-        print(json.dumps({"decision": "block", "reason": "\n".join([
-            f"COURRIER — {len(trouves)} message(s) pour {agent}, arrivé(s) pendant que tu travaillais. "
-            "Avant de t'arrêter :",
-            *(_resume(m) for m in trouves),
-            "Lis chaque pièce jointe, agis, puis marque « lu » ou « traité » (outil MCP `mark`, ou "
-            f"`messenger.py mark --agent {agent} --id <id> --status lu|traité`). Si un message ne te "
-            "demande rien, marque-le simplement.",
-        ])}, ensure_ascii=False))
+        veille = poste.veille_armee(session)
+        consigne_veille = [] if veille else [_consigne_veille(agent, session, usine.depot())]
+        if trouves:
+            print(json.dumps({"decision": "block", "reason": "\n".join([
+                f"COURRIER — {len(trouves)} message(s) pour {agent}, arrivé(s) pendant que tu travaillais. "
+                "Avant de t'arrêter :",
+                *(_resume(m) for m in trouves),
+                "Lis chaque pièce jointe, agis, puis marque « lu » ou « traité » (outil MCP `mark`, ou "
+                f"`messenger.py mark --agent {agent} --id <id> --status lu|traité`). Si un message ne te "
+                "demande rien, marque-le simplement.",
+                *consigne_veille,
+            ])}, ensure_ascii=False))
+            return 0
+        # Pas de courrier : on ne retient la session qu'une fois, pour qu'elle arme sa veille.
+        if veille or not session or poste.deja_annonce(session, ["veille"]):
+            return 0
+        poste.noter_annonce(session, ["veille"])
+        print(json.dumps({"decision": "block",
+                          "reason": "Avant de t'arrêter — " + _consigne_veille(agent, session, usine.depot())},
+                         ensure_ascii=False))
         return 0
     if not trouves:
         return 0
@@ -472,16 +486,47 @@ def _list(args: argparse.Namespace, usine: Usine) -> int:
 
 
 def _watch(args: argparse.Namespace, usine: Usine) -> int:
+    """Attend le prochain message. Avec `--session`, tient la **veille** de cette session : tant qu'elle
+    tourne, la relève de fin de tour sait que la session sera réveillée, et ne la retient pas pour rien."""
     messagerie = usine.ouvrir(_boite(args))
-    agent = _agent(args, messagerie)
-    recus = messagerie.guetter(agent, args.interval, args.max_hours)
+    agent = args.agent or poste.resoudre_agent(None, args.session, args.host, os.getcwd())
+    if not agent:
+        raise _Refus("dis-moi qui tu es : --agent <adresse> (ou enrôle-toi d'abord)")
+    agent = messagerie.adresse(valider_adresse(agent), _projet(args))
+    battement = _tenir_la_veille(args.session, agent) if args.session else None
+    try:
+        recus = messagerie.guetter(agent, args.interval, args.max_hours)
+    finally:
+        if battement:
+            battement.set()
+        if args.session:
+            poste.desarmer_veille(args.session)
+            # la veille est finie : au prochain tour, la fin de tour rappellera de la relancer
+            poste.oublier_annonce(args.session, "veille")
     if not recus:
-        print(f"aucun message pour {agent} en {args.max_hours:g} h")
+        print(f"aucun message pour {agent} en {args.max_hours:g} h — relance la veille si tu attends toujours")
         return SORTIE_ECHEANCE
     print(f"COURRIER — {len(recus)} nouveau(x) message(s) pour {agent}.")
     for m in recus:
         print(_resume(m))
+    print("À faire : lire, agir, marquer (`mark`) — puis relance ta veille (watch).")
     return 0
+
+
+def _tenir_la_veille(session: str, agent: str) -> threading.Event:
+    """Rafraîchit la trace de veille en boucle, dans un fil : c'est sa fraîcheur qui fait foi."""
+    arret = threading.Event()
+
+    def battre() -> None:
+        while not arret.is_set():
+            try:
+                poste.armer_veille(session, agent)
+            except OSError:
+                pass
+            arret.wait(5.0)
+
+    threading.Thread(target=battre, daemon=True).start()
+    return arret
 
 
 def _migrate(args: argparse.Namespace, usine: Usine) -> int:
@@ -589,6 +634,15 @@ def _lire_hook() -> dict:
         return charge if isinstance(charge, dict) else {}
     except ValueError:
         return {}
+
+
+def _consigne_veille(agent: str, session: Optional[str], depot: str) -> str:
+    """Le rappel d'armer sa veille : la session sera réveillée à l'arrivée d'un message, au lieu de dormir dessus."""
+    messenger = os.path.join(depot, "messenger.py")
+    options = f" --session {session}" if session else ""
+    return ("ARME TA VEILLE : lance en tâche de fond (outil Bash, run_in_background) "
+            f"`python \"{messenger}\" watch --agent {agent}{options}` — tu seras réveillé dès qu'un message "
+            "t'arrive, au lieu de dormir dessus. Quand elle rend la main : lis, marque, et relance-la.")
 
 
 def _annoncer_courrier_en_attente(chemin: Optional[str], session: Optional[str], evenement: Optional[str],
@@ -769,9 +823,11 @@ def _parseur() -> argparse.ArgumentParser:
     x.add_argument("--limit", type=int, default=20)
     x.add_argument("--json", action="store_true", help="sortie JSON")
 
-    x = commande("watch", "attend le prochain message pour un agent", _watch)
+    x = commande("watch", "attend le prochain message pour un agent (et tient la veille de sa session)", _watch)
     x.add_argument("--interval", type=float, default=10.0, help="secondes entre deux relèves")
     x.add_argument("--max-hours", type=float, default=12.0)
+    x.add_argument("--session", help="l'id de la session couverte : sa relève de fin de tour saura qu'elle veille")
+    x.add_argument("--host", help="ton hôte, pour retrouver ton identité mémorisée (sinon --agent)")
 
     x = commande("migrate", "importe une ancienne boîte Markdown", _migrate, agent=False, projet=False)
     x.add_argument("--from", dest="source", required=True, help="la boîte Markdown à importer")

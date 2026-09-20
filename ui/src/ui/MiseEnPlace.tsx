@@ -325,7 +325,7 @@ export function CreerBoite({ motif, onCreer, onChoisir }: {
 }
 
 /** Un dossier : le sélecteur natif du poste d'abord, le chemin collé à la main en repli. */
-function ChampDossier({ dossier, invite, etiquette, onDossier, onChoisir, onEntree }: {
+export function ChampDossier({ dossier, invite, etiquette, onDossier, onChoisir, onEntree }: {
   dossier: string;
   invite: string;
   etiquette: string;

@@ -183,6 +183,8 @@ allumée. `GET /api/poste` dit où en sont les outils d'IA du poste et si la bo�
 rend le texte à coller à un agent ; `POST /api/rattacher` (`{"compte", "projet"|null}`), `POST /api/contact`
 (`{"compte", "alias", "adresses", "note"?, "remplacer"?}`), `POST /api/contact-retirer` (`{"compte", "alias"}`)
 et `POST /api/fusionner` (`{"compte", "dans"}` — fusionne deux comptes d'un même agent).
+`POST /api/boite-du-poste` (`{"dossier"}`) dit à ce poste où est la boîte : un dossier à arbo
+`.aimessenger/`, un dossier contenant un `boite.json` à plat, ou le fichier lui-même.
 `POST /api/activer` rend le dépôt connecté et, pour chaque hôte IA du poste, où il en est
 (`hotes` : `id`, `nom`, `present`, `equipe`, `mcp`, `releve`, `skill`, `note`).
 

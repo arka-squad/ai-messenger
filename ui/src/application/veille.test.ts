@@ -46,6 +46,10 @@ class BoiteFactice implements PortBoite {
   async creer(dossier: string): Promise<Creation> {
     return { cree: true, boite: `${dossier}/.aimessenger/mail/boite.json` };
   }
+  async ouvrirBoite(dossier: string): Promise<string> {
+    this.etat.source = { ...this.etat.source, chemin: `${dossier}/boite.json` };
+    return this.etat.source.chemin;
+  }
   async choisirDossier(): Promise<string | null> {
     return '/dossier/choisi';
   }
@@ -146,6 +150,8 @@ describe('veille', () => {
     assert.deepEqual(veille.lire().etat?.comptes[0]?.contacts, []);
     await veille.fusionner('windows', 'owner');
     assert.equal(veille.lire().etat?.comptes[0]?.actif, false);
+    await veille.ouvrirBoite('/nas/aimessenger');
+    assert.equal(veille.lire().etat?.source.chemin, '/nas/aimessenger/boite.json');
   });
 
   it("éteint la boîte : la veille s'arrête et le dit", async () => {

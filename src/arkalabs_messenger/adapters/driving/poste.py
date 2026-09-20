@@ -15,13 +15,21 @@ from __future__ import annotations
 import json
 import os
 import platform
+import re
 import subprocess
 import threading
+import time
 from typing import Any, Dict, List, Optional
 
 from . import hotes
 
 CONFIG = os.path.join(os.path.expanduser("~"), ".arkalabs-messenger.json")
+VEILLES = os.path.join(os.path.expanduser("~"), ".arkalabs-messenger.veilles")
+"""Une petite trace par veille en cours (`watch`), rafraîchie en boucle : la relève de fin de tour
+sait ainsi si la session est joignable, sans jamais interroger de processus."""
+
+_VEILLE_FRAICHE = 30.0
+"""Une trace plus vieille que ça est morte : la veille a été tuée sans pouvoir se retirer."""
 FICHIER_PROJET = ".messenger.json"
 
 
@@ -92,6 +100,52 @@ def identite_memorisee(hote: Optional[str], dossier: Optional[str]) -> Optional[
         courant = parent
 
 
+def _fichier_veille(session: str) -> str:
+    propre = re.sub(r"[^A-Za-z0-9._-]", "_", session)[:80] or "sans-nom"
+    return os.path.join(VEILLES, propre + ".json")
+
+
+def armer_veille(session: str, agent: str) -> str:
+    """Note qu'une veille couvre `session`. À rappeler en boucle : c'est la fraîcheur qui fait foi."""
+    os.makedirs(VEILLES, exist_ok=True)
+    chemin = _fichier_veille(session)
+    with open(chemin, "w", encoding="utf-8", newline="\n") as f:
+        json.dump({"session": session, "agent": agent, "pid": os.getpid()}, f, ensure_ascii=False)
+    return chemin
+
+
+def desarmer_veille(session: str) -> None:
+    try:
+        os.remove(_fichier_veille(session))
+    except OSError:
+        pass
+    _purger_veilles()
+
+
+def veille_armee(session: Optional[str]) -> bool:
+    """Une veille fraîche couvre-t-elle cette session ? Sans `session_id`, on ne sait pas : non."""
+    if not session:
+        return False
+    try:
+        return time.time() - os.path.getmtime(_fichier_veille(session)) < _VEILLE_FRAICHE
+    except OSError:
+        return False
+
+
+def _purger_veilles() -> None:
+    """Les traces d'avant-hier ne couvrent plus personne : on fait le ménage en passant."""
+    try:
+        for nom in os.listdir(VEILLES):
+            chemin = os.path.join(VEILLES, nom)
+            try:
+                if time.time() - os.path.getmtime(chemin) > 48 * 3600:
+                    os.remove(chemin)
+            except OSError:
+                pass
+    except OSError:
+        pass
+
+
 def deja_annonce(session: Optional[str], adresses: List[str]) -> bool:
     """A-t-on déjà dit à cette session que du courrier attendait ces comptes ? Sans `session_id`, on ne sait pas."""
     if not session:
@@ -107,6 +161,17 @@ def noter_annonce(session: str, adresses: List[str]) -> None:
     vus[session] = sorted(set(vus.get(session) or []) | set(adresses))
     conf["annonces"] = dict(list(vus.items())[-_MEMOIRE_MAX:])
     _ecrire_config(conf)
+
+
+def oublier_annonce(session: Optional[str], adresse: str) -> None:
+    """Rend une annonce à nouveau due pour cette session — quand ce qu'elle rappelait n'est plus vrai."""
+    if not session:
+        return
+    conf = lire_config()
+    vus = conf.get("annonces")
+    if isinstance(vus, dict) and isinstance(vus.get(session), list) and adresse in vus[session]:
+        vus[session] = [a for a in vus[session] if a != adresse]
+        _ecrire_config(conf)
 
 
 def memoriser_identite(hote: str, dossier: str, agent: str) -> str:
@@ -147,6 +212,21 @@ def _memoriser(table: str, cle: str, valeur: str) -> str:
     conf[table] = dict(list(valeurs.items())[-_MEMOIRE_MAX:])
     _ecrire_config(conf)
     return CONFIG
+
+
+def trouver_boite(chemin: str) -> Optional[str]:
+    """La boîte que désigne `chemin`, s'il y en a une : un fichier `.json`/`.md`, un dossier à arbo
+    `.aimessenger/`, ou un dossier qui contient un `boite.json` à plat. None s'il n'y a rien à ouvrir."""
+    chemin = os.path.abspath(os.path.expanduser(chemin))
+    if os.path.isfile(chemin):
+        return chemin if os.path.splitext(chemin)[1].lower() in (".json", ".md") else None
+    if not os.path.isdir(chemin):
+        return None
+    arbo = chemin if os.path.basename(chemin) == ".aimessenger" else os.path.join(chemin, ".aimessenger")
+    if os.path.isfile(os.path.join(arbo, "mail", "boite.json")):
+        return chemin
+    plat = os.path.join(chemin, "boite.json")
+    return plat if os.path.isfile(plat) else None
 
 
 def resoudre_projet(explicite: Optional[str], dossier: Optional[str] = None) -> Optional[str]:

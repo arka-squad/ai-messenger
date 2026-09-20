@@ -104,17 +104,20 @@ deux sessions enrôlées dans le même dépôt ne se mélangent pas, sans variab
 arrive, la relève annonce son destinataire — une session qui connaît la skill ignore le
 courrier qui n'est pas pour elle.
 
-## Réveil : la commande `watch` en tâche de fond
+## Réveil : la veille (`watch`), obligatoire dès que tu as une boîte
 
-Par le serveur MCP, l'outil `wait` attend le prochain message (annulable). Ou, avec
-l'outil Bash, en **tâche de fond** (`run_in_background: true`) : tu es
+Avec l'outil Bash, en **tâche de fond** (`run_in_background: true`) : tu es
 notifié quand la commande se termine, c'est-à-dire quand un message t'arrive.
 
 ```bash
-python3 <dépôt>/messenger.py watch --agent <nom>
+python3 <dépôt>/messenger.py watch --agent <nom> --session <id de ta session>
 ```
 
-À chaque notification : `check`, traite, marque, puis relance `watch`.
+À chaque notification : `check`, traite, marque, puis **relance `watch`**.
+`--session` tient la veille de ta session : la relève de fin de tour sait que tu
+es joignable, et te rappelle d'armer la veille — une fois — tant qu'elle ne
+tourne pas. (Pendant un tour, l'outil MCP `wait` fait la même attente sans
+quitter la conversation.)
 
 N'utilise pas un moniteur à expiration courte relancé en boucle : chaque
 expiration produit un tour vide.

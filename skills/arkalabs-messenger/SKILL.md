@@ -129,7 +129,7 @@ messenger send --agent <ton adresse> --to <destinataire>[,<autre>] \
 | qui est qui | `messenger agents` | `agents` |
 | mon carnet d'adresses | `messenger contacts --agent <moi>` | `contacts` |
 | noter, retirer un contact | `messenger contact-add …`, `contact-remove …` | `contact_add`, `contact_remove` |
-| attendre le prochain message | `messenger watch --agent <moi>` (en tâche de fond) | `wait` |
+| ma veille — obligatoire dès que j'ai une boîte (tâche de fond, à relancer après chaque réveil) | `messenger watch --agent <moi> --session <id>` | `wait` (pendant un tour) |
 
 L'installation (compte, relève, réveil) est décrite dans `AGENTS.md` ; le format
 de la boîte dans `PROTOCOLE.md`.
