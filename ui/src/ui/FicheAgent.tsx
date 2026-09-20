@@ -1,7 +1,9 @@
 /** La fiche d'un agent : qui il est, son projet, son carnet d'adresses — et de quoi l'organiser. */
 import { BookUser, Check, Copy, LoaderCircle, Merge, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
+import { utiliseLangue } from '../application/langue.tsx';
 import { type Agent, anciennete, projetDe, projetPropose } from '../domain/boite.ts';
+import { t, tp } from '../domain/langue/index.ts';
 import type { Invitation } from '../domain/types.ts';
 import { EtiquetteProjet } from './EtiquettesProjet.tsx';
 import { TexteACopier, copierTexte } from './MiseEnPlace.tsx';
@@ -27,6 +29,7 @@ const NOUVEAU = 'nouveau projet';
 
 export function FicheAgent({ agent: a, agents, projets, modifiable, onRattacher, onNoterContact, onRetirerContact,
   onInviter, onFusionner, onFermer }: Props) {
+  const l = utiliseLangue();
   const [erreur, setErreur] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
 
@@ -45,33 +48,33 @@ export function FicheAgent({ agent: a, agents, projets, modifiable, onRattacher,
   };
 
   return (
-    <section className="fiche rise" aria-label={`Agent ${a.affichage ?? a.nom}`}>
+    <section className="fiche rise" aria-label={t(l, 'accueil.agentAria', { nom: a.affichage ?? a.nom })}>
       <div className="fiche__tete">
         <span className={`point-rond ${a.enAttente ? 'attente pulse' : 'ok'}`} />
         <span className="fiche__nom">{a.affichage ?? a.nom.split('@')[0]}</span>
-        <span className="fiche__adresse" title="Son adresse dans la boîte">{a.nom}</span>
+        <span className="fiche__adresse" title={t(l, 'accueil.adresseTitle')}>{a.nom}</span>
         <EtiquetteProjet projet={a.projet} avecIcone />
         <span className="vide" />
-        <button type="button" className="modale__fermer" aria-label="Fermer la fiche" onClick={onFermer}><X className="ic" size={15} /></button>
+        <button type="button" className="modale__fermer" aria-label={t(l, 'accueil.fermerFiche')} onClick={onFermer}><X className="ic" size={15} /></button>
       </div>
       <div className="fiche__infos">
-        {[a.hote && a.hote !== 'inconnu' ? a.hote : null, a.machine, a.role].filter(Boolean).join(' · ') || 'Aucune information sur ce compte.'}
+        {[a.hote && a.hote !== 'inconnu' ? a.hote : null, a.machine, a.role].filter(Boolean).join(' · ') || t(l, 'accueil.aucuneInfo')}
       </div>
       {(a.enAttente > 0 || a.aCompleter) && (
         <div className="fiche__alerte" role="status">
           {a.aCompleter
-            ? 'Ce compte a été repris d’une ancienne boîte : son agent ne l’a jamais repris, il ne relève donc pas son courrier. '
+            ? t(l, 'accueil.alerteReprise')
             : ''}
           {a.enAttente > 0 && a.attenteDepuis
-            ? `${a.enAttente} message${a.enAttente > 1 ? 's' : ''} l’attend${a.enAttente > 1 ? 'ent' : ''} ${anciennete(a.attenteDepuis)}. `
+            ? tp(l, a.enAttente, 'accueil.alerteAttente', { anciennete: anciennete(a.attenteDepuis, new Date(), l) })
             : ''}
-          S’il ne répond pas, envoie-lui son invite : il reprendra son compte depuis son dossier de travail.
+          {t(l, 'accueil.alerteInvite')}
         </div>
       )}
 
       <div className="fiche__colonnes">
         <div className="fiche__bloc">
-          <span className="eyebrow">Projet</span>
+          <span className="eyebrow">{t(l, 'accueil.projetRubrique')}</span>
           <ChoixProjet agent={a} projets={projets} modifiable={modifiable && !occupe}
             onChoix={(projet) => agir(() => onRattacher(a.nom, projet))} />
           <InviteAgent compte={a.nom} modifiable={modifiable} onInviter={onInviter} />
@@ -81,8 +84,8 @@ export function FicheAgent({ agent: a, agents, projets, modifiable, onRattacher,
           )}
         </div>
         <div className="fiche__bloc fiche__bloc--large">
-          <span className="eyebrow"><BookUser className="ic" size={11} /> Carnet d’adresses</span>
-          {a.contacts.length === 0 && <span className="detail__aucun">Aucun contact. Un contact donne un nom court à un agent, ou à un groupe, à qui il écrit souvent.</span>}
+          <span className="eyebrow"><BookUser className="ic" size={11} /> {t(l, 'accueil.carnet')}</span>
+          {a.contacts.length === 0 && <span className="detail__aucun">{t(l, 'accueil.aucunContact')}</span>}
           {a.contacts.map((c) => (
             <div key={c.alias} className="contact">
               <span className="contact__alias">{c.alias}</span>
@@ -90,8 +93,8 @@ export function FicheAgent({ agent: a, agents, projets, modifiable, onRattacher,
               <span className="contact__adresses">{c.adresses.join(', ')}</span>
               {c.note && <span className="contact__note">{c.note}</span>}
               {modifiable && (
-                <button type="button" className="contact__retirer" disabled={occupe} aria-label={`Retirer le contact ${c.alias}`}
-                  title="Retirer ce contact" onClick={() => void agir(() => onRetirerContact(a.nom, c.alias))}>
+                <button type="button" className="contact__retirer" disabled={occupe} aria-label={t(l, 'accueil.retirerContactAria', { alias: c.alias })}
+                  title={t(l, 'accueil.retirerContactTitle')} onClick={() => void agir(() => onRetirerContact(a.nom, c.alias))}>
                   <Trash2 className="ic" size={12} />
                 </button>
               )}
@@ -115,39 +118,40 @@ function ChoixProjet({ agent: a, projets, modifiable, onChoix }: {
   modifiable: boolean;
   onChoix: (projet: string | null) => Promise<void>;
 }) {
+  const l = utiliseLangue();
   const [nouveau, setNouveau] = useState<string | null>(null);
   if (projetDe(a.nom)) {
-    return <span className="fiche__aide">Son adresse porte son projet (<b>{a.projet}</b>) : il ne se range pas ailleurs.</span>;
+    return <span className="fiche__aide">{t(l, 'accueil.projetAdresseAvant')}<b>{a.projet}</b>{t(l, 'accueil.projetAdresseApres')}</span>;
   }
   if (!modifiable && nouveau === null) {
-    return <span className="fiche__aide">{a.projet ? `Rangé dans ${a.projet}.` : 'Sans projet : compte commun à tous les projets.'}</span>;
+    return <span className="fiche__aide">{a.projet ? t(l, 'accueil.rangeDans', { projet: a.projet }) : t(l, 'accueil.sansProjetCompte')}</span>;
   }
   const propose = nouveau === null ? '' : projetPropose(nouveau);
   return (
     <>
       <select
-        className="ajout__champ" aria-label="Projet de l’agent" value={nouveau !== null ? NOUVEAU : a.projet ?? ''}
+        className="ajout__champ" aria-label={t(l, 'accueil.projetAgentAria')} value={nouveau !== null ? NOUVEAU : a.projet ?? ''}
         onChange={(e) => {
           if (e.target.value === NOUVEAU) setNouveau('');
           else { setNouveau(null); void onChoix(e.target.value || null); }
         }}
       >
-        <option value="">Sans projet (compte commun)</option>
+        <option value="">{t(l, 'accueil.optionSansProjet')}</option>
         {[...new Set([...projets, ...(a.projet ? [a.projet] : [])])].sort().map((p) => <option key={p} value={p}>{p}</option>)}
-        <option value={NOUVEAU}>Nouveau projet…</option>
+        <option value={NOUVEAU}>{t(l, 'accueil.nouveauProjetOption')}</option>
       </select>
       {nouveau !== null && (
         <div className="fiche__ligne">
-          <input className="ajout__champ" autoFocus value={nouveau} placeholder="Nom du projet" aria-label="Nouveau projet"
+          <input className="ajout__champ" autoFocus value={nouveau} placeholder={t(l, 'accueil.nomProjet')} aria-label={t(l, 'accueil.nouveauProjet')}
             onChange={(e) => setNouveau(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && propose) { void onChoix(propose); setNouveau(null); } }} />
           <button type="button" className="ajout__valider" disabled={!propose}
             onClick={() => { void onChoix(propose); setNouveau(null); }}>
-            <Check className="ic" size={13} /><span>Ranger</span>
+            <Check className="ic" size={13} /><span>{t(l, 'accueil.ranger')}</span>
           </button>
         </div>
       )}
-      <span className="fiche__aide">Son adresse ne change pas : son courrier et son carnet restent valables.</span>
+      <span className="fiche__aide">{t(l, 'accueil.adresseNeChangePas')}</span>
     </>
   );
 }
@@ -160,28 +164,28 @@ function FusionCompte({ agent: a, agents, occupe, onFusionner }: {
   occupe: boolean;
   onFusionner: (dans: string) => Promise<void>;
 }) {
+  const l = utiliseLangue();
   const [dans, setDans] = useState('');
   const autres = agents.filter((x) => x.nom !== a.nom);
   if (autres.length === 0) return null;
   return (
     <>
-      <span className="eyebrow fiche__eyebrow-espace">Deux comptes, un agent ?</span>
+      <span className="eyebrow fiche__eyebrow-espace">{t(l, 'accueil.deuxComptes')}</span>
       <select
-        className="ajout__champ" aria-label="Fusionner ce compte dans" value={dans}
+        className="ajout__champ" aria-label={t(l, 'accueil.fusionnerDansAria')} value={dans}
         onChange={(e) => setDans(e.target.value)}
       >
-        <option value="">Fusionner ce compte dans…</option>
+        <option value="">{t(l, 'accueil.fusionnerDansOption')}</option>
         {autres.map((x) => <option key={x.nom} value={x.nom}>{x.affichage ?? x.nom}</option>)}
       </select>
       {dans && (
         <>
           <button type="button" className="ajout__valider" disabled={occupe} onClick={() => void onFusionner(dans)}>
             {occupe ? <LoaderCircle className="ic spin" size={13} /> : <Merge className="ic" size={13} />}
-            <span>Fusionner</span>
+            <span>{t(l, 'accueil.fusionner')}</span>
           </button>
           <span className="fiche__aide">
-            « {a.affichage ?? a.nom} » sera fermé : son courrier en attente passe à <b>{dans}</b>, et ce qui
-            s’écrit encore à son adresse y arrive. Les messages déjà envoyés ne changent pas.
+            {t(l, 'accueil.fusionAvant', { nom: a.affichage ?? a.nom })}<b>{dans}</b>{t(l, 'accueil.fusionApres')}
           </span>
         </>
       )}
@@ -195,6 +199,7 @@ function InviteAgent({ compte, modifiable, onInviter }: {
   modifiable: boolean;
   onInviter: (invitation: Invitation) => Promise<string>;
 }) {
+  const l = utiliseLangue();
   const [etat, setEtat] = useState<'repos' | 'envoi' | 'copie'>('repos');
   const [aCopier, setACopier] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -219,9 +224,9 @@ function InviteAgent({ compte, modifiable, onInviter }: {
     <>
       <button type="button" className="ajout__valider" disabled={etat === 'envoi'} onClick={() => void copier()}>
         {etat === 'envoi' ? <LoaderCircle className="ic spin" size={13} /> : etat === 'copie' ? <Check className="ic" size={13} /> : <Copy className="ic" size={13} />}
-        <span>{etat === 'copie' ? 'Invite copiée' : 'Copier son invite'}</span>
+        <span>{etat === 'copie' ? t(l, 'accueil.inviteCopiee') : t(l, 'accueil.copierSonInvite')}</span>
       </button>
-      <span className="fiche__aide">À coller dans le chat de cet agent : il reprend ce compte et relève son courrier.</span>
+      <span className="fiche__aide">{t(l, 'accueil.aCollerAide')}</span>
       {aCopier && <TexteACopier texte={aCopier} />}
       {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}
     </>
@@ -235,6 +240,7 @@ function NouveauContact({ agent: a, agents, occupe, onAjouter }: {
   occupe: boolean;
   onAjouter: (alias: string, adresses: string[], note: string) => Promise<void>;
 }) {
+  const l = utiliseLangue();
   const [ouvert, setOuvert] = useState(false);
   const [alias, setAlias] = useState('');
   const [note, setNote] = useState('');
@@ -245,7 +251,7 @@ function NouveauContact({ agent: a, agents, occupe, onAjouter }: {
   if (!ouvert) {
     return (
       <button type="button" className="fiche__ajouter" onClick={() => setOuvert(true)}>
-        <Plus className="ic" size={12} /><span>Ajouter un contact</span>
+        <Plus className="ic" size={12} /><span>{t(l, 'accueil.ajouterContact')}</span>
       </button>
     );
   }
@@ -259,9 +265,9 @@ function NouveauContact({ agent: a, agents, occupe, onAjouter }: {
   };
   return (
     <div className="fiche__formulaire">
-      <input className="ajout__champ" autoFocus value={alias} placeholder="Nom court (ex. release)" aria-label="Nom court du contact"
+      <input className="ajout__champ" autoFocus value={alias} placeholder={t(l, 'accueil.nomCourtExemple')} aria-label={t(l, 'accueil.nomCourtAria')}
         onChange={(e) => setAlias(e.target.value)} />
-      <span className="fiche__aide">Qui désigne-t-il ? Un agent, ou plusieurs pour un groupe.</span>
+      <span className="fiche__aide">{t(l, 'accueil.quiDesigne')}</span>
       <div className="fiche__choix">
         {agents.filter((x) => x.nom !== a.nom).map((x) => {
           const coche = choisis.includes(x.nom);
@@ -273,13 +279,13 @@ function NouveauContact({ agent: a, agents, occupe, onAjouter }: {
           );
         })}
       </div>
-      <input className="ajout__champ" value={note} placeholder="Note (facultatif) : quand lui écrire" aria-label="Note du contact"
+      <input className="ajout__champ" value={note} placeholder={t(l, 'accueil.notePlaceholder')} aria-label={t(l, 'accueil.noteAria')}
         maxLength={200} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void ajouter(); }} />
       <div className="fiche__ligne">
         <button type="button" className="ajout__valider" disabled={!pret} onClick={() => void ajouter()}>
-          <Plus className="ic" size={13} /><span>Ajouter{propose && propose !== alias.trim() ? ` « ${propose} »` : ''}</span>
+          <Plus className="ic" size={13} /><span>{t(l, 'accueil.ajouter')}{propose && propose !== alias.trim() ? t(l, 'accueil.ajouterNomme', { propose }) : ''}</span>
         </button>
-        <button type="button" className="fiche__annuler" onClick={() => setOuvert(false)}>Annuler</button>
+        <button type="button" className="fiche__annuler" onClick={() => setOuvert(false)}>{t(l, 'accueil.annuler')}</button>
       </div>
     </div>
   );

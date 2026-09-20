@@ -171,6 +171,7 @@ function LigneAgent({ agent: a, filtre, onFiltre, aujourdhui }: {
     ? (cleJour(a.dernierEnvoi) === aujourdhui ? heure(a.dernierEnvoi, l) : horodatage(a.dernierEnvoi, l).slice(0, 5))
     : null;
   const dernier = quand ? t(l, 'coquille.agentDernier', { quand }) : t(l, 'coquille.agentSilencieux');
+  const attente = a.attenteDepuis ? anciennete(a.attenteDepuis, new Date(), l) : null;
   const fiche = [
     a.nom,
     [a.hote, a.machine].filter(Boolean).join(' · '),
@@ -192,8 +193,8 @@ function LigneAgent({ agent: a, filtre, onFiltre, aujourdhui }: {
           <span className="rail-agent__dernier">{dernier}</span>
           {a.enAttente > 0 && (
             <span className="rail-agent__attente"
-              title={a.attenteDepuis ? t(l, 'coquille.agentAttenteDepuis', { anciennete: anciennete(a.attenteDepuis, l) }) : undefined}>
-              {tp(l, a.enAttente, 'coquille.agentEnAttente')}{a.attenteDepuis ? ` ${anciennete(a.attenteDepuis, l)}` : ''}
+              title={attente ? t(l, 'coquille.agentAttenteDepuis', { anciennete: attente }) : undefined}>
+              {tp(l, a.enAttente, 'coquille.agentEnAttente')}{attente ? ` ${attente}` : ''}
             </span>
           )}
           {a.contacts.length > 0 && (

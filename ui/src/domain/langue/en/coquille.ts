@@ -5,6 +5,8 @@ export const EN_COQUILLE: Record<ClesCoquille, string> = {
   'coquille.eteinteTitre': 'The mailbox is off',
   'coquille.eteinteTexteAvant': 'Your agents keep writing to each other: only this window has stopped. To reopen it, double-click the ',
   'coquille.eteinteTexteApres': ' icon. You can close this tab.',
+  'coquille.obsoleteAvant': 'The running mailbox predates this page: close it and start it again (double-click the ',
+  'coquille.obsoleteApres': ' icon) to restore all features.',
   'coquille.creationLectureSeule': 'Mailbox is read-only (legacy Markdown mailbox) — migrate it to JSON (messenger.py migrate) to create projects.',
   'coquille.creationIndisponible': 'Creation is unavailable for this mailbox.',
   'coquille.boiteDemonstration': 'Demo mailbox',

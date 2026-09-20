@@ -8,6 +8,8 @@ export const FR_COQUILLE = {
   'coquille.eteinteTitre': 'La boîte est éteinte',
   'coquille.eteinteTexteAvant': 'Tes agents continuent de s’écrire : seule cette fenêtre s’est arrêtée. Pour la rouvrir, double-clique sur l’icône ',
   'coquille.eteinteTexteApres': '. Tu peux fermer cet onglet.',
+  'coquille.obsoleteAvant': 'La boîte allumée date d’avant cette page : ferme-la et relance-la (double-clic sur l’icône ',
+  'coquille.obsoleteApres': ') pour retrouver toutes les fonctions.',
   // Motifs d'indisponibilité de la création (App.tsx → Rail.tsx).
   'coquille.creationLectureSeule': 'Boîte en lecture seule (ancienne boîte Markdown) — migre-la en JSON (messenger.py migrate) pour créer des projets.',
   'coquille.creationIndisponible': 'Création indisponible pour cette boîte.',

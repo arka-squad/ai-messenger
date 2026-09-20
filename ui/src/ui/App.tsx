@@ -123,8 +123,7 @@ export function App({ veille, preferences }: Props) {
     <div className="app">
       {etat?.obsolete && (
         <div className="obsolete" role="status">
-          La boîte allumée date d’avant cette page : ferme-la et relance-la (double-clic sur l’icône
-          <b> Messenger</b>) pour retrouver toutes les fonctions.
+          {t(l, 'coquille.obsoleteAvant')}<b>Messenger</b>{t(l, 'coquille.obsoleteApres')}
         </div>
       )}
       <Entete

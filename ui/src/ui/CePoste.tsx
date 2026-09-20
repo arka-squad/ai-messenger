@@ -122,22 +122,19 @@ function BoiteDuPoste({ source, onOuvrirBoite, onChoisir }: {
       )}
       <button type="button" className={`rail-boite${ouvert ? ' rail-boite--actif' : ''}`} onClick={() => setOuvert((o) => !o)}>
         <FolderInput className="ic" size={15} />
-        <span className="rail-boite__libelle">{source?.demonstration ? 'Ouvrir ma boîte' : 'Changer de boîte'}</span>
+        <span className="rail-boite__libelle">{t(l, source?.demonstration ? 'accueil.ouvrirMaBoite' : 'accueil.changerBoite')}</span>
       </button>
       {ouvert && (
         <div className="ajout">
           <ChampDossier
-            dossier={dossier} invite="Choisir le dossier de la boîte…" etiquette="Dossier partagé de la boîte"
+            dossier={dossier} invite={t(l, 'accueil.choisirDossierBoite')} etiquette={t(l, 'accueil.dossierPartageBoite')}
             onDossier={setDossier} onChoisir={onChoisir} onEntree={() => void soumettre()}
           />
           <button type="button" className="ajout__valider" disabled={!dossier.trim() || envoi} onClick={() => void soumettre()}>
             {envoi ? <LoaderCircle className="ic spin" size={13} /> : <FolderInput className="ic" size={13} />}
-            <span>Ouvrir cette boîte</span>
+            <span>{t(l, 'accueil.ouvrirCetteBoite')}</span>
           </button>
-          <span className="ajout__aide">
-            Montre à ce poste le dossier partagé où vit la boîte (sur ton NAS, par exemple). Fais le même geste
-            sur chaque machine, vers le même dossier : tout le monde lit alors le même courrier.
-          </span>
+          <span className="ajout__aide">{t(l, 'accueil.changerBoiteAide')}</span>
           {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}
         </div>
       )}
