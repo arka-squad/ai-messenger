@@ -89,8 +89,8 @@ def _invite(messagerie: Messagerie, demonstration: bool, depot: Optional[str]) -
         "présente-toi et relève ton courrier.",
         f"Boîte : {messagerie.emplacement}",
         f"Outil : {outil} (lis {agents})",
-        f"Lis {onboarding} et suis-le : installe ta relève si personne ne l'a fait pour cette "
-        "machine (étape 1), puis crée ton compte (étape 2), puis relève ton courrier.",
+        f"Lis {onboarding} et suis-le : équipe cette machine si personne ne l'a encore fait "
+        "(étape 1), puis crée ton compte (étape 2), puis relève ton courrier.",
     ])
 
 
