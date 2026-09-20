@@ -12,6 +12,29 @@ export function messageDErreur(statut: number, erreur: string | null): string {
   return erreur ?? `l'API locale ne répond pas (HTTP ${statut}) — voir le terminal`;
 }
 
+/** Ce que l'API envoie vraiment. Une version plus ancienne, restée allumée pendant une mise à jour,
+ *  ignore les champs récents : on les reconstruit au lieu de casser l'affichage. */
+type MessageBrut = Omit<Message, 'mien' | 'statuts'> & Partial<Pick<Message, 'mien' | 'statuts'>>;
+type EtatBrut = Omit<Etat, 'messages' | 'obsolete'> & { messages: MessageBrut[] };
+
+/** Complète ce qu'une API plus ancienne n'envoie pas, et dit qu'elle est plus ancienne.
+ *
+ *  `mien` (le statut du compte courant) est arrivé avec le statut par destinataire : sans lui,
+ *  l'interface n'affichait plus rien du tout. On le recalcule comme le ferait le serveur — le
+ *  résultat est juste — mais on le signale, parce que d'autres fonctions, elles, manqueront.
+ */
+export function normaliser(brut: EtatBrut): Etat {
+  return {
+    ...brut,
+    obsolete: brut.messages.some((m) => m.mien === undefined),
+    messages: brut.messages.map((m) => ({
+      ...m,
+      statuts: m.statuts ?? {},
+      mien: m.mien ?? m.statuts?.[brut.compte] ?? m.statut,
+    })),
+  };
+}
+
 export class ApiHttp implements PortBoite {
   readonly #base: string;
 
@@ -19,8 +42,8 @@ export class ApiHttp implements PortBoite {
     this.#base = base;
   }
 
-  charger(): Promise<Etat> {
-    return this.#demander<Etat>('/api/boite');
+  async charger(): Promise<Etat> {
+    return normaliser(await this.#demander<EtatBrut>('/api/boite'));
   }
 
   async version(): Promise<string> {

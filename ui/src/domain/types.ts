@@ -101,6 +101,8 @@ export interface Creation {
 
 export interface Etat {
   source: Source;
+  /** L'application allumée est plus ancienne que cette page : elle n'envoie plus tout ce qu'on attend. */
+  obsolete: boolean;
   /** Le compte au nom duquel l'interface agit. */
   compte: string;
   /** Les projets connus : une adresse est `nom` (commun) ou `nom@projet`. */

@@ -62,6 +62,11 @@ input { font: inherit; }
   background: var(--surface); font-family: var(--font-ui); color: var(--tx2);
 }
 .app__corps { display: flex; flex: 1; min-height: 0; }
+/* La boîte allumée est plus ancienne que cette page : on le dit, au lieu de laisser un écran vide. */
+.obsolete {
+  flex-shrink: 0; padding: 7px 14px; font-size: 12px; text-align: center;
+  background: rgba(217, 119, 6, 0.12); color: var(--warn-tx); border-bottom: 1px solid rgba(217, 119, 6, 0.35);
+}
 
 /* -- En-tête -------------------------------------------------------------- */
 .entete {
