@@ -1,8 +1,11 @@
+/** La mise en place, pour un humain : créer la boîte, y connecter un projet, inviter un agent. */
 import { Check, Copy, FolderOpen, FolderPlus, Inbox, LoaderCircle } from 'lucide-react';
 import { useState } from 'react';
 import type { Activation, Creation } from '../domain/types.ts';
 
-/** Copier l'invite à coller dans le chat de son agent : il lit l'onboarding et s'enrôle seul. */
+type Choisir = () => Promise<string | null>;
+
+/** Copier l'invite à coller dans le chat de son agent : il lit le guide d'accueil et s'enrôle seul. */
 export function InviterAgent({ invite }: { invite: string | null }) {
   const [copie, setCopie] = useState(false);
   if (!invite) return null;
@@ -23,10 +26,10 @@ export function InviterAgent({ invite }: { invite: string | null }) {
   );
 }
 
-/** Connecter un projet (un dépôt local) à la boîte : hooks et skill posés, ses agents s'enrôlent. */
+/** Connecter un projet (un dépôt local) à la boîte. */
 export function ConnecterProjet({ onConnecter, onChoisir }: {
   onConnecter: (dossier: string, projet: string) => Promise<Activation>;
-  onChoisir: () => Promise<string | null>;
+  onChoisir: Choisir;
 }) {
   const [ouvert, setOuvert] = useState(false);
   const [dossier, setDossier] = useState('');
@@ -34,15 +37,6 @@ export function ConnecterProjet({ onConnecter, onChoisir }: {
   const [envoi, setEnvoi] = useState(false);
   const [succes, setSucces] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
-
-  const parcourir = async () => {
-    try {
-      const choisi = await onChoisir();
-      if (choisi) setDossier(choisi);
-    } catch {
-      // sélecteur natif indisponible : le champ texte reste utilisable
-    }
-  };
 
   const soumettre = async () => {
     if (!dossier.trim() || envoi) return;
@@ -69,14 +63,9 @@ export function ConnecterProjet({ onConnecter, onChoisir }: {
       </button>
       {ouvert && (
         <div className="ajout">
-          <button type="button" className="ajout__parcourir" onClick={() => void parcourir()}>
-            <FolderOpen className="ic" size={13} />
-            <span>{dossier || 'Choisir le dossier du projet…'}</span>
-          </button>
-          <input
-            className="ajout__champ" value={dossier} placeholder="…ou colle le chemin"
-            aria-label="Chemin local du dépôt" onChange={(e) => setDossier(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') void soumettre(); }}
+          <ChampDossier
+            dossier={dossier} invite="Choisir le dossier du projet…" etiquette="Chemin local du dépôt"
+            onDossier={setDossier} onChoisir={onChoisir} onEntree={() => void soumettre()}
           />
           <input
             className="ajout__champ" value={projet} placeholder="Projet (facultatif, ex. talos)"
@@ -98,27 +87,18 @@ export function ConnecterProjet({ onConnecter, onChoisir }: {
   );
 }
 
-/** Créer la boîte (arbo `.aimessenger/`) quand il n'y en a pas ; ou dire pourquoi c'est indisponible. */
+/** Créer la boîte quand il n'y en a pas ; ou dire pourquoi ce n'est pas le bon geste. */
 export function CreerBoite({ motif, onCreer, onChoisir }: {
+  /** Non nul : une boîte existe mais n'est pas inscriptible (ancienne boîte Markdown) — on l'explique. */
   motif: string | null;
   onCreer: (dossier: string) => Promise<Creation>;
-  onChoisir: () => Promise<string | null>;
+  onChoisir: Choisir;
 }) {
   const [ouvert, setOuvert] = useState(false);
   const [dossier, setDossier] = useState('');
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
-  const parcourir = async () => {
-    try {
-      const choisi = await onChoisir();
-      if (choisi) setDossier(choisi);
-    } catch {
-      // sélecteur natif indisponible : le champ texte reste utilisable
-    }
-  };
-
-  // motif non nul = une boîte existe mais n'est pas inscriptible (ex. Markdown) : on n'offre pas la création.
   if (motif) {
     return (
       <div className="rail__section">
@@ -149,25 +129,52 @@ export function CreerBoite({ motif, onCreer, onChoisir }: {
       </button>
       {ouvert && (
         <div className="ajout">
-          <button type="button" className="ajout__parcourir" onClick={() => void parcourir()}>
-            <FolderOpen className="ic" size={13} />
-            <span>{dossier || 'Choisir le dossier de la boîte…'}</span>
-          </button>
-          <input
-            className="ajout__champ" value={dossier} placeholder="…ou colle le chemin"
-            aria-label="Dossier partagé de la boîte" onChange={(e) => setDossier(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') void soumettre(); }}
+          <ChampDossier
+            dossier={dossier} invite="Choisir le dossier de la boîte…" etiquette="Dossier partagé de la boîte"
+            onDossier={setDossier} onChoisir={onChoisir} onEntree={() => void soumettre()}
           />
           <button type="button" className="ajout__valider" disabled={!dossier.trim() || envoi} onClick={() => void soumettre()}>
             {envoi ? <LoaderCircle className="ic spin" size={13} /> : <Inbox className="ic" size={13} />}
             <span>Créer la boîte</span>
           </button>
           <span className="ajout__aide">
-            Crée l’arbo <code>.aimessenger/</code> dans ce dossier et l’ouvre. Choisis un partage vu par toutes les machines.
+            Crée la boîte dans ce dossier et l’ouvre. Choisis un dossier partagé, vu par toutes tes machines.
           </span>
           {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}
         </div>
       )}
     </div>
+  );
+}
+
+/** Un dossier : le sélecteur natif du poste d'abord, le chemin collé à la main en repli. */
+function ChampDossier({ dossier, invite, etiquette, onDossier, onChoisir, onEntree }: {
+  dossier: string;
+  invite: string;
+  etiquette: string;
+  onDossier: (dossier: string) => void;
+  onChoisir: Choisir;
+  onEntree: () => void;
+}) {
+  const parcourir = async () => {
+    try {
+      const choisi = await onChoisir();
+      if (choisi) onDossier(choisi);
+    } catch {
+      // sélecteur natif indisponible sur ce poste : le champ texte reste utilisable
+    }
+  };
+  return (
+    <>
+      <button type="button" className="ajout__parcourir" onClick={() => void parcourir()}>
+        <FolderOpen className="ic" size={13} />
+        <span>{dossier || invite}</span>
+      </button>
+      <input
+        className="ajout__champ" value={dossier} placeholder="…ou colle le chemin" aria-label={etiquette}
+        onChange={(e) => onDossier(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') onEntree(); }}
+      />
+    </>
   );
 }

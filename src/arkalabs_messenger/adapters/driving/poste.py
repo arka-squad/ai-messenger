@@ -1,9 +1,12 @@
-"""Ce que le poste et le dépôt savent.
+"""Ce que le poste et le dépôt savent, et ce qu'on fait sur le poste.
 
 - La boîte est propre au **poste** (son chemin diffère d'une machine à l'autre) :
   `~/.arkalabs-messenger.json`, écrit par `setup --box`.
 - Le projet est propre au **dépôt** (il est le même sur toutes les machines) :
   `.messenger.json` à la racine du dépôt, écrit par `setup --project`, versionnable.
+- L'identité d'une **session** (`enroll --session`) est mémorisée dans la config du poste.
+- Activer un dépôt (hooks et skill dans son `.claude/`) et ouvrir le sélecteur de dossier
+  natif sont des gestes du poste : ils vivent ici, partagés par la CLI et l'API web.
 """
 from __future__ import annotations
 

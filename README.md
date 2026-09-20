@@ -12,17 +12,17 @@ Des agents qui travaillent sur un même projet n'ont aucun moyen de se prévenir
 chacun vit dans sa session, sur sa machine, avec son fournisseur. On les fait
 donc communiquer comme des collègues : **par courrier**.
 
-- **Une boîte** : un fichier JSON, dans un dossier que tous les agents voient
-  (partage réseau, dossier synchronisé). Exploitable par programme — relances,
-  tableaux de bord, délais de prise en compte — et doublé d'une vue Markdown
-  régénérée à chaque écriture, pour que vous la lisiez d'un coup d'œil.
+- **Une boîte** : un dossier `.aimessenger/` — des fichiers JSON — dans un dossier
+  que tous les agents voient (partage réseau, dossier synchronisé). Exploitable par
+  programme — relances, tableaux de bord, délais de prise en compte — et doublé
+  d'une vue Markdown régénérée à chaque écriture, pour que vous la lisiez d'un coup d'œil.
 - **Un compte par agent** : chaque agent crée le sien dans le manifeste de la
   boîte — nom unique, outil, machine, rôle. Plusieurs Kimi, Claude ou Codex
   cohabitent (`kimi-mac`, `claude-windows`, `claude-mac-2`…), et chacun sait à
   qui il écrit. On n'écrit qu'à un compte actif.
 - **Un message = un mail** : un objet, un expéditeur, des destinataires, deux
-  lignes au plus. **Les détails vont dans une pièce jointe**, un fichier du même
-  dossier. La boîte reste courte, pour un humain comme pour un agent.
+  lignes au plus. **Les détails vont dans une pièce jointe**, rangée dans le `pj/`
+  de la boîte. La boîte reste courte, pour un humain comme pour un agent.
 - **Un statut par message** : `nouveau` → `lu` → `traité`, avec l'historique de
   qui l'a fait avancer et quand. Les réponses sont reliées au message d'origine.
 - **Une relève automatique** : chaque agent relève son courrier au début de ses
@@ -37,13 +37,14 @@ donc communiquer comme des collègues : **par courrier**.
   Windows, macOS ou Linux ; un clic l'ouvre dans l'interface.
 
 ```
-  claude-windows                  dossier partagé                    kimi-mac
-  ┌───────────────┐    send    ┌────────────────────────┐   check   ┌───────────────┐
-  │ Claude Code   │ ─────────▶ │ boite.json    messages │ ◀──────── │ Kimi Code     │
-  │ (Windows)     │ ◀───────── │ boite.manifest comptes │ ────────▶ │ (macOS)       │
-  └───────────────┘   watch    │ boite.md   vue humaine │   send    └───────────────┘
-                               │ + pièces jointes       │
-                               └────────────────────────┘
+  claude-windows              dossier partagé/.aimessenger/              kimi-mac
+  ┌───────────────┐    send    ┌──────────────────────────┐   check   ┌───────────────┐
+  │ Claude Code   │ ─────────▶ │ mail/boite.json messages │ ◀──────── │ Kimi Code     │
+  │ (Windows)     │ ◀───────── │ manifest.json    comptes │ ────────▶ │ (macOS)       │
+  └───────────────┘   watch    │ boite.md     vue humaine │   send    └───────────────┘
+                               │ onboarding.md    accueil │
+                               │ pj/       pièces jointes │
+                               └──────────────────────────┘
 ```
 
 ## Mise en place — trois gestes humains
@@ -120,8 +121,10 @@ Une ancienne boîte Markdown s'ouvre aussi, en lecture seule.
 ## Ce que l'outil fait
 
 ```bash
+python3 messenger.py init  --box /chemin/partagé     # crée la boîte (arbo .aimessenger/) et son guide d'accueil
 python3 messenger.py setup --project talos           # ce dépôt appartient au projet « talos »
-python3 messenger.py register --agent kimi-mac --host kimi-code --role "dev et plugins"   # mon compte : kimi-mac@talos
+python3 messenger.py enroll --task "Plugins" --host kimi-code   # mon compte, nom lisible déduit : KM_Agent-Plugins_MAC
+python3 messenger.py register --agent kimi-mac --host kimi-code --role "dev et plugins"   # ou un nom choisi : kimi-mac@talos
 python3 messenger.py agents                                                              # qui est qui
 python3 messenger.py send  --agent claude-windows --to kimi-mac --subject "Build prêt" --body "Détail en pièce jointe." --attach rapport.md
 python3 messenger.py check --agent kimi-mac          # ce qui m'attend (utilisé par les hooks)
@@ -132,7 +135,8 @@ python3 messenger.py list  --limit 10                # vue d'ensemble
 python3 messenger.py send  --agent kimi-mac --to codex@cortex --subject "Question inter-projet"
 python3 messenger.py list  --json --limit 100        # pour un script ou un tableau de bord
 python3 messenger.py notify                          # notifications système, sans interface
-python3 messenger.py ui                              # l'interface (après `npm run build`)
+python3 messenger.py activate --project talos        # pose relève et skill dans le .claude/ de ce dépôt (Claude Code)
+python3 messenger.py start                           # l'interface, pour un humain (après `npm run build`)
 ```
 
 Il écrit sous verrou, remplace le fichier de façon atomique, génère les

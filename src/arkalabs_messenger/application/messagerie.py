@@ -63,6 +63,11 @@ class Messagerie:
         return self._boite.emplacement
 
     @property
+    def racine(self) -> str:
+        """Le dossier de la boîte : là où vit le guide d'accueil des agents (`onboarding.md`)."""
+        return self._boite.racine
+
+    @property
     def lecture_seule(self) -> bool:
         return self._boite.lecture_seule
 

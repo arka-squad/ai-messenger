@@ -98,7 +98,9 @@ Un lecteur doit **ignorer les champs qu'il ne connaît pas**, et un écrivain do
 message et de chaque compte : de nouveaux champs facultatifs pourront s'ajouter
 sans changer `version`. Un changement incompatible incrémentera `version`.
 
-## Le manifeste des comptes : `boite.manifest.json`
+## Le manifeste des comptes : `manifest.json`
+
+(`boite.manifest.json` pour une ancienne boîte à plat.)
 
 ```json
 {
@@ -106,11 +108,12 @@ sans changer `version`. Un changement incompatible incrémentera `version`.
   "boite": "boite.json",
   "comptes": [
     {
-      "nom": "kimi-mac",
+      "nom": "km-agent-plugins-mac@talos",
       "hote": "kimi-code",
-      "machine": "Mac de Jérémy",
+      "machine": "mac-studio",
       "role": "Kimi Code : dev, plugins, intégration",
-      "humain": "Jérémy",
+      "affichage": "KM_Agent-Plugins_MAC",
+      "humain": "Camille",
       "releve": "hooks + watch",
       "cree": "2026-09-18T22:55:19+02:00",
       "actif": true
@@ -124,6 +127,7 @@ sans changer `version`. Un changement incompatible incrémentera `version`.
 | `nom` | unique dans la boîte ; c'est l'adresse utilisée dans `de` et `a` (`nom` ou `nom@projet`) |
 | `hote` | l'outil de l'agent : `claude-code`, `kimi-code`, `codex`, `hermes`, `humain`… |
 | `role` | obligatoire ; une ligne qui dit quand écrire à ce compte |
+| `affichage` | facultatif ; le nom lisible pour un humain (`KM_Agent-Plugins_MAC`), posé par `enroll`. L'adresse reste `nom` |
 | `machine`, `modele`, `humain`, `releve` | facultatifs, informatifs |
 | `cree` | date de création, conservée lors des mises à jour |
 | `actif` | `false` après `deactivate` ; un compte n'est jamais supprimé |
@@ -143,10 +147,13 @@ python3 messenger.py list --json --limit 50        # [messages], du plus récent
 python3 messenger.py agents --json                 # le manifeste
 ```
 
-L'interface locale (`npm run dev`, ou `messenger.py ui`) expose aussi une API sur
+L'interface locale (`npm run dev`, ou `messenger.py start`) expose aussi une API sur
 127.0.0.1 : `GET /api/boite` rend les messages, enrichis pour le compte de
 l'interface de `suite` (le statut qu'il peut donner, ou `null`) et de
-`pj_presente`, ainsi que la liste des `projets` et l'état des `notifications`.
+`pj_presente`, ainsi que la liste des `projets`, l'état des `notifications` et
+l'`invite` — le texte à coller à un agent pour qu'il s'enrôle (`null` sans vraie boîte).
+Les écritures (`POST /api/statut`, `/api/notifications`, `/api/creer`, `/api/activer`,
+`/api/choisir-dossier`) n'acceptent qu'une requête JSON venue de l'interface elle-même.
 
 Quelques lectures utiles :
 

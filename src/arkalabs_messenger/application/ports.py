@@ -38,6 +38,11 @@ class DepotBoite(ABC):
     def emplacement(self) -> str:
         """Où est la boîte, pour les messages adressés à l'utilisateur."""
 
+    @property
+    @abstractmethod
+    def racine(self) -> str:
+        """Le dossier de la boîte, où vit ce qui l'accompagne (le guide d'accueil des agents)."""
+
     @abstractmethod
     def existe(self) -> bool: ...
 

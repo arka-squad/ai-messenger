@@ -11,7 +11,7 @@ import {
   horodatage,
 } from '../domain/boite.ts';
 import type { Activation, Creation } from '../domain/types.ts';
-import { ConnecterProjet, CreerBoite, InviterAgent } from './AjoutDepot.tsx';
+import { ConnecterProjet, CreerBoite, InviterAgent } from './MiseEnPlace.tsx';
 
 interface Props {
   compte: string;

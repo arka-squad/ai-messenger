@@ -28,6 +28,10 @@ class BoiteMemoire(DepotBoite):
     def emplacement(self) -> str:
         return "mémoire://boite"
 
+    @property
+    def racine(self) -> str:
+        return "mémoire://"
+
     def existe(self) -> bool:
         return self.boite is not None
 

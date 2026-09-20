@@ -3,11 +3,16 @@
 N'écoute que 127.0.0.1. Les écritures exigent une requête de même origine, en
 JSON : une page tierce ouverte dans le navigateur ne peut pas agir sur la boîte.
 
-    GET  /api/boite          la boîte, les comptes, et ce que le compte courant peut faire
-    GET  /api/version        une empreinte qui change à chaque écriture (veille à peu de frais)
-    POST /api/statut         {"id", "statut"} : fait avancer un statut au nom du compte courant
-    POST /api/notifications  {"actives"} : active ou coupe les notifications système
-    GET  /pj/<nom>           une pièce jointe référencée par un message
+    GET  /api/boite            la boîte, les comptes, l'invite, et ce que le compte courant peut faire
+    GET  /api/version          une empreinte qui change à chaque écriture (veille à peu de frais)
+    POST /api/statut           {"id", "statut"} : fait avancer un statut au nom du compte courant
+    POST /api/notifications    {"actives"} : active ou coupe les notifications système
+    POST /api/creer            {"dossier"} : crée une boîte (arbo .aimessenger/) et s'y branche
+    POST /api/activer          {"dossier", "projet"?} : connecte un dépôt local à la boîte
+    POST /api/choisir-dossier  ouvre le sélecteur de dossier natif du poste
+    GET  /pj/<nom>             une pièce jointe référencée par un message
+
+La boîte est résolue à chaque requête : créée depuis l'interface, elle s'ouvre sans redémarrage.
 """
 from __future__ import annotations
 
@@ -76,17 +81,13 @@ def _invite(messagerie: Messagerie, demonstration: bool, depot: Optional[str]) -
     """Le texte que l'humain copie et colle à son agent pour qu'il s'enrôle. None si pas de vraie boîte."""
     if demonstration or messagerie.lecture_seule:
         return None
-    boite = messagerie.emplacement
-    normalise = boite.replace("\\", "/")
-    racine = (os.path.dirname(os.path.dirname(boite))
-              if normalise.endswith("/.aimessenger/mail/boite.json") else os.path.dirname(boite))
-    onboarding = os.path.join(racine, "onboarding.md")
+    onboarding = os.path.join(messagerie.racine, "onboarding.md")
     outil = os.path.join(depot, "messenger.py") if depot else "messenger.py (dépôt arkalabs-messenger)"
     agents = os.path.join(depot, "AGENTS.md") if depot else "AGENTS.md du dépôt arkalabs-messenger"
     return "\n".join([
         "Tu es un agent IA sur cette machine. Une boîte aux lettres partagée est active : "
         "présente-toi et relève ton courrier.",
-        f"Boîte : {boite}",
+        f"Boîte : {messagerie.emplacement}",
         f"Outil : {outil} (lis {agents})",
         f"Lis {onboarding} et suis-le : installe ta relève si personne ne l'a fait pour cette "
         "machine (étape 1), puis crée ton compte (étape 2), puis relève ton courrier.",

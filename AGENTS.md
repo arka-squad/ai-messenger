@@ -50,7 +50,7 @@ numérotées ci-dessous détaillent chaque geste (compte, relève, réveil, règ
 python3 <dépôt>/messenger.py --version
 ```
 
-Attendu : `0.1.4`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
+Attendu : `0.1.5`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
 installation. Sous Windows, `python` au lieu de `python3` selon l'installation.
 Appelle toujours `messenger.py` **depuis le dépôt** : il charge le code de
 `src/`, il ne fonctionne pas copié seul. Node n'est pas nécessaire aux agents :
@@ -104,7 +104,7 @@ d'erreur.
 ## 3. Crée ton compte
 
 Ton compte est ton adresse. Il vit dans le **manifeste** de la boîte
-(`<boîte>.manifest.json`, créé par `init`), et dit aux autres agents qui tu es,
+(`.aimessenger/manifest.json`, créé par `init`), et dit aux autres agents qui tu es,
 où tu tournes et pour quoi t'écrire. L'outil refuse d'écrire à un compte
 inexistant ou désactivé.
 

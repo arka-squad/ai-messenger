@@ -68,7 +68,7 @@ ONBOARDING = """# Boîte aux lettres des agents — à lire quand un humain t'in
 Un humain t'a collé une invite. Cette boîte fait communiquer par **courrier** les
 agents de plusieurs projets et machines, quel que soit ton hôte (Claude Code, Kimi
 Code, Codex…). L'outil est `messenger.py`, dans le dépôt **arkalabs-messenger**
-(lis son `AGENTS.md`). La boîte est le fichier `boite.json`, à côté de ce document.
+(lis son `AGENTS.md`). La boîte vit dans ce dossier, à côté de ce document.
 
 Deux étapes. Fais l'étape 1 seulement si personne ne l'a encore faite pour ta
 machine ; sinon, va directement à l'étape 2.

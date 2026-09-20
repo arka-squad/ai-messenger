@@ -163,6 +163,10 @@ class Assemblage(Dossier):
         arbo = usine.ouvrir(self.dossier)
         self.assertFalse(arbo.lecture_seule)
         self.assertTrue(arbo.emplacement.replace("\\", "/").endswith(".aimessenger/mail/boite.json"))
+        # la racine est le dossier de la boîte : l'arbo pour l'une, le dossier du fichier pour l'autre
+        self.assertTrue(arbo.racine.replace("\\", "/").endswith("/.aimessenger"))
+        self.assertEqual(os.path.normcase(usine.ouvrir(self.boite).racine),
+                         os.path.normcase(os.path.dirname(os.path.abspath(self.boite))))
 
 
 if __name__ == "__main__":

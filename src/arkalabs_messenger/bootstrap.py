@@ -22,7 +22,7 @@ from .adapters.driven.disposition import poser_onboarding as _poser_onboarding
 from .adapters.driven.disposition import resoudre as _disposition
 from . import demonstration
 from .adapters.driving.cli import executer
-from .application import BoiteIndisponible, Messagerie, Notificateur, SourceAncienne
+from .application import Messagerie, Notificateur, SourceAncienne
 
 DEPOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 INTERFACE = os.path.join(DEPOT, "ui", "dist")
@@ -37,8 +37,8 @@ class Usine:
         if d.markdown:
             boite = DepotBoiteMarkdown(d.boite)
         else:
-            boite = DepotBoiteJson(d.boite, vue=VueMarkdown(d.vue, os.path.basename(d.boite),
-                                                            os.path.basename(d.manifeste)))
+            boite = DepotBoiteJson(d.boite, racine=d.racine,
+                                   vue=VueMarkdown(d.vue, os.path.basename(d.boite), os.path.basename(d.manifeste)))
         annuaire = DepotAnnuaireJson(d.manifeste, os.path.basename(d.boite))
         return Messagerie(boite, annuaire, PiecesDossier(d.pieces), HorlogeSysteme())
 

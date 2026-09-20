@@ -17,13 +17,18 @@ Publication = Callable[[Boite], None]
 class DepotBoiteJson(DepotBoite):
     """Lit et écrit `boite.json`, et publie une vue après chaque écriture."""
 
-    def __init__(self, chemin: str, vue: Optional[Publication] = None) -> None:
+    def __init__(self, chemin: str, vue: Optional[Publication] = None, racine: Optional[str] = None) -> None:
         self._chemin = chemin
         self._vue = vue
+        self._racine = racine or os.path.dirname(os.path.abspath(chemin))
 
     @property
     def emplacement(self) -> str:
         return self._chemin
+
+    @property
+    def racine(self) -> str:
+        return self._racine
 
     def existe(self) -> bool:
         return os.path.exists(self._chemin)

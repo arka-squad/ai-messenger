@@ -103,6 +103,10 @@ class DepotBoiteMarkdown(DepotBoite):
     def emplacement(self) -> str:
         return self._chemin
 
+    @property
+    def racine(self) -> str:
+        return os.path.dirname(os.path.abspath(self._chemin))
+
     def existe(self) -> bool:
         return os.path.exists(self._chemin)
 
