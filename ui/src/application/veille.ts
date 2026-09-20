@@ -113,6 +113,11 @@ export class Veille {
     return resume;
   }
 
+  /** Ouvre le sélecteur de dossier natif du poste. */
+  choisirDossier(): Promise<string | null> {
+    return this.#boite.choisirDossier();
+  }
+
   lienPieceJointe(nom: string): string {
     return this.#boite.lienPieceJointe(nom);
   }

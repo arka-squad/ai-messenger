@@ -128,6 +128,14 @@ input { font: inherit; }
 .rail-agent--actif .rail-agent__nom { color: var(--tx1); }
 .rail-agent__dernier { font-size: 10px; color: var(--tx5); white-space: nowrap; }
 .ajout { display: flex; flex-direction: column; gap: 7px; padding: 4px 8px 6px; }
+.ajout__parcourir {
+  display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 9px; border-radius: 6px; cursor: pointer;
+  border: 1px dashed rgba(var(--w), 0.22); background: rgba(var(--w), 0.03); color: var(--tx3);
+  font-size: 11.5px; width: 100%; box-sizing: border-box; text-align: left;
+}
+.ajout__parcourir span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--font-mono); font-size: 10.5px; }
+.ajout__parcourir:hover { background: rgba(var(--w), 0.06); border-color: rgba(var(--w), 0.34); }
 .ajout__champ {
   height: 28px; padding: 0 9px; border-radius: 6px; box-sizing: border-box; width: 100%;
   border: 1px solid rgba(var(--w), 0.12); background: rgba(var(--w), 0.03); color: var(--tx2);

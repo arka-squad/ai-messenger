@@ -236,7 +236,8 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
             if not self._hote_admis() or not self._meme_origine():
                 return self._erreur(403, "requête refusée : origine inconnue")
             chemin = urllib.parse.urlsplit(self.path).path
-            if chemin not in ("/api/statut", "/api/notifications", "/api/activer", "/api/creer"):
+            if chemin not in ("/api/statut", "/api/notifications", "/api/activer", "/api/creer",
+                              "/api/choisir-dossier"):
                 return self._erreur(404, "introuvable")
             if not self.headers.get("Content-Type", "").startswith("application/json"):
                 return self._erreur(415, "JSON attendu")
@@ -251,6 +252,8 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                     return self._activer(demande)
                 if chemin == "/api/creer":
                     return self._creer(demande)
+                if chemin == "/api/choisir-dossier":
+                    return self._choisir_dossier()
                 messagerie = self._courant()[0]
                 message = messagerie.marquer(compte, str(demande["id"]), str(demande["statut"]))
             except (ValueError, KeyError, TypeError):
@@ -309,6 +312,15 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
             except OSError as e:
                 return self._erreur(500, f"création impossible : {e.strerror or e}")
             return self._json(200, {"cree": True, "boite": messagerie.emplacement})
+
+        def _choisir_dossier(self) -> None:
+            """Ouvre le sélecteur de dossier natif du poste et rend le chemin choisi (ou null si annulé)."""
+            try:
+                return self._json(200, {"dossier": poste.choisir_dossier()})
+            except poste.SelecteurIndisponible as e:
+                return self._erreur(501, str(e))
+            except OSError as e:
+                return self._erreur(500, f"sélecteur indisponible : {e.strerror or e}")
 
         def _notifications(self, demande: Any) -> None:
             if annonceur is None:

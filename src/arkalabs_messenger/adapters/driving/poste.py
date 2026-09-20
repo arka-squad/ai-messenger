@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import shutil
+import subprocess
 import sys
 from typing import Any, Dict, List, Optional
 
@@ -116,6 +118,37 @@ def attacher_projet(dossier: str, projet: str) -> str:
 # --------------------------------------------------------------------------- #
 class ActivationRefusee(Exception):
     """Une activation impossible (dossier absent, réglages illisibles, skill introuvable)."""
+
+
+class SelecteurIndisponible(Exception):
+    """Aucun sélecteur de dossier natif sur ce poste : l'humain saisira le chemin à la main."""
+
+
+def choisir_dossier() -> Optional[str]:
+    """Ouvre le sélecteur de dossier natif de l'OS et rend le chemin choisi, ou None si annulé.
+
+    L'app tourne sur la machine de l'humain : la fenêtre s'ouvre sur son bureau. Un sous-processus
+    par OS (PowerShell / osascript / zenity) évite toute dépendance et les soucis de thread.
+    """
+    systeme = platform.system()
+    if systeme == "Windows":
+        script = ("Add-Type -AssemblyName System.Windows.Forms | Out-Null;"
+                  "$f = New-Object System.Windows.Forms.FolderBrowserDialog;"
+                  "$f.Description = 'Choisir le dossier';"
+                  "if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) "
+                  "{ [Console]::Out.Write($f.SelectedPath) }")
+        commande = ["powershell", "-STA", "-NoProfile", "-Command", script]
+    elif systeme == "Darwin":
+        commande = ["osascript", "-e", 'POSIX path of (choose folder with prompt "Choisir le dossier")']
+    else:
+        commande = ["zenity", "--file-selection", "--directory", "--title", "Choisir le dossier"]
+    try:
+        resultat = subprocess.run(commande, capture_output=True, text=True)
+    except (OSError, ValueError) as e:
+        raise SelecteurIndisponible(
+            f"sélecteur de dossier natif indisponible ({e}) : saisis le chemin à la main") from None
+    chemin = (resultat.stdout or "").strip()
+    return chemin or None
 
 
 def activer_depot(dossier: str, projet: Optional[str], depot: str, box: Optional[str] = None) -> Dict[str, Any]:

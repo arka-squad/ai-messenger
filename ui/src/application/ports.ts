@@ -14,6 +14,8 @@ export interface PortBoite {
   activer(dossier: string, projet: string): Promise<Activation>;
   /** Crée une boîte (arbo `.aimessenger/`) dans un dossier et s'y branche ; rend le résumé. */
   creer(dossier: string): Promise<Creation>;
+  /** Ouvre le sélecteur de dossier natif du poste ; rend le chemin choisi, ou null si annulé. */
+  choisirDossier(): Promise<string | null>;
   lienPieceJointe(nom: string): string;
 }
 

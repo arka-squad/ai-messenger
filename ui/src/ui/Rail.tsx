@@ -28,12 +28,13 @@ interface Props {
   invite: string | null;
   onActiver: (dossier: string, projet: string) => Promise<Activation>;
   onCreer: (dossier: string) => Promise<Creation>;
+  onChoisir: () => Promise<string | null>;
   derniereReleve: Date | null;
   constat: string;
 }
 
 export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, activable, motifCreation,
-  invite, onActiver, onCreer, derniereReleve, constat }: Props) {
+  invite, onActiver, onCreer, onChoisir, derniereReleve, constat }: Props) {
   const boites: [Classement, string, LucideIcon, number][] = [
     ['toutes', 'Tous les messages', Inbox, compteurs.total],
     ['fils', 'Réponses', Reply, compteurs.fils],
@@ -89,11 +90,11 @@ export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, act
             </button>
           ))}
           {activable && <InviterAgent invite={invite} />}
-          {activable && <ConnecterProjet onConnecter={onActiver} />}
+          {activable && <ConnecterProjet onConnecter={onActiver} onChoisir={onChoisir} />}
         </div>
       )}
 
-      {!activable && <CreerBoite motif={motifCreation} onCreer={onCreer} />}
+      {!activable && <CreerBoite motif={motifCreation} onCreer={onCreer} onChoisir={onChoisir} />}
 
       <div className="rail__section">
         <span className="eyebrow">Agents</span>

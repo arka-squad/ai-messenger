@@ -102,6 +102,26 @@ class Api(unittest.TestCase):
         self.assertEqual(self.post({"actives": "oui"}, chemin="/api/notifications")[0], 400)
         self.assertEqual(self.post({"actives": True}, origine=False, chemin="/api/notifications")[0], 403)
 
+    def test_choisir_dossier_relaye_le_selecteur_natif(self):
+        original = poste.choisir_dossier
+        poste.choisir_dossier = lambda: "/chemin/choisi"
+        try:
+            self.assertEqual(self.post({}, chemin="/api/choisir-dossier"), (200, {"dossier": "/chemin/choisi"}))
+        finally:
+            poste.choisir_dossier = original
+
+    def test_choisir_dossier_indisponible_rend_501(self):
+        original = poste.choisir_dossier
+
+        def indispo():
+            raise poste.SelecteurIndisponible("pas de sélecteur")
+
+        poste.choisir_dossier = indispo
+        try:
+            self.assertEqual(self.post({}, chemin="/api/choisir-dossier")[0], 501)
+        finally:
+            poste.choisir_dossier = original
+
     def test_la_version_change_a_chaque_ecriture(self):
         avant = json.loads(self.get("/api/version")[2])["version"]
         self.post({"id": self.pour_owner.message.id, "statut": "lu"})

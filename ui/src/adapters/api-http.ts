@@ -51,6 +51,15 @@ export class ApiHttp implements PortBoite {
     });
   }
 
+  async choisirDossier(): Promise<string | null> {
+    const reponse = await this.#demander<{ dossier: string | null }>('/api/choisir-dossier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    return reponse.dossier;
+  }
+
   lienPieceJointe(nom: string): string {
     return `${this.#base}/pj/${encodeURIComponent(nom)}`;
   }

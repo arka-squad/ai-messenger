@@ -46,6 +46,9 @@ class BoiteFactice implements PortBoite {
   async creer(dossier: string): Promise<Creation> {
     return { cree: true, boite: `${dossier}/.aimessenger/mail/boite.json` };
   }
+  async choisirDossier(): Promise<string | null> {
+    return '/dossier/choisi';
+  }
   lienPieceJointe(nom: string): string {
     return `/pj/${nom}`;
   }
