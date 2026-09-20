@@ -1,6 +1,7 @@
 /** La mise en place, pour un humain : créer la boîte, y connecter un projet, inviter un agent. */
 import { Check, Copy, FolderOpen, FolderPlus, Inbox, LoaderCircle } from 'lucide-react';
 import { useState } from 'react';
+import { projetPropose } from '../domain/boite.ts';
 import type { Activation, Creation } from '../domain/types.ts';
 
 type Choisir = () => Promise<string | null>;
@@ -34,9 +35,16 @@ export function ConnecterProjet({ onConnecter, onChoisir }: {
   const [ouvert, setOuvert] = useState(false);
   const [dossier, setDossier] = useState('');
   const [projet, setProjet] = useState('');
+  // Tant que l'humain n'a pas touché au nom du projet, il suit le dossier choisi : un projet a toujours un nom.
+  const [projetSaisi, setProjetSaisi] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const [succes, setSucces] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+
+  const choisirDossier = (chemin: string) => {
+    setDossier(chemin);
+    if (!projetSaisi) setProjet(projetPropose(chemin));
+  };
 
   const soumettre = async () => {
     if (!dossier.trim() || envoi) return;
@@ -50,6 +58,7 @@ export function ConnecterProjet({ onConnecter, onChoisir }: {
         + (equipes.length ? ` · agents prêts dans ${equipes.join(', ')}` : ''));
       setDossier('');
       setProjet('');
+      setProjetSaisi(false);
     } catch (e) {
       setErreur(e instanceof Error ? e.message : String(e));
     } finally {
@@ -67,11 +76,11 @@ export function ConnecterProjet({ onConnecter, onChoisir }: {
         <div className="ajout">
           <ChampDossier
             dossier={dossier} invite="Choisir le dossier du projet…" etiquette="Chemin local du dépôt"
-            onDossier={setDossier} onChoisir={onChoisir} onEntree={() => void soumettre()}
+            onDossier={choisirDossier} onChoisir={onChoisir} onEntree={() => void soumettre()}
           />
           <input
-            className="ajout__champ" value={projet} placeholder="Projet (facultatif, ex. talos)"
-            aria-label="Nom du projet" onChange={(e) => setProjet(e.target.value)}
+            className="ajout__champ" value={projet} placeholder="Nom du projet (ex. talos)"
+            aria-label="Nom du projet" onChange={(e) => { setProjet(e.target.value); setProjetSaisi(true); }}
             onKeyDown={(e) => { if (e.key === 'Enter') void soumettre(); }}
           />
           <button type="button" className="ajout__valider" disabled={!dossier.trim() || envoi} onClick={() => void soumettre()}>
@@ -79,7 +88,7 @@ export function ConnecterProjet({ onConnecter, onChoisir }: {
             <span>Connecter</span>
           </button>
           <span className="ajout__aide">
-            Rattache un dossier de projet à la boîte et prépare les outils d’IA de ce poste. Ensuite, « Copier l’invite pour l’agent » et colle-la dans son chat : il crée son compte tout seul.
+            Rattache un dossier de projet à la boîte et prépare les outils d’IA de ce poste. Le projet apparaît aussitôt dans la liste ; ses agents s’y rangeront. Ensuite, « Copier l’invite pour l’agent » et colle-la dans son chat : il crée son compte tout seul.
           </span>
           {succes && <span className="ajout__succes" role="status">{succes}</span>}
           {erreur && <span className="ajout__erreur" role="alert">{erreur}</span>}

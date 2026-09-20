@@ -96,7 +96,7 @@ class Protocole(Serveur):
     def test_les_outils_decrivent_leurs_arguments(self):
         outils = {o["name"]: o for o in self.requete("tools/list")["result"]["tools"]}
         self.assertEqual(set(outils), {"whoami", "enroll", "identify", "check", "list", "read", "send", "reply",
-                                       "mark", "agents", "wait"})
+                                       "mark", "agents", "contacts", "contact_add", "contact_remove", "wait"})
         self.assertEqual(outils["send"]["inputSchema"]["required"], ["to", "subject"])
         self.assertEqual(outils["mark"]["inputSchema"]["properties"]["status"]["enum"], ["lu", "traité"])
 
@@ -182,6 +182,18 @@ class Courrier(Serveur):
         self.assertEqual([m["subject"] for m in self.outil("list", mine=True, limit=1)[0]["messages"]], ["Deux"])
         comptes = {c["nom"]: c for c in self.outil("agents")[0]["accounts"]}
         self.assertEqual(comptes[self.moi]["machine"], platform.node())
+
+    def test_le_carnet_d_adresses(self):
+        self.assertEqual(self.outil("contacts")[0], {"contacts": [], "shadowed": {}})
+        note = self.outil("contact_add", alias="chef", addresses=["owner"], note="mon humain")[0]["contact"]
+        self.assertEqual((note["alias"], note["adresses"], note["note"]), ("chef", ["owner"], "mon humain"))
+        envoi = self.outil("send", to=["chef"], subject="Par le carnet")[0]
+        self.assertEqual((envoi["to"], envoi["expanded"]), (["owner"], {"chef": ["owner"]}))
+        _, refus = self.outil("contact_add", alias="owner", addresses=["owner"])
+        self.assertTrue(refus["isError"])
+        self.assertIn("déjà l'adresse d'un compte", refus["content"][0]["text"])
+        self.assertEqual(self.outil("contact_remove", alias="chef")[0]["removed"]["alias"], "chef")
+        self.assertEqual(self.outil("contacts")[0]["contacts"], [])
 
     def test_wait_rend_le_message_qui_arrive_et_s_arrete_a_l_echeance(self):
         self.assertEqual(self.outil("wait", timeout_seconds=1)[0]["received"], [])

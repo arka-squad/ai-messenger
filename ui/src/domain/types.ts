@@ -27,6 +27,13 @@ export interface Message {
   pj_presente: boolean;
 }
 
+/** Une entrée du carnet d'adresses d'un compte : un alias pour une adresse, ou pour un groupe. */
+export interface Contact {
+  alias: string;
+  adresses: string[];
+  note?: string;
+}
+
 export interface Compte {
   nom: string;
   actif: boolean;
@@ -35,6 +42,8 @@ export interface Compte {
   role?: string;
   /** Nom lisible pour un humain (`CL_Agent-MessengerAI_WIN`) ; `nom` reste l'adresse. */
   affichage?: string;
+  /** Son carnet d'adresses : lui seul le modifie. */
+  contacts?: Contact[];
 }
 
 export interface Source {

@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from ..domain import (
     Boite,
     Brouillon,
     Compte,
+    Contact,
     Message,
     MessageInvalide,
     NomInvalide,
@@ -20,6 +21,7 @@ from ..domain import (
     projet_de,
     qualifier,
     valider_adresse,
+    valider_nom,
 )
 from .ports import (
     BoiteExistante,
@@ -40,6 +42,17 @@ class Envoi:
     message: Message
     adresses_verifiees: bool
     """False si la boîte n'a pas d'annuaire : les adresses n'ont pas pu être vérifiées."""
+    alias_developpes: Tuple[Tuple[str, Tuple[str, ...]], ...] = ()
+    """Les alias du carnet de l'expéditeur qui ont été remplacés par leurs adresses."""
+
+
+@dataclass(frozen=True)
+class Carnet:
+    """Le carnet d'adresses d'un compte, tel qu'on le lui montre."""
+
+    contacts: Tuple[Contact, ...]
+    masques: Dict[str, str]
+    """Les alias qu'un compte créé depuis masque (`{alias: adresse}`) : à renommer."""
 
 
 @dataclass(frozen=True)
@@ -99,10 +112,17 @@ class Messagerie:
         return qualifier(valider_adresse(nom), projet)
 
     def projets(self) -> List[str]:
-        """Les projets connus : ceux des comptes, et ceux vus dans la boîte."""
-        vus = {c.projet for c in self._annuaire.lire().comptes if c.projet}
+        """Les projets connus : ceux qu'on a connectés, ceux des comptes, et ceux vus dans la boîte."""
+        vus = set(self._annuaire.lire().projets())
         vus.update(p for p in (projet_de(x) for x in self._boite.lire().participants()) if p)
         return sorted(vus)
+
+    def declarer_projet(self, projet: str) -> bool:
+        """Note qu'un projet est connecté à la boîte : il est connu avant qu'un agent s'y enrôle.
+        Rend True s'il ne l'était pas."""
+        valider_nom(projet, "projet")
+        with self._annuaire.transaction() as annuaire:
+            return annuaire.declarer(projet, self._horodatage())
 
     def inscrire(self, nom: str, hote: str, role: str, *, machine: Optional[str] = None,
                  modele: Optional[str] = None, humain: Optional[str] = None,
@@ -137,23 +157,47 @@ class Messagerie:
         with self._annuaire.transaction() as annuaire:
             annuaire.desactiver(valider_adresse(nom))
 
+    # -- Le carnet d'adresses -------------------------------------------------
+    def carnet(self, compte: str) -> Carnet:
+        """Le carnet de `compte` (une adresse complète)."""
+        annuaire = self._annuaire.lire()
+        titulaire = annuaire.compte(valider_adresse(compte))
+        return Carnet(titulaire.contacts if titulaire else (), annuaire.masques(compte))
+
+    def noter_contact(self, compte: str, alias: str, adresses: Sequence[str], note: Optional[str] = None,
+                      remplacer: bool = False) -> Contact:
+        """Ajoute un contact au carnet de `compte`, ou le remplace. Un alias désigne une adresse, ou un groupe."""
+        with self._annuaire.transaction() as annuaire:
+            return annuaire.noter_contact(valider_adresse(compte), alias, adresses, note, self._horodatage(), remplacer)
+
+    def retirer_contact(self, compte: str, alias: str) -> Contact:
+        with self._annuaire.transaction() as annuaire:
+            return annuaire.retirer_contact(valider_adresse(compte), alias)
+
     # -- Les messages ---------------------------------------------------------
     def envoyer(self, de: str, a: Sequence[str], objet: str, corps: str = "",
                 piece: Optional[str] = None, re: Optional[str] = None) -> Envoi:
-        """`de` est une adresse complète ; un destinataire au nom court est cherché dans le projet de `de`."""
+        """`de` est une adresse complète ; un destinataire au nom court est cherché dans le projet de `de`,
+        puis parmi les comptes communs, puis dans le carnet d'adresses de `de`."""
         projet = projet_de(valider_adresse(de, "expéditeur"))
-        destinataires = [self.adresse(d.strip(), projet) for d in a if d and d.strip()]
-        brouillon = Brouillon.rediger(de, destinataires, objet, corps.splitlines(), re)
+        demandes = [d.strip() for d in a if d and d.strip()]
         verifiees = self._annuaire.existe()
+        developpes: Dict[str, Tuple[str, ...]] = {}
         if verifiees:
-            self._annuaire.lire().verifier(brouillon.de, brouillon.a)
+            annuaire = self._annuaire.lire()
+            destinataires, developpes = annuaire.developper(de, demandes)
+        else:
+            destinataires = [qualifier(valider_adresse(d), projet) for d in demandes]
+        brouillon = Brouillon.rediger(de, destinataires, objet, corps.splitlines(), re)
+        if verifiees:
+            annuaire.verifier(brouillon.de, brouillon.a)
         with self._boite.transaction() as boite:
             mid = boite.identifiant_libre(brouillon.de, self._horloge.maintenant())
             boite.controler(brouillon.re, mid)  # avant de déposer : pas de pièce orpheline
             pj = self._pieces.deposer(piece) if piece else None
             message = brouillon.emettre(mid, self._horodatage(), pj)
             boite.ajouter(message)
-        return Envoi(message, verifiees)
+        return Envoi(message, verifiees, tuple(developpes.items()))
 
     def releve(self, compte: str) -> List[Message]:
         """Les messages au statut « nouveau » adressés à `compte`."""

@@ -289,6 +289,11 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                 return self._erreur(400, str(e))
             except OSError as e:
                 return self._erreur(500, f"activation impossible : {e.strerror or e}")
+            if resume["projet"]:
+                try:  # le projet est connu de la boîte dès maintenant : l'interface le montre sans attendre un agent
+                    messagerie.declarer_projet(resume["projet"])
+                except (ErreurMessenger, BoiteIndisponible, OSError) as e:
+                    return self._erreur(500, f"projet connecté, mais pas noté dans la boîte : {e}")
             return self._json(200, {**resume, "hotes": [h.vers_dict() for h in resume["hotes"]]})
 
         def _creer(self, demande: Any) -> None:

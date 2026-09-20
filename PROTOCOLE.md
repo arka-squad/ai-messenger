@@ -116,8 +116,15 @@ sans changer `version`. Un changement incompatible incrémentera `version`.
       "humain": "Camille",
       "releve": "hooks + watch",
       "cree": "2026-09-18T22:55:19+02:00",
-      "actif": true
+      "actif": true,
+      "contacts": [
+        { "alias": "release", "adresses": ["cl-agent-release-win@cortex", "owner"],
+          "note": "la chaîne de release", "cree": "2026-09-20T12:40:00+02:00" }
+      ]
     }
+  ],
+  "projets": [
+    { "nom": "talos", "cree": "2026-09-20T12:30:00+02:00" }
   ]
 }
 ```
@@ -131,6 +138,18 @@ sans changer `version`. Un changement incompatible incrémentera `version`.
 | `machine`, `modele`, `humain`, `releve` | facultatifs, informatifs |
 | `cree` | date de création, conservée lors des mises à jour |
 | `actif` | `false` après `deactivate` ; un compte n'est jamais supprimé |
+| `contacts` | facultatif ; le **carnet d'adresses** du compte, que lui seul modifie (`contact-add`, `contact-remove`). Un `alias` (même forme qu'un nom) désigne une ou plusieurs `adresses` complètes, 20 au plus ; `note` tient en une ligne de 200 caractères ; 200 contacts au plus |
+
+`projets` (facultatif) liste les projets **connectés** à la boîte par `activate` ou « Connecter un
+projet » : un projet est ainsi connu, et montré par l'interface, avant qu'un agent s'y enrôle. Les
+projets d'une boîte sont ceux-là, ceux des comptes et ceux vus dans les messages.
+
+**Un alias n'entre jamais dans la boîte.** À l'envoi, un destinataire au nom court est cherché parmi
+les comptes du projet de l'expéditeur, puis parmi les comptes communs, et seulement ensuite dans le
+carnet de l'expéditeur ; l'alias est alors remplacé par ses adresses, et le message enregistre les
+adresses réelles dans `a`. Un compte l'emporte donc toujours sur un alias : on ne peut pas noter un
+alias qui est déjà l'adresse d'un compte, et si un compte homonyme est créé plus tard, c'est lui
+qui reçoit (`contacts` signale l'alias masqué).
 
 `send` refuse un expéditeur ou un destinataire sans compte actif. Si le
 manifeste manque, la boîte reste utilisable ; les adresses n'y sont simplement
@@ -160,7 +179,8 @@ Les écritures (`POST /api/statut`, `/api/notifications`, `/api/creer`, `/api/ac
 Enfin, `messenger.py mcp` expose la boîte à un hôte IA par le **Model Context Protocol**
 (JSON-RPC 2.0 sur l'entrée et la sortie standard, un message par ligne ; versions
 `2025-06-18`, `2025-03-26`, `2024-11-05`) : les outils `whoami`, `enroll`, `identify`,
-`check`, `list`, `read`, `send`, `reply`, `mark`, `agents`, `wait`, et les ressources
+`check`, `list`, `read`, `send`, `reply`, `mark`, `agents`, `contacts`, `contact_add`,
+`contact_remove`, `wait`, et les ressources
 `messenger://boite`, `messenger://comptes`, `messenger://accueil`. Un refus du domaine
 (destinataire inconnu, statut qui recule…) revient comme un résultat d'outil `isError`,
 avec le même message que la ligne de commande ; une requête mal formée, comme une erreur

@@ -1,8 +1,8 @@
 import { ArrowRight, CheckCheck, ExternalLink, FileText, LoaderCircle, Lock } from 'lucide-react';
 import { useState } from 'react';
-import { fil, horodatage, instant, nomAffiche, projetsDe, titre } from '../domain/boite.ts';
+import { fil, horodatage, instant, projetDe, projetsDe, titre } from '../domain/boite.ts';
 import { type Message, STATUTS, type Statut } from '../domain/types.ts';
-import { EtiquettesProjet } from './EtiquettesProjet.tsx';
+import { EtiquetteProjet, EtiquettesProjet } from './EtiquettesProjet.tsx';
 
 interface Props {
   message: Message | null;
@@ -38,15 +38,20 @@ function Contenu({ message: m, tous, projet, affichages, lectureSeule, lienPiece
   return (
     <div className="detail__corps rise">
       <div className="detail__bloc detail__bloc--serre">
-        <span className="detail__objet">{titre(m)}</span>
-        <div className="detail__adresse">
-          <span className="adresse-de">{nomAffiche(m.de, affichages, projet)}</span>
-          <ArrowRight className="ic" size={11} />
-          <span className="adresse-a">{m.a.map((x) => nomAffiche(x, affichages, projet)).join(', ')}</span>
-          <span className="detail__point-median">·</span>
+        {/* La portée du message, d'abord : tous les projets qu'il touche, la discussion inter-projet comprise. */}
+        <div className="detail__portee">
+          <EtiquettesProjet projets={projetsDe(m)} avecIcone filtre={projet} />
+          <span className="vide" />
           <span className="detail__date">{horodatage(instant(m))}{fuseau}</span>
-          {/* La portée du message : tous les projets qu'il touche, la discussion inter-projet comprise. */}
-          <EtiquettesProjet projets={projetsDe(m)} avecIcone />
+        </div>
+        <span className="detail__objet">{titre(m)}</span>
+        <div className="detail__correspondants">
+          <span className="detail__sens">De</span>
+          <Correspondant adresse={m.de} affichages={affichages} filtre={projet} emetteur />
+          <span className="detail__sens">À</span>
+          <div className="detail__destinataires">
+            {m.a.map((x) => <Correspondant key={x} adresse={x} affichages={affichages} filtre={projet} />)}
+          </div>
         </div>
       </div>
 
@@ -95,6 +100,25 @@ function Contenu({ message: m, tous, projet, affichages, lectureSeule, lienPiece
         )) : <span className="detail__aucun">Pas de réponse à ce jour.</span>}
       </div>
     </div>
+  );
+}
+
+/** Un correspondant sur la fiche : son nom lisible, son adresse, et le projet auquel il appartient. */
+function Correspondant({ adresse, affichages, filtre, emetteur = false }: {
+  adresse: string;
+  affichages: ReadonlyMap<string, string>;
+  filtre: string | null;
+  emetteur?: boolean;
+}) {
+  const nom = adresse.split('@')[0] ?? adresse;
+  const affichage = affichages.get(adresse);
+  const projet = projetDe(adresse);
+  return (
+    <span className="correspondant" title={adresse}>
+      <span className={emetteur ? 'adresse-de' : 'adresse-a'}>{affichage ?? nom}</span>
+      {affichage && <span className="correspondant__adresse">{nom}</span>}
+      <EtiquetteProjet projet={projet} actif={projet !== null && projet === filtre} />
+    </span>
   );
 }
 

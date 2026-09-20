@@ -3,6 +3,7 @@
 from .erreurs import (
     CompteExistant,
     CompteInconnu,
+    ContactRefuse,
     ErreurMessenger,
     MessageIntrouvable,
     MessageInvalide,
@@ -16,7 +17,9 @@ from .modele import (
     Boite,
     Brouillon,
     Compte,
+    Contact,
     Message,
+    ProjetDeclare,
     Transition,
     composer_identite,
     initiales_hote,
@@ -28,9 +31,9 @@ from .modele import (
 )
 
 __all__ = [
-    "Annuaire", "Boite", "Brouillon", "Compte", "Message", "Transition",
+    "Annuaire", "Boite", "Brouillon", "Compte", "Contact", "Message", "ProjetDeclare", "Transition",
     "CORPS_MAX", "STATUTS", "valider_nom", "valider_adresse", "projet_de", "qualifier",
     "composer_identite", "initiales_hote", "slugifier",
-    "ErreurMessenger", "CompteExistant", "CompteInconnu", "MessageIntrouvable",
+    "ErreurMessenger", "CompteExistant", "CompteInconnu", "ContactRefuse", "MessageIntrouvable",
     "MessageInvalide", "NomInvalide", "TransitionRefusee",
 ]

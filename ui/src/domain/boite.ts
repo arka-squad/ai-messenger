@@ -5,7 +5,7 @@
  * Les règles (qui peut faire avancer quoi) ne sont PAS ici : l'API les rend
  * dans `Message.suite`, décidées par le domaine Python.
  */
-import type { Compte, Message, Statut } from './types.ts';
+import type { Compte, Contact, Message, Statut } from './types.ts';
 
 export type Classement = 'toutes' | 'fils' | 'pj' | 'moi';
 
@@ -56,6 +56,16 @@ export function projetsDe(m: Message): string[] {
     if (p && !vus.includes(p)) vus.push(p);
   }
   return vus;
+}
+
+/** Le nombre de teintes dont disposent les étiquettes de projet (voir `.projet-etiquette--t*`). */
+export const TEINTES = 4;
+
+/** La teinte d'un projet : toujours la même pour un même nom, partout dans l'interface. */
+export function teinteProjet(projet: string): number {
+  let h = 0;
+  for (const c of projet) h = (h * 31 + (c.codePointAt(0) ?? 0)) % 9973;
+  return h % TEINTES;
 }
 
 /** L'objet tel qu'on l'affiche : préfixé de `Re : <id> — ` pour une réponse. */
@@ -147,6 +157,9 @@ export interface Agent {
   role: string | undefined;
   /** Nom lisible pour un humain, si l'agent s'est enrôlé ; sinon l'adresse fait foi. */
   affichage: string | undefined;
+  hote: string | undefined;
+  machine: string | undefined;
+  contacts: readonly Contact[];
   envois: number;
   dernierEnvoi: Date | null;
   /** Messages « nouveau » qui lui sont adressés. */
@@ -169,12 +182,32 @@ export function agents(comptes: readonly Compte[], messages: readonly Message[],
         projet: projetDe(c.nom),
         role: c.role,
         affichage: c.affichage,
+        hote: c.hote,
+        machine: c.machine,
+        contacts: c.contacts ?? [],
         envois: envoyes.length,
         dernierEnvoi: dernier,
         enAttente: messages.filter((m) => m.a.includes(c.nom) && m.statut === 'nouveau').length,
       };
     })
     .sort((x, y) => (y.dernierEnvoi?.getTime() ?? -1) - (x.dernierEnvoi?.getTime() ?? -1));
+}
+
+export interface GroupeAgents {
+  /** Le projet du groupe ; null pour les comptes communs à tous les projets. */
+  projet: string | null;
+  agents: Agent[];
+}
+
+/** Les agents rangés par projet : les projets dans l'ordre donné (même sans agent — un projet tout juste
+ *  connecté se voit), puis ceux qu'on ne connaissait pas, puis les comptes communs. L'ordre des agents est gardé. */
+export function groupesAgents(liste: readonly Agent[], projets: readonly string[]): GroupeAgents[] {
+  const noms = [...projets];
+  for (const a of liste) if (a.projet && !noms.includes(a.projet)) noms.push(a.projet);
+  const groupes: GroupeAgents[] = noms.map((projet) => ({ projet, agents: liste.filter((a) => a.projet === projet) }));
+  const communs = liste.filter((a) => a.projet === null);
+  if (communs.length > 0 || groupes.length === 0) groupes.push({ projet: null, agents: communs });
+  return groupes;
 }
 
 export interface Point {
@@ -213,13 +246,27 @@ export interface Projet {
   messages: number;
   /** Messages « nouveau » qui le touchent. */
   nouveaux: number;
+  /** Comptes actifs du projet. */
+  agents: number;
 }
 
-export function projets(noms: readonly string[], messages: readonly Message[]): Projet[] {
+export function projets(noms: readonly string[], messages: readonly Message[], comptes: readonly Compte[] = []): Projet[] {
   return noms.map((nom) => {
     const siens = messages.filter((m) => toucheLeProjet(m, nom));
-    return { nom, messages: siens.length, nouveaux: siens.filter((m) => m.statut === 'nouveau').length };
+    return {
+      nom,
+      messages: siens.length,
+      nouveaux: siens.filter((m) => m.statut === 'nouveau').length,
+      agents: comptes.filter((c) => c.actif && projetDe(c.nom) === nom).length,
+    };
   });
+}
+
+/** Le nom de projet qu'on propose pour un dossier : son dernier segment, réduit à ce qu'un projet admet. */
+export function projetPropose(dossier: string): string {
+  const segment = dossier.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? '';
+  return segment.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-').replace(/^[^a-z0-9]+|-+$/g, '').slice(0, 32).replace(/-+$/, '');
 }
 
 /** « OW » pour owner, « CW » pour claude-windows (le projet ne compte pas). */

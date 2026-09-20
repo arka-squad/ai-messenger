@@ -14,7 +14,7 @@ import time
 from typing import Optional, Protocol, Sequence
 
 from ... import __version__
-from ...application import Annonceur, Messagerie, Notificateur, SourceAncienne
+from ...application import Annonceur, BoiteIndisponible, Messagerie, Notificateur, SourceAncienne
 from ...domain import (
     STATUTS,
     Annuaire,
@@ -24,7 +24,7 @@ from ...domain import (
     valider_adresse,
     valider_nom,
 )
-from ..codec import annuaire_vers_dict, en_json, message_vers_dict
+from ..codec import annuaire_vers_dict, contact_vers_dict, en_json, message_vers_dict
 from . import hotes, poste
 
 SORTIE_ERREUR, SORTIE_COURRIER, SORTIE_ECHEANCE = 1, 2, 3
@@ -124,12 +124,25 @@ def _activate(args: argparse.Namespace, usine: Usine) -> int:
         resume = poste.activer_depot(os.getcwd(), projet, usine.depot(), box=chemin, releve=not args.no_releve)
     except poste.ActivationRefusee as e:
         raise _Refus(str(e)) from None
+    if resume["projet"]:
+        _declarer_projet(usine, chemin, resume["projet"])
     print(f"dépôt connecté : {resume['dossier']}")
     print(f"  boîte (poste) : {resume['boite']}")
     print(f"  projet        : {resume['projet'] or '— (compte commun)'}")
     _afficher_hotes(resume["hotes"])
     print("Chaque session ouverte ici sera invitée à s'enrôler, puis relèvera seule.")
     return 0
+
+
+def _declarer_projet(usine: Usine, boite: str, projet: str) -> None:
+    """Note le projet dans le manifeste de la boîte : l'interface le montre avant qu'un agent s'y enrôle.
+    Une boîte en lecture seule ou injoignable n'empêche pas de connecter le dépôt."""
+    try:
+        messagerie = usine.ouvrir(boite)
+        if not messagerie.lecture_seule and messagerie.annuaire_present():
+            messagerie.declarer_projet(projet)
+    except (ErreurMessenger, BoiteIndisponible, OSError):
+        pass
 
 
 def _install(args: argparse.Namespace, usine: Usine) -> int:
@@ -223,7 +236,40 @@ def _send(args: argparse.Namespace, usine: Usine) -> int:
         _agent(args, messagerie), args.to.split(","), args.subject, args.body or "", args.attach, args.reply_to)
     if not envoi.adresses_verifiees:
         sys.stderr.write("(boîte sans manifeste : destinataires non vérifiés — crée les comptes avec `register`)\n")
+    for alias, adresses in envoi.alias_developpes:
+        sys.stderr.write(f"(carnet : {alias} → {', '.join(adresses)})\n")
     print(envoi.message.id)
+    return 0
+
+
+def _contacts(args: argparse.Namespace, usine: Usine) -> int:
+    messagerie = usine.ouvrir(_boite(args))
+    carnet = messagerie.carnet(_agent(args, messagerie))
+    if args.json:
+        print(en_json({"contacts": [contact_vers_dict(c) for c in carnet.contacts], "masques": carnet.masques}),
+              end="")
+        return 0
+    if not carnet.contacts:
+        print("carnet vide : `contact-add --alias <alias> --to <adresse>[,<autre>] --note \"quand lui écrire\"`")
+        return 0
+    for c in carnet.contacts:
+        masque = f"  [masqué par le compte {carnet.masques[c.alias]} : renomme-le]" if c.alias in carnet.masques else ""
+        print(f"{c.alias:20} → {', '.join(c.adresses)}{('  — ' + c.note) if c.note else ''}{masque}")
+    return 0
+
+
+def _contact_add(args: argparse.Namespace, usine: Usine) -> int:
+    messagerie = usine.ouvrir(_boite(args))
+    contact = messagerie.noter_contact(_agent(args, messagerie), args.alias, args.to.split(","), args.note,
+                                       remplacer=args.replace)
+    print(f"contact noté : {contact.alias} → {', '.join(contact.adresses)}")
+    return 0
+
+
+def _contact_remove(args: argparse.Namespace, usine: Usine) -> int:
+    messagerie = usine.ouvrir(_boite(args))
+    contact = messagerie.retirer_contact(_agent(args, messagerie), args.alias)
+    print(f"contact retiré : {contact.alias} (était {', '.join(contact.adresses)})")
     return 0
 
 
@@ -508,11 +554,24 @@ def _parseur() -> argparse.ArgumentParser:
     commande("deactivate", "désactive un compte (jamais supprimé)", _deactivate)
 
     x = commande("send", "poste un message", _send)
-    x.add_argument("--to", required=True, help="destinataires, séparés par des virgules")
+    x.add_argument("--to", required=True,
+                   help="destinataires, séparés par des virgules : adresses, noms courts, ou alias de ton carnet")
     x.add_argument("--subject", required=True)
     x.add_argument("--body", default="", help="deux lignes au plus")
     x.add_argument("--attach", help="fichier joint (copié dans le dossier de la boîte s'il n'y est pas)")
     x.add_argument("--reply-to", help="identifiant du message auquel tu réponds")
+
+    x = commande("contacts", "ton carnet d'adresses : des alias pour une adresse, ou pour un groupe", _contacts)
+    x.add_argument("--json", action="store_true", help="sortie JSON")
+
+    x = commande("contact-add", "note un contact dans ton carnet (utilisable dans `send --to`)", _contact_add)
+    x.add_argument("--alias", required=True, help="l'alias court : minuscules, chiffres, . _ - (32 max)")
+    x.add_argument("--to", required=True, help="l'adresse, ou plusieurs séparées par des virgules (un groupe)")
+    x.add_argument("--note", help="une ligne : qui c'est, quand lui écrire")
+    x.add_argument("--replace", action="store_true", help="remplacer un contact existant")
+
+    x = commande("contact-remove", "retire un contact de ton carnet", _contact_remove)
+    x.add_argument("--alias", required=True)
 
     x = commande("check", "relève le courrier « nouveau » (hooks)", _check)
     x.add_argument("--wake", action="store_true", help="résumé sur stderr et code 2 s'il y a du courrier")

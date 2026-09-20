@@ -166,6 +166,10 @@ class Activation(unittest.TestCase):
         code, rep = self.post({"dossier": repo, "projet": "demo"})
         self.assertEqual(code, 200)
         self.assertEqual(rep["projet"], "demo")
+        # le projet est connu de la boîte tout de suite, avant qu'un agent s'y enrôle
+        self.assertEqual(self.messagerie.projets(), ["demo"])
+        with urllib.request.urlopen(self.base + "/api/boite") as r:
+            self.assertEqual(json.loads(r.read())["projets"], ["demo"])
         # le dépôt n'est que déclaré : rien de propre à un hôte n'y est écrit
         self.assertTrue(os.path.isfile(os.path.join(repo, ".messenger.json")))
         self.assertFalse(os.path.exists(os.path.join(repo, ".claude")))

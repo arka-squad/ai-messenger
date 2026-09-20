@@ -1,23 +1,26 @@
-import { FolderGit2, Inbox, Layers, type LucideIcon, Paperclip, Reply, UserRound } from 'lucide-react';
+import { BookUser, FolderGit2, Inbox, Layers, type LucideIcon, Paperclip, Reply, UserRound } from 'lucide-react';
 import {
   type Agent,
   type Classement,
   type Compteurs,
   type Filtre,
+  type GroupeAgents,
   type Projet,
-  adresseCourte,
   cleJour,
   heure,
   horodatage,
+  teinteProjet,
 } from '../domain/boite.ts';
 import type { Activation, Creation } from '../domain/types.ts';
+import { EtiquetteProjet } from './EtiquettesProjet.tsx';
 import { ConnecterProjet, CreerBoite, InviterAgent } from './MiseEnPlace.tsx';
 
 interface Props {
   compte: string;
   compteurs: Compteurs;
   projets: readonly Projet[];
-  agents: readonly Agent[];
+  /** Les agents, rangés par projet ; les comptes communs à la fin. */
+  groupes: readonly GroupeAgents[];
   filtre: Filtre;
   onFiltre: (f: Filtre) => void;
   /** La boîte est réelle et inscriptible : on peut y connecter un projet. */
@@ -33,7 +36,7 @@ interface Props {
   constat: string;
 }
 
-export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, activable, motifCreation,
+export function Rail({ compte, compteurs, projets, groupes, filtre, onFiltre, activable, motifCreation,
   invite, onActiver, onCreer, onChoisir, derniereReleve, constat }: Props) {
   const boites: [Classement, string, LucideIcon, number][] = [
     ['toutes', 'Tous les messages', Inbox, compteurs.total],
@@ -79,11 +82,11 @@ export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, act
               key={p.nom}
               type="button"
               className={`rail-boite${filtre.projet === p.nom ? ' rail-boite--actif' : ''}`}
-              title={`${p.messages} message${p.messages > 1 ? 's' : ''}, dont les échanges avec les autres projets`}
+              title={`${p.agents} agent${p.agents > 1 ? 's' : ''} · ${p.messages} message${p.messages > 1 ? 's' : ''}, dont les échanges avec les autres projets`}
               // Changer de projet libère le filtre d'agent : ses agents ne sont pas ceux d'un autre projet.
               onClick={() => onFiltre({ ...filtre, projet: filtre.projet === p.nom ? null : p.nom, agent: null })}
             >
-              <FolderGit2 className="ic" size={15} />
+              <FolderGit2 className={`ic teinte--t${teinteProjet(p.nom)}`} size={15} />
               <span className="rail-boite__libelle rail-boite__libelle--mono">{p.nom}</span>
               {p.nouveaux > 0 && <span className="point-rond attente" title={`${p.nouveaux} nouveau(x)`} />}
               <span className="compteur">{p.messages}</span>
@@ -98,25 +101,28 @@ export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, act
 
       <div className="rail__section">
         <span className="eyebrow">Agents</span>
-        {agents.map((a) => {
-          const actif = filtre.agent === a.nom;
-          const dernier = a.dernierEnvoi
-            ? `dernier ${cleJour(a.dernierEnvoi) === aujourdhui ? heure(a.dernierEnvoi) : horodatage(a.dernierEnvoi).slice(0, 5)}`
-            : 'silencieux';
-          return (
-            <button
-              key={a.nom}
-              type="button"
-              className={`rail-agent${actif ? ' rail-agent--actif' : ''}`}
-              title={`${a.nom} · ${a.envois} envoi${a.envois > 1 ? 's' : ''}${a.role ? ` · ${a.role}` : ''}`}
-              onClick={() => onFiltre({ ...filtre, agent: actif ? null : a.nom })}
-            >
-              <span className={`point-rond ${a.enAttente ? 'attente pulse' : 'ok'}`} />
-              <span className="rail-agent__nom">{a.affichage ?? adresseCourte(a.nom, filtre.projet)}</span>
-              <span className="rail-agent__dernier">{dernier}</span>
-            </button>
-          );
-        })}
+        {groupes.map((g) => (
+          <div key={g.projet ?? '·commun'} className="rail-groupe">
+            <div className="rail-groupe__tete">
+              {g.projet === null ? <EtiquetteProjet projet={null} avecIcone /> : (
+                <button
+                  type="button"
+                  className="rail-groupe__projet"
+                  title={filtre.projet === g.projet ? 'Voir tous les projets' : `Ne voir que le projet ${g.projet}`}
+                  onClick={() => onFiltre({ ...filtre, projet: filtre.projet === g.projet ? null : g.projet, agent: null })}
+                >
+                  <EtiquetteProjet projet={g.projet} avecIcone actif={filtre.projet === g.projet} />
+                </button>
+              )}
+              <span className="vide" />
+              <span className="compteur">{g.agents.length}</span>
+            </div>
+            {g.agents.length === 0 && (
+              <span className="rail-groupe__vide">Aucun agent encore — copie l’invite et colle-la à ton agent.</span>
+            )}
+            {g.agents.map((a) => <LigneAgent key={a.nom} agent={a} filtre={filtre} onFiltre={onFiltre} aujourdhui={aujourdhui} />)}
+          </div>
+        ))}
       </div>
 
       <div className="rail__releve">
@@ -129,5 +135,45 @@ export function Rail({ compte, compteurs, projets, agents, filtre, onFiltre, act
         </span>
       </div>
     </aside>
+  );
+}
+
+/** Un agent dans son groupe : le projet est déjà dit par l'en-tête, on lit donc son nom seul. */
+function LigneAgent({ agent: a, filtre, onFiltre, aujourdhui }: {
+  agent: Agent;
+  filtre: Filtre;
+  onFiltre: (f: Filtre) => void;
+  aujourdhui: string;
+}) {
+  const actif = filtre.agent === a.nom;
+  const dernier = a.dernierEnvoi
+    ? `dernier ${cleJour(a.dernierEnvoi) === aujourdhui ? heure(a.dernierEnvoi) : horodatage(a.dernierEnvoi).slice(0, 5)}`
+    : 'silencieux';
+  const fiche = [
+    a.nom,
+    [a.hote, a.machine].filter(Boolean).join(' · '),
+    a.role,
+    `${a.envois} envoi${a.envois > 1 ? 's' : ''}`,
+    a.contacts.length ? `carnet : ${a.contacts.map((c) => `${c.alias} → ${c.adresses.join(', ')}`).join(' ; ')}` : '',
+  ].filter(Boolean).join('\n');
+  return (
+    <button
+      type="button"
+      className={`rail-agent${actif ? ' rail-agent--actif' : ''}`}
+      title={fiche}
+      onClick={() => onFiltre({ ...filtre, agent: actif ? null : a.nom })}
+    >
+      <span className={`point-rond ${a.enAttente ? 'attente pulse' : 'ok'}`} />
+      <span className="rail-agent__texte">
+        <span className="rail-agent__nom">{a.affichage ?? a.nom.split('@')[0]}</span>
+        <span className="rail-agent__meta">
+          <span className="rail-agent__dernier">{dernier}</span>
+          {a.enAttente > 0 && <span className="rail-agent__attente">{a.enAttente} en attente</span>}
+          {a.contacts.length > 0 && (
+            <span className="rail-agent__carnet"><BookUser className="ic" size={10} />{a.contacts.length}</span>
+          )}
+        </span>
+      </span>
+    </button>
   );
 }

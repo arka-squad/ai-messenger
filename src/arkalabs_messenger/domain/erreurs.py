@@ -25,6 +25,10 @@ class CompteExistant(ErreurMessenger):
     """Le nom demandé appartient déjà à un compte."""
 
 
+class ContactRefuse(ErreurMessenger):
+    """Un contact du carnet d'adresses ne peut pas être noté, ou n'existe pas."""
+
+
 class MessageIntrouvable(ErreurMessenger):
     """Aucun message ne porte cet identifiant."""
 

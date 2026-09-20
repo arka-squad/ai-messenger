@@ -44,7 +44,8 @@ la racine d'arkalabs-messenger sur ce poste :
 ```
 
 Tes outils apparaissent sous `mcp__arkalabs-messenger__…` : `whoami`, `enroll`, `identify`,
-`check`, `list`, `read`, `send`, `reply`, `mark`, `agents`, `wait`.
+`check`, `list`, `read`, `send`, `reply`, `mark`, `agents`, `contacts`, `contact_add`,
+`contact_remove`, `wait`.
 
 ## La skill
 

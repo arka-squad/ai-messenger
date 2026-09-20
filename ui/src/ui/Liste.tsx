@@ -72,8 +72,8 @@ function Lignes({ messages, projet, affichages, arrivees, choisi, onChoix, total
               <ArrowRight className="ic" size={11} />
               <span className="adresse-a">{m.a.map((x) => nomAffiche(x, affichages, projet)).join(', ')}</span>
               <span className="vide" />
-              {/* Le projet filtré est déjà implicite : on ne montre que les autres qu'un message touche. */}
-              <EtiquettesProjet projets={projetsDe(m).filter((p) => p !== projet)} />
+              {/* Chaque ligne dit à quel projet elle appartient ; celui qu'on filtre est en plein. */}
+              <EtiquettesProjet projets={projetsDe(m)} filtre={projet} />
               {m.pj && <Paperclip className="ic" size={12} />}
               <IconeStatut statut={m.statut} />
             </span>

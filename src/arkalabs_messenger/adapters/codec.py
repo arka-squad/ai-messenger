@@ -9,12 +9,14 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
-from ..domain import Annuaire, Boite, Compte, Message, Transition
+from ..domain import Annuaire, Boite, Compte, Contact, Message, ProjetDeclare, Transition
 
 FORMAT = 1
 
 _CHAMPS_MESSAGE = ("id", "date", "de", "a", "objet", "corps", "pj", "re", "statut", "historique", "importe")
 _CHAMPS_COMPTE = ("nom", "hote", "modele", "machine", "role", "affichage", "humain", "releve", "cree", "actif")
+_CHAMPS_CONTACT = ("alias", "adresses", "note", "cree")
+_CHAMPS_PROJET = ("nom", "cree")
 
 
 def en_json(data: Any) -> str:
@@ -87,9 +89,29 @@ def boite_depuis_dict(d: Any) -> Boite:
 # --------------------------------------------------------------------------- #
 # Comptes
 # --------------------------------------------------------------------------- #
+def contact_vers_dict(c: Contact) -> Dict[str, Any]:
+    d: Dict[str, Any] = {"alias": c.alias, "adresses": list(c.adresses)}
+    if c.note:
+        d["note"] = c.note
+    if c.cree:
+        d["cree"] = c.cree
+    d.update((k, v) for k, v in c.autres.items() if k not in d)
+    return d
+
+
+def contact_depuis_dict(d: Any) -> Contact:
+    if not isinstance(d, dict):
+        raise FormatInvalide("un contact n'est pas un objet")
+    return Contact(alias=_texte(d, "alias"), adresses=tuple(_liste_textes(d, "adresses")),
+                   note=_texte_ou_nul(d, "note"), cree=_texte_ou_nul(d, "cree"),
+                   autres={k: v for k, v in d.items() if k not in _CHAMPS_CONTACT})
+
+
 def compte_vers_dict(c: Compte) -> Dict[str, Any]:
     d = {k: getattr(c, k) for k in _CHAMPS_COMPTE}
     d = {k: v for k, v in d.items() if v is not None}
+    if c.contacts:
+        d["contacts"] = [contact_vers_dict(x) for x in c.contacts]
     d.update((k, v) for k, v in c.autres.items() if k not in d)
     return d
 
@@ -108,12 +130,16 @@ def compte_depuis_dict(d: Any) -> Compte:
         affichage=d.get("affichage"),
         cree=d.get("cree"),
         actif=bool(d.get("actif", True)),
-        autres={k: v for k, v in d.items() if k not in _CHAMPS_COMPTE},
+        contacts=tuple(contact_depuis_dict(x) for x in _liste(d, "contacts")),
+        autres={k: v for k, v in d.items() if k not in _CHAMPS_COMPTE + ("contacts",)},
     )
 
 
 def annuaire_vers_dict(a: Annuaire, nom_boite: str) -> Dict[str, Any]:
     d: Dict[str, Any] = {"version": FORMAT, "boite": nom_boite, "comptes": [compte_vers_dict(c) for c in a.comptes]}
+    if a.declares:
+        d["projets"] = [{**{k: v for k, v in (("nom", p.nom), ("cree", p.cree)) if v is not None},
+                         **{k: v for k, v in p.autres.items() if k not in _CHAMPS_PROJET}} for p in a.declares]
     d.update((k, v) for k, v in a.autres.items() if k not in d)
     return d
 
@@ -122,7 +148,15 @@ def annuaire_depuis_dict(d: Any) -> Annuaire:
     if not isinstance(d, dict) or not isinstance(d.get("comptes", []), list):
         raise FormatInvalide("clé « comptes » absente ou mal formée")
     return Annuaire(comptes=[compte_depuis_dict(c) for c in d.get("comptes", [])],
-                    autres={k: v for k, v in d.items() if k not in ("version", "boite", "comptes")})
+                    declares=[_projet_depuis_dict(p) for p in _liste(d, "projets")],
+                    autres={k: v for k, v in d.items() if k not in ("version", "boite", "comptes", "projets")})
+
+
+def _projet_depuis_dict(d: Any) -> ProjetDeclare:
+    if not isinstance(d, dict):
+        raise FormatInvalide("un projet n'est pas un objet")
+    return ProjetDeclare(nom=_texte(d, "nom"), cree=_texte_ou_nul(d, "cree"),
+                         autres={k: v for k, v in d.items() if k not in _CHAMPS_PROJET})
 
 
 # --------------------------------------------------------------------------- #
@@ -138,6 +172,16 @@ def _texte_ou_nul(d: Dict[str, Any], cle: str) -> Optional[str]:
     if v is not None and not isinstance(v, str):
         raise FormatInvalide(f"champ « {cle} » non textuel")
     return v or None
+
+
+def _liste(d: Dict[str, Any], cle: str) -> List[Any]:
+    """Une liste facultative : absente ou nulle, elle est vide."""
+    v = d.get(cle)
+    if v is None:
+        return []
+    if not isinstance(v, list):
+        raise FormatInvalide(f"champ « {cle} » : liste attendue")
+    return v
 
 
 def _liste_textes(d: Dict[str, Any], cle: str, facultatif: bool = False) -> List[str]:

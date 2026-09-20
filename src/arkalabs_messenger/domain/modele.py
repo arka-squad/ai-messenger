@@ -18,6 +18,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from .erreurs import (
     CompteExistant,
     CompteInconnu,
+    ContactRefuse,
     MessageIntrouvable,
     MessageInvalide,
     NomInvalide,
@@ -29,6 +30,15 @@ STATUTS: Tuple[str, ...] = ("nouveau", "lu", "traité")
 
 CORPS_MAX = 2
 """Nombre maximal de lignes de corps : le détail va en pièce jointe."""
+
+CONTACTS_MAX = 200
+"""Nombre maximal de contacts dans le carnet d'un compte."""
+
+ADRESSES_PAR_CONTACT_MAX = 20
+"""Un contact désigne une adresse, ou un petit groupe : pas une liste de diffusion sans fin."""
+
+NOTE_MAX = 200
+"""Longueur maximale de la note d'un contact : une ligne, qui dit quand lui écrire."""
 
 _NOM = r"[a-z0-9][a-z0-9_.-]{0,31}"
 _RE_NOM = re.compile(rf"^{_NOM}$")
@@ -264,8 +274,49 @@ class Boite:
 # Comptes
 # --------------------------------------------------------------------------- #
 @dataclass(frozen=True)
+class Contact:
+    """Une entrée du carnet d'adresses d'un compte : un alias court pour une adresse, ou pour un groupe.
+
+    Le carnet est personnel : `release` peut désigner `mac, owner` pour un agent, et autre chose pour
+    un autre. Un message envoyé à un alias est adressé aux **adresses réelles** : la boîte ne connaît
+    que des adresses, jamais des alias.
+    """
+
+    alias: str
+    adresses: Tuple[str, ...]
+    note: Optional[str] = None
+    cree: Optional[str] = None
+    autres: Dict[str, Any] = field(default_factory=dict, compare=False, hash=False)
+
+    @classmethod
+    def composer(cls, alias: str, adresses: Iterable[str], note: Optional[str] = None,
+                 cree: Optional[str] = None) -> "Contact":
+        valider_nom(alias, "alias")
+        uniques = tuple(dict.fromkeys(a.strip() for a in adresses if a and a.strip()))
+        if not uniques:
+            raise ContactRefuse(f"contact « {alias} » sans adresse : donne au moins un destinataire")
+        if len(uniques) > ADRESSES_PAR_CONTACT_MAX:
+            raise ContactRefuse(f"contact « {alias} » : {ADRESSES_PAR_CONTACT_MAX} adresses au plus")
+        for a in uniques:
+            valider_adresse(a, "adresse du contact")
+        note = _une_ligne(note or "") or None
+        if note and len(note) > NOTE_MAX:
+            raise ContactRefuse(f"note trop longue ({len(note)} caractères) : {NOTE_MAX} au plus, en une ligne")
+        return cls(alias, uniques, note, cree)
+
+
+@dataclass(frozen=True)
+class ProjetDeclare:
+    """Un projet connecté à la boîte, connu avant même qu'un agent s'y enrôle."""
+
+    nom: str
+    cree: Optional[str] = None
+    autres: Dict[str, Any] = field(default_factory=dict, compare=False, hash=False)
+
+
+@dataclass(frozen=True)
 class Compte:
-    """Le compte d'un agent : son adresse, son outil, son rôle."""
+    """Le compte d'un agent : son adresse, son outil, son rôle, son carnet d'adresses."""
 
     nom: str
     hote: str
@@ -278,11 +329,16 @@ class Compte:
     """Nom lisible pour un humain (`CL_Agent-MessengerAI_WIN`) ; l'adresse `nom` reste l'identifiant."""
     cree: Optional[str] = None
     actif: bool = True
+    contacts: Tuple[Contact, ...] = ()
+    """Son carnet d'adresses : lui seul le modifie."""
     autres: Dict[str, Any] = field(default_factory=dict, compare=False, hash=False)
 
     @property
     def projet(self) -> Optional[str]:
         return projet_de(self.nom)
+
+    def contact(self, alias: str) -> Optional[Contact]:
+        return next((c for c in self.contacts if c.alias == alias), None)
 
     @classmethod
     def ouvrir(cls, nom: str, hote: str, role: str, **infos: Optional[str]) -> "Compte":
@@ -301,6 +357,8 @@ class Annuaire:
     """L'agrégat des comptes. Un compte n'est jamais supprimé : il est désactivé."""
 
     comptes: List[Compte] = field(default_factory=list)
+    declares: List[ProjetDeclare] = field(default_factory=list)
+    """Les projets connectés à la boîte (`activate`, « Connecter un projet »)."""
     autres: Dict[str, Any] = field(default_factory=dict)
 
     def compte(self, nom: str) -> Optional[Compte]:
@@ -310,7 +368,16 @@ class Annuaire:
         return sorted(c.nom for c in self.comptes if c.actif)
 
     def projets(self) -> List[str]:
-        return sorted({c.projet for c in self.comptes if c.projet})
+        """Les projets connus : ceux qu'on a connectés, et ceux des comptes."""
+        return sorted({p.nom for p in self.declares} | {c.projet for c in self.comptes if c.projet})
+
+    def declarer(self, projet: str, date: Optional[str] = None) -> bool:
+        """Note qu'un projet est connecté à la boîte. Rend True s'il ne l'était pas."""
+        valider_nom(projet, "projet")
+        if any(p.nom == projet for p in self.declares):
+            return False
+        self.declares.append(ProjetDeclare(projet, date))
+        return True
 
     def resoudre(self, nom: str, projet: Optional[str]) -> str:
         """L'adresse désignée par `nom` depuis `projet`.
@@ -361,6 +428,7 @@ class Annuaire:
             affichage=compte.affichage or existant.affichage,
             cree=existant.cree or compte.cree,
             actif=True,
+            contacts=existant.contacts,
             autres=existant.autres,
         )
         self.comptes[self.comptes.index(existant)] = fusion
@@ -380,5 +448,89 @@ class Annuaire:
                 f"« {de} » n'a pas de compte actif : `messenger.py register --agent {de} --host … --role …`")
         inconnus = [d for d in destinataires if d not in actifs]
         if inconnus:
+            expediteur = self.compte(de)
+            carnet = ", ".join(c.alias for c in expediteur.contacts) if expediteur else ""
             raise CompteInconnu(f"destinataire(s) sans compte actif : {', '.join(inconnus)} — "
+                                f"comptes actifs : {', '.join(actifs)}"
+                                + (f" — ton carnet : {carnet}" if carnet else ""))
+
+    # -- Le carnet d'adresses --------------------------------------------------
+    def developper(self, de: str, destinataires: Iterable[str]) -> Tuple[List[str], Dict[str, Tuple[str, ...]]]:
+        """Les adresses réelles que désignent `destinataires`, écrits par `de`.
+
+        Un compte l'emporte toujours sur un alias : ce que `resoudre` trouvait hier, il le trouve encore.
+        Ce n'est que si aucun compte ne porte ce nom qu'on ouvre le carnet de l'expéditeur. Rend les
+        adresses, et les alias développés (`{alias: adresses}`) pour le dire à celui qui envoie.
+        """
+        projet = projet_de(de)
+        expediteur = self.compte(de)
+        adresses: List[str] = []
+        developpes: Dict[str, Tuple[str, ...]] = {}
+        for d in destinataires:
+            resolue = self.resoudre(d, projet)
+            contact = expediteur.contact(d) if expediteur and "@" not in d and self.compte(resolue) is None else None
+            if contact:
+                developpes[d] = contact.adresses
+                adresses.extend(contact.adresses)
+            else:
+                adresses.append(resolue)
+        return adresses, developpes
+
+    def noter_contact(self, proprietaire: str, alias: str, adresses: Iterable[str], note: Optional[str] = None,
+                      date: Optional[str] = None, remplacer: bool = False) -> Contact:
+        """Ajoute un contact au carnet de `proprietaire`, ou le remplace. Rend le contact noté.
+
+        Les adresses au nom court sont cherchées comme pour un envoi, depuis le projet du propriétaire,
+        et enregistrées en entier : le carnet reste juste quel que soit l'endroit d'où l'on écrit.
+        """
+        compte = self._titulaire(proprietaire)
+        valider_nom(alias, "alias")
+        homonyme = self.compte(self.resoudre(alias, compte.projet))
+        if homonyme is not None:
+            raise ContactRefuse(f"« {alias} » est déjà l'adresse d'un compte ({homonyme.nom}) : écris-lui "
+                                "directement, ou choisis un autre alias")
+        resolues = [self.resoudre(valider_adresse(a.strip(), "adresse du contact"), compte.projet)
+                    for a in adresses if a and a.strip()]
+        contact = Contact.composer(alias, resolues, note, date)
+        actifs = self.actifs()
+        absents = [a for a in contact.adresses if a not in actifs]
+        if absents:
+            raise ContactRefuse(f"adresse(s) sans compte actif : {', '.join(absents)} — "
                                 f"comptes actifs : {', '.join(actifs)}")
+        existant = compte.contact(alias)
+        if existant is not None and not remplacer:
+            raise ContactRefuse(f"le contact « {alias} » existe déjà ({', '.join(existant.adresses)}) : "
+                                "--replace pour le remplacer")
+        if existant is None and len(compte.contacts) >= CONTACTS_MAX:
+            raise ContactRefuse(f"carnet plein : {CONTACTS_MAX} contacts au plus")
+        if existant is not None:
+            contact = replace(contact, cree=existant.cree or contact.cree, autres=existant.autres)
+        carnet = tuple(c for c in compte.contacts if c.alias != alias) + (contact,)
+        self._remplacer(compte, replace(compte, contacts=tuple(sorted(carnet, key=lambda c: c.alias))))
+        return contact
+
+    def retirer_contact(self, proprietaire: str, alias: str) -> Contact:
+        compte = self._titulaire(proprietaire)
+        existant = compte.contact(alias)
+        if existant is None:
+            connus = ", ".join(c.alias for c in compte.contacts) or "aucun"
+            raise ContactRefuse(f"contact introuvable : « {alias} » — ton carnet : {connus}")
+        self._remplacer(compte, replace(compte, contacts=tuple(c for c in compte.contacts if c.alias != alias)))
+        return existant
+
+    def masques(self, proprietaire: str) -> Dict[str, str]:
+        """Les alias du carnet qu'un compte créé depuis masque : `{alias: adresse du compte}`."""
+        compte = self.compte(proprietaire)
+        if compte is None:
+            return {}
+        trouves = ((c.alias, self.compte(self.resoudre(c.alias, compte.projet))) for c in compte.contacts)
+        return {alias: homonyme.nom for alias, homonyme in trouves if homonyme is not None}
+
+    def _titulaire(self, nom: str) -> Compte:
+        compte = self.compte(nom)
+        if compte is None or not compte.actif:
+            raise CompteInconnu(f"« {nom} » n'a pas de compte actif : le carnet d'adresses appartient à un compte")
+        return compte
+
+    def _remplacer(self, ancien: Compte, nouveau: Compte) -> None:
+        self.comptes[self.comptes.index(ancien)] = nouveau

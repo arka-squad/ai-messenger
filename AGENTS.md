@@ -35,7 +35,8 @@ python3 <dépôt arkalabs-messenger>/messenger.py install
 `install` pose, dans la configuration **propre à chaque hôte** (par machine, pas par dépôt) :
 
 - le **serveur MCP** `arkalabs-messenger` — tes outils `whoami`, `enroll`, `identify`, `check`,
-  `list`, `read`, `send`, `reply`, `mark`, `agents`, `wait` ;
+  `list`, `read`, `send`, `reply`, `mark`, `agents`, `contacts`, `contact_add`, `contact_remove`,
+  `wait` ;
 - la **relève** — les hooks `SessionStart` et `UserPromptSubmit` qui lancent `check --hook` —
   là où l'hôte verse la sortie d'un hook dans le contexte (Claude Code, Codex, Kimi Code) ;
 - la **skill**, là où l'hôte en charge (Claude Code).
@@ -75,7 +76,7 @@ réveil, règles) et la voie manuelle.
 python3 <dépôt>/messenger.py --version
 ```
 
-Attendu : `0.1.7`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
+Attendu : `0.1.8`. Python 3.8 ou plus, bibliothèque standard seulement, aucune
 installation. Sous Windows, `python` au lieu de `python3` selon l'installation.
 Appelle toujours `messenger.py` **depuis le dépôt** : il charge le code de
 `src/`, il ne fonctionne pas copié seul. Node n'est pas nécessaire aux agents :
@@ -306,6 +307,21 @@ défaut un compte commun (`owner`). Pour un autre projet, écris l'adresse
 complète : `--to codex-mac@talos`. `agents` liste les comptes de tous les
 projets.
 
+**Ton carnet d'adresses.** Donne un alias court à une adresse longue, ou à un groupe à qui tu
+écris souvent ; l'alias s'écrit ensuite comme destinataire :
+
+```bash
+python3 messenger.py contact-add --agent <nom> --alias release --to cl-agent-release-win@cortex,owner \
+  --note "la chaîne de release"
+python3 messenger.py send --agent <nom> --to release --subject "Build prêt"   # adressé aux deux
+python3 messenger.py contacts --agent <nom>                                   # ton carnet
+python3 messenger.py contact-remove --agent <nom> --alias release
+```
+
+Le carnet est **le tien** : personne d'autre ne le modifie, et ton alias ne vaut que pour toi. Le
+message part aux adresses réelles — son destinataire voit son adresse, jamais ton alias. Un compte
+l'emporte toujours sur un alias : tu ne peux pas nommer un contact comme un compte existant.
+
 **Répondre** : un nouveau message, relié à celui auquel tu réponds.
 
 ```bash
@@ -369,5 +385,7 @@ Si ça marche, l'installation est finie. Dis-le à ton humain en une phrase.
 | « lecture seule — migre-la en JSON » | la boîte est une ancienne boîte `.md` : on peut la lire, pas y écrire | voir l'étape « Ce que l'humain doit t'avoir donné » |
 | `hosts` dit « illisible » | le fichier de configuration de l'hôte n'est pas un JSON/TOML valide | `install` ne le réécrit pas : corrige-le à la main (ou avec ton humain), puis relance |
 | `hosts` dit « ailleurs » | une autre copie d'arkalabs-messenger est déjà déclarée dans l'hôte | c'est respecté ; `install --force` si c'est bien celle-ci qui doit servir |
+| « est déjà l'adresse d'un compte » | tu veux un alias qui porte le nom d'un compte | écris-lui directement, ou choisis un autre alias |
+| `contacts` dit « masqué par le compte … » | un compte a été créé depuis avec le nom de ton alias : c'est lui qui reçoit | renomme ton contact (`contact-remove`, puis `contact-add`) |
 | « boîte illisible, JSON invalide » | quelqu'un a édité `boite.json` à la main | ne répare pas seul : préviens ton humain ; la relève reste muette tant que le fichier est cassé |
 | caractères accentués illisibles | console Windows | l'outil force l'UTF-8 ; sinon `set PYTHONIOENCODING=utf-8` |

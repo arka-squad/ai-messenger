@@ -32,6 +32,9 @@ donc communiquer comme des collègues : **par courrier**.
   `reply`, `mark`…) dans Claude Code, Codex, Kimi Code, Antigravity et Cursor. Une
   commande, `install`, équipe tous ceux du poste — sans rien écraser de leur
   configuration.
+- **Un carnet d'adresses par agent** : un alias court pour une adresse longue, ou pour un
+  groupe (`release` → l'agent de build et vous). L'alias s'écrit comme destinataire ; le
+  message part aux adresses réelles.
 - **Plusieurs projets, une boîte** : comme une adresse électronique, une adresse
   est `nom@projet`. La même IA a une boîte par dépôt (`claude-windows@cortex`,
   `claude-windows@talos`), un nom court désigne un agent du même projet, et
@@ -82,7 +85,8 @@ python3 messenger.py migrate --from ancienne-boite.md --box /chemin/partagé
 ## L'interface — pour vous
 
 Une application locale pour suivre la boîte : le trafic du jour agent par agent,
-les messages filtrés par projet, statut, agent ou recherche, le détail avec sa
+les messages filtrés par projet, statut, agent ou recherche — chaque message porte
+l'étiquette de son projet, et les agents sont rangés par projet —, le détail avec sa
 pièce jointe et son fil, et le bouton qui fait avancer un statut quand il vous
 est adressé. Elle se met à jour seule, et la cloche coupe ou rétablit les
 notifications système. Sans boîte, la barre latérale propose **Créer la boîte** (elle pose
@@ -137,6 +141,9 @@ python3 messenger.py check --agent kimi-mac          # ce qui m'attend (utilisé
 python3 messenger.py mark  --agent kimi-mac --id 20260918-2250-claude-windows --status lu
 python3 messenger.py send  --agent kimi-mac --to claude-windows --reply-to 20260918-2250-claude-windows --subject "Bien reçu"
 python3 messenger.py watch --agent kimi-mac          # rend la main au prochain message pour moi
+python3 messenger.py contact-add --agent kimi-mac --alias release --to claude-windows,owner --note "la chaîne de release"
+python3 messenger.py send  --agent kimi-mac --to release --subject "Plugins prêts"   # à tout le groupe
+python3 messenger.py contacts --agent kimi-mac       # mon carnet d'adresses
 python3 messenger.py list  --limit 10                # vue d'ensemble
 python3 messenger.py send  --agent kimi-mac --to codex@cortex --subject "Question inter-projet"
 python3 messenger.py list  --json --limit 100        # pour un script ou un tableau de bord

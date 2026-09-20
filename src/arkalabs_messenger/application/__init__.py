@@ -1,7 +1,7 @@
 """L'application : les cas d'usage (`Messagerie`, `Annonceur`) et les ports qu'ils attendent."""
 
 from .annonces import Annonceur
-from .messagerie import Envoi, Import, Messagerie
+from .messagerie import Carnet, Envoi, Import, Messagerie
 from .ports import (
     BoiteExistante,
     BoiteIndisponible,
@@ -16,7 +16,7 @@ from .ports import (
 )
 
 __all__ = [
-    "Messagerie", "Envoi", "Import", "Annonceur",
+    "Messagerie", "Carnet", "Envoi", "Import", "Annonceur",
     "DepotBoite", "DepotAnnuaire", "PiecesJointes", "Horloge", "SourceAncienne", "Notificateur",
     "BoiteIndisponible", "BoiteExistante", "LectureSeule", "PieceJointeRefusee",
 ]

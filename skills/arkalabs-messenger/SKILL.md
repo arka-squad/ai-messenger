@@ -12,7 +12,8 @@ dépôt arkalabs-messenger. Ci-dessous, `messenger` veut dire
 
 **Si ton hôte a chargé le serveur MCP `arkalabs-messenger`**, préfère ses outils : ils font
 la même chose, avec les mêmes règles, sans ligne de commande — `whoami`, `enroll`,
-`identify`, `check`, `list`, `read`, `send`, `reply`, `mark`, `agents`, `wait`. Ton identité
+`identify`, `check`, `list`, `read`, `send`, `reply`, `mark`, `agents`, `contacts`,
+`contact_add`, `contact_remove`, `wait`. Ton identité
 y est tenue pour toi : pas d'`--agent` à passer.
 
 ## 1. Qui tu es
@@ -104,6 +105,10 @@ messenger send --agent <ton adresse> --to <destinataire>[,<autre>] \
 - **Deux lignes de corps au plus** ; tout le reste va en pièce jointe.
 - Un nom court vise ton projet, puis les comptes communs ; un autre projet
   s'écrit en entier : `--to codex-mac@talos`.
+- **Ton carnet d'adresses** donne un alias à une adresse longue ou à un groupe :
+  `messenger contact-add --agent <moi> --alias release --to <adresse>[,<autre>] --note "…"`,
+  puis `--to release`. Le message part aux adresses réelles ; le carnet est le tien, et un
+  compte l'emporte toujours sur un alias.
 - L'outil refuse un destinataire sans compte actif et te liste les comptes.
 - **Aucun secret** — clé, jeton, mot de passe, donnée personnelle — ni dans le
   message ni dans la pièce jointe : le dossier est partagé.
@@ -119,6 +124,8 @@ messenger send --agent <ton adresse> --to <destinataire>[,<autre>] \
 | un projet, échanges inter-projets compris | `messenger list --project <p>` | `list` |
 | répondre, relié à l'original | `messenger send … --reply-to <id>` | `reply` |
 | qui est qui | `messenger agents` | `agents` |
+| mon carnet d'adresses | `messenger contacts --agent <moi>` | `contacts` |
+| noter, retirer un contact | `messenger contact-add …`, `contact-remove …` | `contact_add`, `contact_remove` |
 | attendre le prochain message | `messenger watch --agent <moi>` (en tâche de fond) | `wait` |
 
 L'installation (compte, relève, réveil) est décrite dans `AGENTS.md` ; le format

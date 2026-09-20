@@ -8,6 +8,7 @@ import {
   agents,
   compter,
   filtrer,
+  groupesAgents,
   projets,
   recents,
   toucheLeProjet,
@@ -58,7 +59,12 @@ export function App({ veille, preferences }: Props) {
   const visibles = useMemo(() => filtrer(tous, filtre, compte), [tous, filtre, compte]);
   const compteurs = useMemo(() => compter(tous, compte), [tous, compte]);
   const listeAgents = useMemo(() => agents(etat?.comptes ?? [], tous, filtre.projet), [etat, tous, filtre.projet]);
-  const listeProjets = useMemo(() => projets(etat?.projets ?? [], tous), [etat, tous]);
+  const listeProjets = useMemo(() => projets(etat?.projets ?? [], tous, etat?.comptes ?? []), [etat, tous]);
+  // Rangés par projet ; sous un filtre de projet, il ne reste que le sien et les comptes communs.
+  const groupes = useMemo(
+    () => groupesAgents(listeAgents, filtre.projet ? [filtre.projet] : etat?.projets ?? []),
+    [listeAgents, filtre.projet, etat],
+  );
   const affichages = useMemo(() => affichagesDe(etat?.comptes ?? []), [etat]);
   // Quand il n'y a pas de boîte inscriptible : null → on propose « Créer la boîte » (cas démo/rien) ;
   // un texte → on explique pourquoi la création n'est pas la bonne action (boîte Markdown à migrer).
@@ -80,9 +86,9 @@ export function App({ veille, preferences }: Props) {
   const idsVisibles = useMemo(() => visibles.map((m) => m.id), [visibles]);
   const arrivees = useMemo(() => new Set(v.arrivees.map((m) => m.id)), [v.arrivees]);
   const ordre = useMemo(() => {
-    const noms = listeAgents.map((a) => a.nom);
+    const noms = groupes.flatMap((g) => g.agents.map((a) => a.nom));  // les couloirs suivent les groupes du rail
     return [...noms, ...sansCompte(duProjet, noms)];
-  }, [listeAgents, duProjet]);
+  }, [groupes, duProjet]);
 
   const marquer = useCallback((id: string, statut: Statut) => veille.marquer(id, statut), [veille]);
 
@@ -107,7 +113,7 @@ export function App({ veille, preferences }: Props) {
           compte={compte}
           compteurs={compteurs}
           projets={listeProjets}
-          agents={listeAgents}
+          groupes={groupes}
           filtre={filtre}
           onFiltre={setFiltre}
           activable={etat?.source.activable ?? false}

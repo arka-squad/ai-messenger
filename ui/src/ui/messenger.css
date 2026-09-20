@@ -116,17 +116,30 @@ input { font: inherit; }
 .rail-boite__libelle--mono { font-family: var(--font-mono); font-size: 11.5px; }
 .compteur { font-family: var(--font-mono); font-size: 9.5px; color: var(--tx5); }
 .rail-agent {
-  display: flex; align-items: center; gap: 9px; height: 31px; padding: 0 8px; border-radius: 6px; cursor: pointer;
-  background: transparent; transition: background 130ms ease; width: 100%; box-sizing: border-box;
+  display: flex; align-items: flex-start; gap: 9px; padding: 5px 8px; border-radius: 6px; cursor: pointer;
+  background: transparent; transition: background 130ms ease; width: 100%; box-sizing: border-box; text-align: left;
 }
+.rail-agent .point-rond { margin-top: 5px; flex-shrink: 0; }
+.rail-agent__texte { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.rail-agent__meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rail-agent__attente { font-size: 10px; color: var(--warn-tx); white-space: nowrap; }
 .rail-agent--actif { background: rgba(var(--w), 0.07); }
 .rail-agent:hover { background: rgba(var(--w), 0.05); }
 .rail-agent__nom {
-  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-family: var(--font-mono); font-size: 11.5px; color: var(--tx3);
 }
 .rail-agent--actif .rail-agent__nom { color: var(--tx1); }
 .rail-agent__dernier { font-size: 10px; color: var(--tx5); white-space: nowrap; }
+.rail-agent__carnet {
+  display: inline-flex; align-items: center; gap: 3px; font-family: var(--font-mono); font-size: 9.5px; color: var(--tx5);
+}
+.rail-groupe { display: flex; flex-direction: column; gap: 2px; }
+.rail-groupe + .rail-groupe { margin-top: 10px; }
+.rail-groupe__tete { display: flex; align-items: center; gap: 8px; height: 22px; padding: 0 8px; }
+.rail-groupe__projet { display: inline-flex; background: transparent; padding: 0; cursor: pointer; border-radius: 4px; }
+.rail-groupe__projet:hover .projet-etiquette { border-color: var(--teinte, rgba(var(--w), 0.3)); }
+.rail-groupe__vide { padding: 2px 8px 4px; font-size: 11px; line-height: 1.45; color: var(--tx5); }
 .ajout { display: flex; flex-direction: column; gap: 7px; padding: 4px 8px 6px; }
 .ajout__parcourir {
   display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 9px; border-radius: 6px; cursor: pointer;
@@ -254,7 +267,23 @@ input { font: inherit; }
   border: 1px solid rgba(var(--w), 0.14); background: transparent; color: var(--tx4); white-space: nowrap;
   font-family: var(--font-mono); font-size: 9px; font-weight: 600; letter-spacing: 0.03em;
 }
-.projet-etiquette .ic { color: var(--tx5); }
+.projet-etiquette .ic { color: currentColor; opacity: 0.8; }
+/* Une teinte par projet, toujours la même (voir `teinteProjet`) : on reconnaît un projet d'un coup d'œil. */
+.teinte--t0, .projet-etiquette--t0 { --teinte: var(--arka-blue); }
+.teinte--t1, .projet-etiquette--t1 { --teinte: var(--arka-purple); }
+.teinte--t2, .projet-etiquette--t2 { --teinte: var(--arka-fuchsia); }
+.teinte--t3, .projet-etiquette--t3 { --teinte: var(--arka-green); }
+.ic[class*="teinte--t"] { color: var(--teinte); }
+.projet-etiquette[class*="projet-etiquette--t"] {
+  color: var(--teinte);
+  border-color: color-mix(in srgb, var(--teinte) 42%, transparent);
+  background: color-mix(in srgb, var(--teinte) 11%, transparent);
+}
+.projet-etiquette--actif[class*="projet-etiquette--t"] {
+  background: color-mix(in srgb, var(--teinte) 26%, transparent);
+  border-color: var(--teinte);
+}
+.projet-etiquette--commun { color: var(--tx5); border-style: dashed; font-weight: 500; }
 
 /* -- Détail --------------------------------------------------------------- */
 .detail { width: 400px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; background: var(--zone); }
@@ -262,9 +291,14 @@ input { font: inherit; }
 .detail__bloc { display: flex; flex-direction: column; gap: 8px; }
 .detail__bloc--serre { gap: 9px; }
 .detail__objet { font-size: 14px; font-weight: 600; color: var(--tx1); line-height: 1.4; text-wrap: pretty; }
-.detail__adresse { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--tx5); }
-.detail__adresse .adresse-a { overflow: visible; white-space: normal; }
-.detail__point-median { color: var(--tx5); font-size: 10px; }
+.detail__portee { display: flex; align-items: center; gap: 8px; }
+.detail__portee .projets { flex-wrap: wrap; flex-shrink: 1; }
+.detail__correspondants { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: baseline; }
+.detail__sens { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--tx5); }
+.detail__destinataires { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.correspondant { display: flex; align-items: center; gap: 7px; min-width: 0; flex-wrap: wrap; }
+.correspondant .adresse-a { overflow: visible; }
+.correspondant__adresse { font-family: var(--font-mono); font-size: 9.5px; color: var(--tx5); }
 .detail__date { font-family: var(--font-mono); font-size: 10.5px; color: var(--tx5); }
 .detail__texte { font-size: 12.5px; color: var(--tx3); line-height: 1.6; text-wrap: pretty; }
 .detail__aucun { font-size: 12px; color: var(--tx4); }

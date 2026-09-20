@@ -10,12 +10,16 @@ import {
   couloirs,
   fil,
   filtrer,
+  groupesAgents,
   initiales,
   libelleJour,
   nomAffiche,
+  projetPropose,
   projets,
   projetsDe,
   recents,
+  teinteProjet,
+  TEINTES,
   titre,
 } from './boite.ts';
 import type { Message } from './types.ts';
@@ -97,10 +101,29 @@ describe('projets', () => {
   it('un projet voit ses messages, discussion inter-projet comprise', () => {
     assert.deepEqual(filtrer(P, { ...FILTRE_INITIAL, projet: 'cortex' }, 'owner').map((m) => m.id), ['p1', 'p2']);
     assert.deepEqual(filtrer(P, { ...FILTRE_INITIAL, projet: 'talos' }, 'owner').map((m) => m.id), ['p2', 'p3']);
-    assert.deepEqual(projets(['cortex', 'talos'], P), [
-      { nom: 'cortex', messages: 2, nouveaux: 1 },
-      { nom: 'talos', messages: 2, nouveaux: 1 },
+    const comptes = ['kimi@cortex', 'claude@cortex', 'owner'].map((nom) => ({ nom, actif: true }));
+    assert.deepEqual(projets(['cortex', 'talos'], P, comptes), [
+      { nom: 'cortex', messages: 2, nouveaux: 1, agents: 2 },
+      { nom: 'talos', messages: 2, nouveaux: 1, agents: 0 },
     ]);
+  });
+  it('les agents se rangent par projet, les comptes communs à la fin', () => {
+    const comptes = ['owner', 'kimi@cortex', 'claude@talos', 'claude@cortex'].map((nom) => ({ nom, actif: true }));
+    const groupes = groupesAgents(agents(comptes, P), ['cortex', 'neuf']);
+    assert.deepEqual(groupes.map((g) => [g.projet, g.agents.map((a) => a.nom).sort()]), [
+      ['cortex', ['claude@cortex', 'kimi@cortex']],
+      ['neuf', []],                 // connecté, pas encore d'agent : il se voit quand même
+      ['talos', ['claude@talos']],  // inconnu de la liste : trouvé par ses agents
+      [null, ['owner']],
+    ]);
+    assert.deepEqual(groupesAgents([], []).map((g) => g.projet), [null]);
+  });
+  it('un projet garde sa teinte, et un dossier propose un nom de projet valide', () => {
+    assert.equal(teinteProjet('cortex'), teinteProjet('cortex'));
+    assert.ok(teinteProjet('cortex') >= 0 && teinteProjet('cortex') < TEINTES);
+    assert.equal(projetPropose('C:\\Users\\moi\\Projets\\Cortex Deck\\'), 'cortex-deck');
+    assert.equal(projetPropose('/Users/moi/dépôts/Été_2026'), 'ete_2026');
+    assert.equal(projetPropose('/'), '');
   });
   it('les agents d\'un projet, plus les comptes communs', () => {
     const comptes = ['kimi@cortex', 'claude@talos', 'owner'].map((nom) => ({ nom, actif: true }));

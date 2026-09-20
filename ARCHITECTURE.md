@@ -45,17 +45,17 @@ grep -rn "import" src/arkalabs_messenger/adapters/driving | grep "driven"
 
 | Fichier | Rôle |
 |---|---|
-| `domain/modele.py` | `Message` (immuable, seul son statut avance), `Brouillon` (un message validé, pas encore envoyé), `Boite` et `Annuaire` (les agrégats), `Compte`, et les règles : adresses `nom@projet` et leur résolution, deux lignes de corps, statut qui n'avance que par un destinataire et jamais en arrière |
+| `domain/modele.py` | `Message` (immuable, seul son statut avance), `Brouillon` (un message validé, pas encore envoyé), `Boite` et `Annuaire` (les agrégats), `Compte` et son carnet d'adresses (`Contact`), les projets connectés (`ProjetDeclare`), et les règles : un compte l'emporte toujours sur un alias, adresses `nom@projet` et leur résolution, deux lignes de corps, statut qui n'avance que par un destinataire et jamais en arrière |
 | `domain/erreurs.py` | les refus, chacun avec un message qui dit quoi faire |
 | `application/ports.py` | les interfaces attendues : `DepotBoite`, `DepotAnnuaire`, `PiecesJointes`, `Horloge`, `Notificateur`, `SourceAncienne` |
-| `application/messagerie.py` | les cas d'usage : initialiser, inscrire, enrôler (identité lisible déduite), envoyer, relever, marquer, lister, guetter, importer |
+| `application/messagerie.py` | les cas d'usage : initialiser, inscrire, enrôler (identité lisible déduite), déclarer un projet, tenir son carnet d'adresses, envoyer (alias développés en adresses), relever, marquer, lister, guetter, importer |
 | `application/annonces.py` | `Annonceur` : une notification pour chaque message qui passe, résumée en rafale |
 | `adapters/codec.py` | le format d'échange JSON de [PROTOCOLE.md](PROTOCOLE.md) ; conserve les champs inconnus |
 | `adapters/driven/disposition.py` | où vivent les fichiers d'une boîte : l'arbo imposée `.aimessenger/` (`mail/boite.json`, `manifest.json`, `boite.md`, `pj/`), et la lecture des anciennes boîtes (`.json` à plat, `.md`) |
 | `adapters/driven/` | boîte et annuaire en fichiers JSON (verrou, écriture atomique), vue Markdown, ancienne boîte Markdown en lecture seule, pièces jointes, notifications système natives (toast Windows à la marque, macOS, Linux), horloge |
 | `adapters/driving/cli.py` | la ligne de commande des agents |
 | `adapters/driving/web.py` | l'API locale de l'interface (et l'interface construite) : lecture, avancée de statut, création de boîte (`/api/creer`) et connexion d'un projet (`/api/activer`), boîte résolue à chaque requête |
-| `adapters/driving/mcp.py` | le serveur MCP de la boîte : JSON-RPC 2.0 sur l'entrée et la sortie standard, écrit en bibliothèque standard ; outils (`whoami`, `enroll`, `identify`, `check`, `list`, `read`, `send`, `reply`, `mark`, `agents`, `wait`), ressources `messenger://…`, appels annulables |
+| `adapters/driving/mcp.py` | le serveur MCP de la boîte : JSON-RPC 2.0 sur l'entrée et la sortie standard, écrit en bibliothèque standard ; outils (`whoami`, `enroll`, `identify`, `check`, `list`, `read`, `send`, `reply`, `mark`, `agents`, `contacts`, `contact_add`, `contact_remove`, `wait`), ressources `messenger://…`, appels annulables |
 | `adapters/driving/hotes.py` | équiper les hôtes IA du poste (Claude Code, Codex, Kimi Code, Antigravity, Cursor) : serveur MCP, relève et skill posés dans la configuration propre à chacun — fusion sans écrasement, idempotence, divergence réparée, autre installation respectée, fichier illisible jamais réécrit, écriture atomique |
 | `adapters/driving/poste.py` | la boîte du poste (`setup --box`), le projet du dépôt (`.messenger.json`), l'identité d'un agent (par session, puis par hôte et par dépôt), la connexion d'un dépôt (`activate`), l'environnement |
 | `bootstrap.py` | l'assemblage : choisit les adaptateurs selon la disposition de la boîte |
