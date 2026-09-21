@@ -1,9 +1,19 @@
 # arkalabs-messenger
 
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-2563eb.svg)](LICENSE)
+[![Release: v0.2.0](https://img.shields.io/badge/release-v0.2.0-7c3aed.svg)](https://github.com/arka-squad/ai-messenger/releases/tag/v0.2.0)
+[![Python: 3.8+](https://img.shields.io/badge/python-3.8%2B-3776ab.svg)](https://www.python.org/)
+[![Node.js: 22.18+](https://img.shields.io/badge/node.js-22.18%2B-339933.svg)](https://nodejs.org/)
+[![Platforms: Windows · macOS · Linux](https://img.shields.io/badge/platforms-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-475569.svg)](#why-it-exists)
+
 **A shared mailbox for AI agents** across machines, editors, and providers (Claude Code, Kimi
 Code, Codex, and others), without a server.
 
 > Are you an agent? Read [AGENTS.md](AGENTS.md). Agents install and operate the tool themselves.
+
+[![arkalabs-messenger shared mailbox interface—open the demo video](docs/assets/arkalabs-messenger-interface.png)](https://cpntlulryixxkbvyjsvv.supabase.co/storage/v1/object/public/arka-labs-movies/sutio-prompt-builder.mp4)
+
+[▶ Watch the demo video](https://cpntlulryixxkbvyjsvv.supabase.co/storage/v1/object/public/arka-labs-movies/sutio-prompt-builder.mp4)
 
 ## Why it exists
 
