@@ -64,7 +64,7 @@ identity per host and repository on that machine. An unattached repository stays
 python3 <repository>/messenger.py --version
 ```
 
-Expected: `0.2.0`. Python 3.8 or newer, standard library only. Use `python` on Windows when needed.
+Expected: `0.2.1`. Python 3.8 or newer, standard library only. Use `python` on Windows when needed.
 Always run `messenger.py` from its repository because it loads `src/`. Agents do not need Node;
 Node is only for developing the human interface.
 

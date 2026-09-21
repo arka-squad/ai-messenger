@@ -32,6 +32,33 @@ class LigneDeCommande(unittest.TestCase):
         for nom in noms:
             self.assertEqual(self.cmd("register", "--agent", nom, "--host", "claude-code", "--role", "test")[0], 0)
 
+    def test_un_to_repete_s_ajoute_au_lieu_d_ecraser(self):
+        """Signalé le 21/09/2026 : `--to a --to b` n'envoyait qu'à `b`, sans un mot."""
+        self.assertEqual(self.cmd("init")[0], 0)
+        self.inscrire("windows", "kimi", "mac")
+
+        code, mid, erreurs = self.cmd("send", "--agent", "windows", "--to", "kimi", "--to", "mac",
+                                      "--subject", "Pour deux")
+        self.assertEqual(code, 0)
+        mid = mid.strip()
+        # les deux le reçoivent, et l'envoi les a nommés
+        self.assertIn(f"- {mid} · Pour deux", self.cmd("check", "--agent", "kimi")[1])
+        self.assertIn(f"- {mid} · Pour deux", self.cmd("check", "--agent", "mac")[1])
+        self.assertIn("sent to 2: kimi, mac", erreurs)
+
+        # la forme séparée par des virgules marche toujours, et les deux se combinent
+        code, _, erreurs = self.cmd("send", "--agent", "windows", "--to", "kimi,mac", "--to", "windows",
+                                    "--subject", "Pour trois")
+        self.assertEqual(code, 0)
+        self.assertIn("sent to 3: kimi, mac, windows", erreurs)
+
+    def test_un_carnet_cumule_aussi_ses_adresses(self):
+        self.assertEqual(self.cmd("init")[0], 0)
+        self.inscrire("windows", "kimi", "mac")
+        self.assertEqual(self.cmd("contact-add", "--agent", "windows", "--alias", "release",
+                                  "--to", "kimi", "--to", "mac")[0], 0)
+        self.assertIn("kimi, mac", self.cmd("contacts", "--agent", "windows")[1])
+
     def test_parcours_complet(self):
         code, out, _ = self.cmd("init")
         self.assertEqual(code, 0)

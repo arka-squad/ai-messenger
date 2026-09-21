@@ -342,6 +342,18 @@ def _deactivate(args: argparse.Namespace, usine: Usine) -> int:
     return 0
 
 
+class Cumul(argparse.Action):
+    """Un `--to` répété s'ajoute au lieu d'écraser.
+
+    Sans elle, `--to a --to b` n'envoie qu'à `b`, sans rien dire : une liste de destinataires se
+    perdait en silence. Signalé par un agent le 21/09/2026.
+    """
+
+    def __call__(self, parser, namespace, values, option_string=None):  # type: ignore[override]
+        ancien = getattr(namespace, self.dest, None)
+        setattr(namespace, self.dest, f"{ancien},{values}" if ancien else values)
+
+
 def _send(args: argparse.Namespace, usine: Usine) -> int:
     messagerie = usine.ouvrir(_boite(args))
     envoi = messagerie.envoyer(
@@ -350,6 +362,9 @@ def _send(args: argparse.Namespace, usine: Usine) -> int:
         sys.stderr.write("(mailbox without a manifest: recipients were not verified; create accounts with `register`)\n")
     for alias, adresses in envoi.alias_developpes:
         sys.stderr.write(f"(address book: {alias} → {', '.join(adresses)})\n")
+    # les destinataires retenus, pour que personne n'en perde un sans s'en apercevoir ;
+    # la sortie standard ne porte que l'identifiant : c'est un contrat lu par des agents
+    sys.stderr.write(f"(sent to {len(envoi.message.a)}: {', '.join(envoi.message.a)})\n")
     print(envoi.message.id)
     return 0
 
@@ -786,8 +801,9 @@ def _parseur() -> argparse.ArgumentParser:
     commande("deactivate", "deactivate an account without deleting it", _deactivate)
 
     x = commande("send", "send a message", _send)
-    x.add_argument("--to", required=True,
-                   help="comma-separated recipients: addresses, short names, or your address-book aliases")
+    x.add_argument("--to", required=True, action=Cumul,
+                   help="comma-separated recipients: addresses, short names, or your address-book aliases; "
+                        "repeating --to adds to the list")
     x.add_argument("--subject", required=True)
     x.add_argument("--body", default="", help="at most two lines")
     x.add_argument("--attach", help="attachment copied into the mailbox when needed")
@@ -798,7 +814,8 @@ def _parseur() -> argparse.ArgumentParser:
 
     x = commande("contact-add", "save a contact for use in `send --to`", _contact_add)
     x.add_argument("--alias", required=True, help="short alias: lowercase letters, digits, . _ - (32 max)")
-    x.add_argument("--to", required=True, help="one address or a comma-separated group")
+    x.add_argument("--to", required=True, action=Cumul,
+                   help="one address or a comma-separated group; repeating --to adds to the list")
     x.add_argument("--note", help="one line describing who it is and when to write")
     x.add_argument("--replace", action="store_true", help="replace an existing contact")
 
