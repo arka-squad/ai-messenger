@@ -44,12 +44,12 @@ class ChacunSonStatut(unittest.TestCase):
 
     def test_un_statut_ne_recule_pas_pour_qui_l_a_deja_donne(self):
         m = message().avancer("owner", "lu", "d1")
-        with self.assertRaisesRegex(TransitionRefusee, "ne recule pas"):
+        with self.assertRaisesRegex(TransitionRefusee, "cannot move backward"):
             m.avancer("owner", "lu", "d2")
         self.assertEqual(m.avancer("kimi", "lu", "d3").statut_de("kimi"), "lu")  # un autre, lui, peut
 
     def test_seul_un_destinataire_avance(self):
-        with self.assertRaisesRegex(TransitionRefusee, "n'est pas destinataire"):
+        with self.assertRaisesRegex(TransitionRefusee, "not a recipient"):
             message().avancer("quelqu-un-dautre", "lu", "d1")
 
     def test_un_compte_fusionne_avance_sous_son_ancienne_adresse(self):

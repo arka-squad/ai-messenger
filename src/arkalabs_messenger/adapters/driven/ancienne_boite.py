@@ -21,10 +21,10 @@ from .fichiers import empreinte
 
 _BLOC = re.compile(r"(?m)^### ")
 _ID = re.compile(r"^(\d{8}-\d{4}-[A-Za-z0-9_.-]+?(?:-\d+)?)\s")
-_DE = re.compile(r"\*\*De\*\*\s*([^\s→]+)")
-_A = re.compile(r"\*\*À\*\*\s*(.+?)\s*·")
-_STATUT = re.compile(r"\*\*Statut\*\*\s*(\S+)")
-_PJ = re.compile(r"\*\*PJ\*\*\s*(.+)$")
+_DE = re.compile(r"\*\*(?:De|From)\*\*\s*([^\s→]+)")
+_A = re.compile(r"\*\*(?:À|To)\*\*\s*(.+?)\s*·")
+_STATUT = re.compile(r"\*\*(?:Statut|Status)\*\*\s*(\S+)")
+_PJ = re.compile(r"\*\*(?:PJ|Attachment)\*\*\s*(.+)$")
 _LIEN = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 _RE = re.compile(r"^Re\s*:\s*(\S+)\s*[—-]\s*(.*)$")
 
@@ -71,9 +71,9 @@ def _lire_fichier(chemin: str) -> str:
         with open(chemin, encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
-        raise BoiteIndisponible(f"boîte introuvable : {chemin}") from None
+        raise BoiteIndisponible(f"mailbox not found: {chemin}") from None
     except OSError as e:
-        raise BoiteIndisponible(f"boîte injoignable : {chemin} ({e.strerror})") from None
+        raise BoiteIndisponible(f"mailbox unavailable: {chemin} ({e.strerror})") from None
 
 
 class SourceMarkdown(SourceAncienne):
@@ -94,7 +94,7 @@ class DepotBoiteMarkdown(DepotBoite):
     """Ouvre une ancienne boîte en lecture seule, convertie à la volée."""
 
     lecture_seule = True
-    _REFUS = "boîte Markdown : lecture seule — migre-la en JSON pour agir (`messenger.py migrate`)"
+    _REFUS = "Markdown mailbox: read-only—migrate it to JSON to make changes (`messenger.py migrate`)"
 
     def __init__(self, chemin: str) -> None:
         self._chemin = chemin

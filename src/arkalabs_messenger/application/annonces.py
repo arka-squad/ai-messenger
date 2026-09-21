@@ -1,4 +1,4 @@
-"""Les annonces : une notification système pour chaque message qui passe dans la boîte."""
+"""System notifications for messages arriving in the mailbox."""
 from __future__ import annotations
 
 from typing import Callable, List, Optional, Set
@@ -8,14 +8,14 @@ from .messagerie import Messagerie
 from .ports import Notificateur
 
 RAFALE = 3
-"""Au-delà, les messages arrivés d'un coup sont résumés en une seule notification."""
+"""Above this threshold, messages arriving together are grouped in one notification."""
 
 
 class Annonceur:
-    """Relève la boîte et annonce les messages arrivés depuis la relève précédente.
+    """Check the mailbox and announce messages received since the previous check.
 
-    La première relève mémorise la boîte sans rien annoncer. Un message adressé à
-    `compte` est annoncé comme tel ; les autres le sont aussi, avec leurs adresses.
+    The first check records the mailbox without announcing anything. Messages for
+    `compte` are identified as such; other messages include their recipient addresses.
     """
 
     def __init__(self, messagerie: Messagerie, notificateur: Notificateur, compte: str,
@@ -28,7 +28,7 @@ class Annonceur:
         self.actif = True
 
     def relever(self) -> List[Message]:
-        """Les messages arrivés depuis la relève précédente, annoncés si l'annonceur est actif."""
+        """Return messages received since the previous check and announce them when enabled."""
         messages = self._messagerie.instantane().messages
         if self._connus is None:
             self._connus = {m.id for m in messages}
@@ -43,10 +43,10 @@ class Annonceur:
         if len(arrives) > RAFALE:
             pour_moi = sum(1 for m in arrives if m.est_pour(self._compte))
             self._notificateur.notifier(
-                f"{len(arrives)} nouveaux messages dans la boîte",
-                [f"dont {pour_moi} pour {self._compte}" if pour_moi else "aucun ne t'est adressé"],
+                f"{len(arrives)} new messages in the mailbox",
+                [f"including {pour_moi} for {self._compte}" if pour_moi else "none are addressed to you"],
                 self._lien(arrives[-1]) if self._lien else None)
             return
         for m in arrives:
-            titre = f"{m.de} t'écrit" if m.est_pour(self._compte) else f"{m.de} → {', '.join(m.a)}"
+            titre = f"{m.de} wrote to you" if m.est_pour(self._compte) else f"{m.de} → {', '.join(m.a)}"
             self._notificateur.notifier(titre, [m.titre, *m.corps[:1]], self._lien(m) if self._lien else None)

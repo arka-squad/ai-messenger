@@ -15,12 +15,12 @@ class PiecesDossier(PiecesJointes):
     def deposer(self, source: str) -> str:
         source = os.path.abspath(os.path.expanduser(source))
         if not os.path.isfile(source):
-            raise PieceJointeRefusee(f"pièce jointe introuvable : {source}")
+            raise PieceJointeRefusee(f"attachment not found: {source}")
         nom = os.path.basename(source)
         cible = os.path.join(self._dossier, nom)
         if os.path.normcase(source) != os.path.normcase(cible):
             if os.path.exists(cible):
-                raise PieceJointeRefusee(f"un fichier « {nom} » existe déjà dans la boîte : renomme ta pièce jointe")
+                raise PieceJointeRefusee(f'a file named "{nom}" already exists in the mailbox; rename the attachment')
             os.makedirs(self._dossier, exist_ok=True)
             shutil.copy2(source, cible)
         return nom

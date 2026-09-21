@@ -89,7 +89,7 @@ class Messagerie:
 
     def initialiser(self) -> None:
         if self._boite.existe():
-            raise BoiteExistante(f"existe déjà, rien écrit : {self._boite.emplacement}")
+            raise BoiteExistante(f"already exists; nothing was written: {self._boite.emplacement}")
         self._boite.creer()
         self._annuaire.creer()
 
@@ -189,14 +189,15 @@ class Messagerie:
             compte = annuaire.compte(valider_adresse(adresse))
             if compte is not None and compte.fusionne_dans:
                 cible = annuaire.cible_de(adresse)
-                raise CompteExistant(f"« {adresse} » a été fusionné dans {cible} : reprends « {cible} »")
+                raise CompteExistant(f'"{adresse}" was merged into {cible}; identify as "{cible}"')
             if compte is None or not compte.actif:
-                raise CompteInconnu(f"pas de compte actif « {adresse} » : crée le tien avec `enroll`")
+                raise CompteInconnu(f'no active account "{adresse}"; create yours with `enroll`')
             if compte.machine and (compte.machine or "") != (machine or ""):
-                raise CompteExistant(f"« {adresse} » a été créé depuis un autre poste ({compte.machine}) : "
-                                     "ce n'est pas le tien — crée ton compte avec `enroll`")
-            if not compte.machine or compte.hote == "inconnu":
-                complet = Compte.ouvrir(compte.nom, hote if compte.hote == "inconnu" else compte.hote, compte.role,
+                raise CompteExistant(f'"{adresse}" was created on another machine ({compte.machine}); '
+                                     "it is not yours—create your account with `enroll`")
+            if not compte.machine or compte.hote in ("inconnu", "unknown"):
+                complet = Compte.ouvrir(compte.nom, hote if compte.hote in ("inconnu", "unknown") else compte.hote,
+                                        compte.role,
                                         machine=machine)
                 annuaire.inscrire(complet, mise_a_jour=True)
                 compte = annuaire.compte(compte.nom)
@@ -241,7 +242,7 @@ class Messagerie:
                 piece: Optional[str] = None, re: Optional[str] = None) -> Envoi:
         """`de` est une adresse complète ; un destinataire au nom court est cherché dans le projet de `de`,
         puis parmi les comptes communs, puis dans le carnet d'adresses de `de`."""
-        projet = projet_de(valider_adresse(de, "expéditeur"))
+        projet = projet_de(valider_adresse(de, "sender"))
         demandes = [d.strip() for d in a if d and d.strip()]
         verifiees = self._annuaire.existe()
         developpes: Dict[str, Tuple[str, ...]] = {}
@@ -321,10 +322,10 @@ class Messagerie:
     def importer(self, source: SourceAncienne) -> Import:
         """Crée la boîte à partir d'une ancienne ; crée les comptes rencontrés, à compléter."""
         if self._boite.existe():
-            raise BoiteExistante(f"la boîte existe déjà, rien écrit : {self._boite.emplacement}")
+            raise BoiteExistante(f"the mailbox already exists; nothing was written: {self._boite.emplacement}")
         messages = source.messages()
         if not messages:
-            raise MessageInvalide(f"aucun message reconnu dans {source.emplacement}")
+            raise MessageInvalide(f"no recognized messages in {source.emplacement}")
         boite = Boite(messages=list(messages))
         self._boite.creer(boite)
         self._annuaire.creer()
@@ -340,7 +341,7 @@ class Messagerie:
             for nom in noms:
                 if annuaire.compte(nom) is None and _nom_valide(nom):
                     annuaire.inscrire(Compte.ouvrir(
-                        nom, "inconnu", "compte importé — à compléter par son agent (register --update)",
+                        nom, "unknown", "imported account—to be completed by its agent (register --update)",
                         cree=self._horodatage()))
         return Import(len(messages), noms)
 

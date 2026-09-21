@@ -69,26 +69,26 @@ def executer(argv: Optional[Sequence[str]], usine: Usine) -> int:
 def _init(args: argparse.Namespace, usine: Usine) -> int:
     messagerie = usine.ouvrir(_boite(args))
     if messagerie.lecture_seule:
-        raise _Refus("on n'initialise pas une boîte Markdown : donne un dossier (arbo .aimessenger/) ou un fichier .json")
+        raise _Refus("a Markdown mailbox cannot be initialized: provide a directory (.aimessenger/ layout) or a .json file")
     messagerie.initialiser()
     onboarding = usine.poser_onboarding(_boite(args))
-    print(f"boîte créée : {messagerie.emplacement}")
-    print(f"guide d'accueil des agents : {onboarding}")
-    print("comptes, vue humaine et pièces jointes sont rangés à côté (voir PROTOCOLE.md).")
+    print(f"mailbox created: {messagerie.emplacement}")
+    print(f"agent onboarding guide: {onboarding}")
+    print("accounts, human-readable view, and attachments are stored alongside it (see PROTOCOLE.md).")
     return 0
 
 
 def _setup(args: argparse.Namespace, usine: Usine) -> int:
     if args.box is None and args.project is None:
-        raise _Refus("rien à mémoriser : passe --box (la boîte de ce poste) et/ou --project (le projet de ce dépôt)")
+        raise _Refus("nothing to remember: pass --box (this machine's mailbox) and/or --project (this repository's project)")
     if args.box is not None:
         messagerie = usine.ouvrir(args.box)
         messagerie.instantane()  # refuse une boîte illisible
         config = poste.memoriser_boite(messagerie.emplacement)
-        print(f"boîte mémorisée pour ce poste dans {config} : {messagerie.emplacement}")
+        print(f"mailbox remembered for this machine in {config}: {messagerie.emplacement}")
     if args.project:
         fichier = poste.attacher_projet(os.getcwd(), valider_nom(args.project, "projet"))
-        print(f"projet « {args.project} » attaché à ce dépôt : {fichier} (à versionner)")
+        print(f"project “{args.project}” attached to this repository: {fichier} (commit this file)")
     return 0
 
 
@@ -99,13 +99,13 @@ def _enroll(args: argparse.Namespace, usine: Usine) -> int:
         hote, args.task, args.poste or poste.code_du_poste(), _projet(args), args.machine or platform.node(),
         role=args.role, humain=args.human, releve=args.wake or "hooks (messenger.py check --hook)",
         mise_a_jour=args.update)
-    etat = "compte créé" if cree else "compte mis à jour" if args.update else "déjà inscrit"
+    etat = "account created" if cree else "account updated" if args.update else "already enrolled"
     poste.memoriser_identite(hote, os.getcwd(), compte.nom)
     if args.session:
         poste.memoriser_session(args.session, compte.nom)
-    print(f"{etat} : {compte.affichage or compte.nom}  (adresse {compte.nom})")
+    print(f"{etat}: {compte.affichage or compte.nom}  (address {compte.nom})")
     if args.session:
-        print(f"session {args.session} rattachée à {compte.nom} : cette session te reconnaît sans variable")
+        print(f"session {args.session} linked to {compte.nom}: this session now recognizes you without an environment variable")
     return 0
 
 
@@ -117,15 +117,15 @@ def _identify(args: argparse.Namespace, usine: Usine) -> int:
     poste.memoriser_identite(hote, os.getcwd(), compte.nom)
     if args.session:
         poste.memoriser_session(args.session, compte.nom)
-    print(f"c'est bien toi : {compte.affichage or compte.nom}  (adresse {compte.nom})")
-    print(f"ta relève te reconnaît désormais dans {os.getcwd()} — relève ton courrier : check --agent {compte.nom}")
+    print(f"identity confirmed: {compte.affichage or compte.nom}  (address {compte.nom})")
+    print(f"mail checks now recognize you in {os.getcwd()} — check your mail: check --agent {compte.nom}")
     return 0
 
 
 def _attach(args: argparse.Namespace, usine: Usine) -> int:
     """Ranger un compte commun dans un projet, ou l'en sortir : le geste de l'humain qui organise sa boîte."""
     compte = usine.ouvrir(_boite(args)).rattacher(args.account, args.to or None)
-    print(f"{compte.nom} → {'projet ' + compte.projet if compte.projet else 'sans projet (compte commun)'}")
+    print(f"{compte.nom} → {'project ' + compte.projet if compte.projet else 'no project (shared account)'}")
     return 0
 
 
@@ -134,9 +134,9 @@ def _merge(args: argparse.Namespace, usine: Usine) -> int:
     messagerie = usine.ouvrir(_boite(args))
     marque = messagerie.fusionner(args.account, args.into)
     herites = messagerie.releve(args.into)
-    print(f"{marque.nom} → fusionné dans {args.into}")
-    print(f"  son courrier en attente arrive à {args.into} ({len(herites)} message(s) « nouveau » à relever) ;")
-    print(f"  écrire à {marque.nom} mène désormais à {args.into} ; les messages déjà envoyés ne changent pas.")
+    print(f"{marque.nom} → merged into {args.into}")
+    print(f"  pending mail now reaches {args.into} ({len(herites)} nouveau message(s) to check);")
+    print(f"  mail sent to {marque.nom} now reaches {args.into}; existing messages remain unchanged.")
     return 0
 
 
@@ -149,20 +149,20 @@ def _activate(args: argparse.Namespace, usine: Usine) -> int:
     else:
         chemin = poste.resoudre_boite(None)
         if not chemin:
-            raise _Refus("aucune boîte sur ce poste : passe --box <dossier>, "
-                         "ou fais d'abord `messenger.py setup --box <dossier>`")
-    projet = valider_nom(args.project, "projet") if args.project else None
+            raise _Refus("no mailbox configured on this machine: pass --box <directory>, "
+                         "or first run `messenger.py setup --box <directory>`")
+    projet = valider_nom(args.project, "project") if args.project else None
     try:
         resume = poste.activer_depot(os.getcwd(), projet, usine.depot(), box=chemin, releve=not args.no_releve)
     except poste.ActivationRefusee as e:
         raise _Refus(str(e)) from None
     if resume["projet"]:
         _declarer_projet(usine, chemin, resume["projet"])
-    print(f"dépôt connecté : {resume['dossier']}")
-    print(f"  boîte (poste) : {resume['boite']}")
-    print(f"  projet        : {resume['projet'] or '— (compte commun)'}")
+    print(f"repository connected: {resume['dossier']}")
+    print(f"  mailbox (machine): {resume['boite']}")
+    print(f"  project          : {resume['projet'] or '— (shared account)'}")
     _afficher_hotes(resume["hotes"])
-    print("Chaque session ouverte ici sera invitée à s'enrôler, puis relèvera seule.")
+    print("Every session opened here will be invited to enroll and will then check mail automatically.")
     return 0
 
 
@@ -185,10 +185,10 @@ def _install(args: argparse.Namespace, usine: Usine) -> int:
     except hotes.EquipementRefuse as e:
         raise _Refus(str(e)) from None
     if not etats:
-        print("aucun hôte IA trouvé sur ce poste (Claude Code, Codex, Kimi Code, Antigravity, Cursor)")
+        print("no supported AI host found on this machine (Claude Code, Codex, Kimi Code, Antigravity, Cursor)")
         return 0
     _afficher_hotes(etats)
-    print("Pris en compte à la prochaine session de chaque hôte (Codex peut demander de valider ses hooks).")
+    print("Changes take effect in each host's next session (Codex may ask you to approve its hooks).")
     return 0
 
 
@@ -228,7 +228,7 @@ def _start(args: argparse.Namespace, usine: Usine) -> int:
     if args.log:
         _journaliser(args.log)
     if not usine.interface():
-        raise _Refus("l'interface n'est pas là (ui/dist) : récupère le dépôt en entier, ou lance `npm run build`")
+        raise _Refus("the built interface is missing (ui/dist): obtain the complete repository or run `npm run build`")
     import webbrowser
     from .web import OUTIL
 
@@ -236,14 +236,14 @@ def _start(args: argparse.Namespace, usine: Usine) -> int:
     for port in range(args.port, args.port + 20):
         outil = _qui_ecoute(port)
         if outil == OUTIL:
-            print(f"la boîte est déjà allumée : http://127.0.0.1:{port}/", flush=True)
+            print(f"the mailbox is already running: http://127.0.0.1:{port}/", flush=True)
             if not args.no_browser:
                 webbrowser.open(f"http://127.0.0.1:{port}/")
             return 0
         if outil is None and _port_libre(port):
             break
     else:
-        raise _Refus(f"aucun port libre entre {args.port} et {args.port + 19} : ferme ce qui les occupe")
+        raise _Refus(f"no free port between {args.port} and {args.port + 19}: close the process using those ports")
     args.port = port
     args.api = False
     args.front = None
@@ -256,17 +256,17 @@ def _shortcut(args: argparse.Namespace, usine: Usine) -> int:
     """Poser l'icône « Messenger » sur le bureau : un double-clic allumera la boîte, sans terminal."""
     try:
         if args.remove:
-            print("raccourci retiré du bureau" if raccourci.retirer() else "aucun raccourci sur le bureau")
+            print("desktop shortcut removed" if raccourci.retirer() else "no desktop shortcut found")
             return 0
         if not usine.interface():
-            raise _Refus("l'interface n'est pas là (ui/dist) : récupère le dépôt en entier, ou lance `npm run build`")
+            raise _Refus("the built interface is missing (ui/dist): obtain the complete repository or run `npm run build`")
         cible = raccourci.poser(usine.depot())
     except raccourci.RaccourciImpossible as e:
         raise _Refus(str(e)) from None
-    print(f"icône posée sur le bureau : {cible}")
-    print("Double-clique dessus pour allumer la boîte : elle s'ouvre dans ton navigateur.")
+    print(f"desktop icon created: {cible}")
+    print("Double-click it to start the mailbox and open it in your browser.")
     if not poste.resoudre_boite(None):
-        print("(aucune boîte sur ce poste pour l'instant : l'interface proposera « Créer la boîte »)")
+        print("(no mailbox configured on this machine yet; the interface will offer Create mailbox)")
     return 0
 
 
@@ -313,7 +313,7 @@ def _register(args: argparse.Namespace, usine: Usine) -> int:
         machine=args.machine or (None if args.update else platform.node()),
         modele=args.model, humain=args.human, releve=args.wake, affichage=args.display,
         mise_a_jour=args.update)
-    print(f"compte {'créé' if cree else 'mis à jour'} : {compte.nom} ({compte.hote}, {compte.machine})")
+    print(f"account {'created' if cree else 'updated'}: {compte.nom} ({compte.hote}, {compte.machine})")
     return 0
 
 
@@ -321,7 +321,7 @@ def _agents(args: argparse.Namespace, usine: Usine) -> int:
     messagerie = usine.ouvrir(_boite(args))
     racine = os.path.splitext(messagerie.emplacement)[0]
     if not messagerie.annuaire_present():
-        print(f"pas de manifeste pour cette boîte ({racine}.manifest.json) : aucun compte")
+        print(f"this mailbox has no manifest ({racine}.manifest.json): no accounts")
         return 0
     comptes = messagerie.comptes(tous=True, projet=args.project or None)
     if args.json:
@@ -329,7 +329,7 @@ def _agents(args: argparse.Namespace, usine: Usine) -> int:
         return 0
     for c in comptes:
         if c.actif or args.all:
-            etat = "" if c.actif else "  [désactivé]"
+            etat = "" if c.actif else "  [disabled]"
             print(f"{c.nom:28} {c.hote:12} {c.machine or '?':22} {c.role}{etat}")
     return 0
 
@@ -338,7 +338,7 @@ def _deactivate(args: argparse.Namespace, usine: Usine) -> int:
     messagerie = usine.ouvrir(_boite(args))
     nom = _agent(args, messagerie)
     messagerie.desactiver(nom)
-    print(f"compte désactivé : {nom} (conservé dans le manifeste, réactivable par register --update)")
+    print(f"account deactivated: {nom} (kept in the manifest; register --update can reactivate it)")
     return 0
 
 
@@ -347,9 +347,9 @@ def _send(args: argparse.Namespace, usine: Usine) -> int:
     envoi = messagerie.envoyer(
         _agent(args, messagerie), args.to.split(","), args.subject, args.body or "", args.attach, args.reply_to)
     if not envoi.adresses_verifiees:
-        sys.stderr.write("(boîte sans manifeste : destinataires non vérifiés — crée les comptes avec `register`)\n")
+        sys.stderr.write("(mailbox without a manifest: recipients were not verified; create accounts with `register`)\n")
     for alias, adresses in envoi.alias_developpes:
-        sys.stderr.write(f"(carnet : {alias} → {', '.join(adresses)})\n")
+        sys.stderr.write(f"(address book: {alias} → {', '.join(adresses)})\n")
     print(envoi.message.id)
     return 0
 
@@ -362,10 +362,10 @@ def _contacts(args: argparse.Namespace, usine: Usine) -> int:
               end="")
         return 0
     if not carnet.contacts:
-        print("carnet vide : `contact-add --alias <alias> --to <adresse>[,<autre>] --note \"quand lui écrire\"`")
+        print("empty address book: `contact-add --alias <alias> --to <address>[,<another>] --note \"when to write\"`")
         return 0
     for c in carnet.contacts:
-        masque = f"  [masqué par le compte {carnet.masques[c.alias]} : renomme-le]" if c.alias in carnet.masques else ""
+        masque = f"  [shadowed by account {carnet.masques[c.alias]}; rename it]" if c.alias in carnet.masques else ""
         print(f"{c.alias:20} → {', '.join(c.adresses)}{('  — ' + c.note) if c.note else ''}{masque}")
     return 0
 
@@ -374,14 +374,14 @@ def _contact_add(args: argparse.Namespace, usine: Usine) -> int:
     messagerie = usine.ouvrir(_boite(args))
     contact = messagerie.noter_contact(_agent(args, messagerie), args.alias, args.to.split(","), args.note,
                                        remplacer=args.replace)
-    print(f"contact noté : {contact.alias} → {', '.join(contact.adresses)}")
+    print(f"contact saved: {contact.alias} → {', '.join(contact.adresses)}")
     return 0
 
 
 def _contact_remove(args: argparse.Namespace, usine: Usine) -> int:
     messagerie = usine.ouvrir(_boite(args))
     contact = messagerie.retirer_contact(_agent(args, messagerie), args.alias)
-    print(f"contact retiré : {contact.alias} (était {', '.join(contact.adresses)})")
+    print(f"contact removed: {contact.alias} (was {', '.join(contact.adresses)})")
     return 0
 
 
@@ -430,12 +430,12 @@ def _check(args: argparse.Namespace, usine: Usine) -> int:
         consigne_veille = [] if veille else [_consigne_veille(agent, session, usine.depot())]
         if trouves:
             print(json.dumps({"decision": "block", "reason": "\n".join([
-                f"COURRIER — {len(trouves)} message(s) pour {agent}, arrivé(s) pendant que tu travaillais. "
-                "Avant de t'arrêter :",
+                f"MAIL — {len(trouves)} message(s) for {agent}, received while you were working. "
+                "Before stopping:",
                 *(_resume(m) for m in trouves),
-                "Lis chaque pièce jointe, agis, puis marque « lu » ou « traité » (outil MCP `mark`, ou "
-                f"`messenger.py mark --agent {agent} --id <id> --status lu|traité`). Si un message ne te "
-                "demande rien, marque-le simplement.",
+                "Read every attachment, act, then mark lu or traité (MCP `mark`, or "
+                f"`messenger.py mark --agent {agent} --id <id> --status lu|traité`). If a message "
+                "requires no action, simply mark it.",
                 *consigne_veille,
             ])}, ensure_ascii=False))
             return 0
@@ -444,7 +444,7 @@ def _check(args: argparse.Namespace, usine: Usine) -> int:
             return 0
         poste.noter_annonce(session, ["veille"])
         print(json.dumps({"decision": "block",
-                          "reason": "Avant de t'arrêter — " + _consigne_veille(agent, session, usine.depot())},
+                          "reason": "Before stopping — " + _consigne_veille(agent, session, usine.depot())},
                          ensure_ascii=False))
         return 0
     if not trouves:
@@ -454,13 +454,13 @@ def _check(args: argparse.Namespace, usine: Usine) -> int:
         flux.write(en_json({"agent": agent, "nouveaux": [message_vers_dict(m) for m in trouves]}))
     else:
         flux.write("\n".join([
-            f"COURRIER — {len(trouves)} message(s) au statut « nouveau » pour {agent}.",
+            f"MAIL — {len(trouves)} message(s) with status nouveau for {agent}.",
             # Un hook peut injecter ce courrier dans une session voisine : elle doit savoir l'ignorer.
-            f"Si tu n'es pas {agent}, ce courrier ne t'est pas adressé : ignore-le — n'agis pas, "
-            "ne le marque pas, ne réponds pas à sa place.",
-            f"Boîte : {messagerie.emplacement}",
+            f"If you are not {agent}, this mail is not addressed to you: ignore it. Do not act, "
+            "mark it, or reply on the recipient's behalf.",
+            f"Mailbox: {messagerie.emplacement}",
             *(_resume(m) for m in trouves),
-            f"À faire : lire chaque pièce jointe, agir, puis "
+            f"Next: read every attachment, act, then run "
             f"`messenger.py mark --agent {agent} --id <id> --status lu|traité`.",
         ]) + "\n")
     return SORTIE_COURRIER if args.wake else 0
@@ -491,7 +491,7 @@ def _watch(args: argparse.Namespace, usine: Usine) -> int:
     messagerie = usine.ouvrir(_boite(args))
     agent = args.agent or poste.resoudre_agent(None, args.session, args.host, os.getcwd())
     if not agent:
-        raise _Refus("dis-moi qui tu es : --agent <adresse> (ou enrôle-toi d'abord)")
+        raise _Refus("identify yourself with --agent <address>, or enroll first")
     agent = messagerie.adresse(valider_adresse(agent), _projet(args))
     battement = _tenir_la_veille(args.session, agent) if args.session else None
     try:
@@ -504,12 +504,12 @@ def _watch(args: argparse.Namespace, usine: Usine) -> int:
             # la veille est finie : au prochain tour, la fin de tour rappellera de la relancer
             poste.oublier_annonce(args.session, "veille")
     if not recus:
-        print(f"aucun message pour {agent} en {args.max_hours:g} h — relance la veille si tu attends toujours")
+        print(f"no message for {agent} in {args.max_hours:g} h — restart the watch if you are still waiting")
         return SORTIE_ECHEANCE
-    print(f"COURRIER — {len(recus)} nouveau(x) message(s) pour {agent}.")
+    print(f"MAIL — {len(recus)} new message(s) for {agent}.")
     for m in recus:
         print(_resume(m))
-    print("À faire : lire, agir, marquer (`mark`) — puis relance ta veille (watch).")
+    print("Next: read, act, mark (`mark`), then restart your watch.")
     return 0
 
 
@@ -532,10 +532,10 @@ def _tenir_la_veille(session: str, agent: str) -> threading.Event:
 def _migrate(args: argparse.Namespace, usine: Usine) -> int:
     cible = usine.ouvrir(_boite(args))
     if cible.lecture_seule:
-        raise _Refus("la boîte cible ne peut pas être une boîte Markdown : donne un dossier ou un fichier .json")
+        raise _Refus("the target cannot be a Markdown mailbox: provide a directory or .json file")
     resultat = cible.importer(usine.ancienne_boite(args.source))
-    print(f"{resultat.messages} messages importés dans {cible.emplacement}")
-    print(f"comptes importés, à compléter par chaque agent : {', '.join(resultat.comptes)}")
+    print(f"{resultat.messages} messages imported into {cible.emplacement}")
+    print(f"imported accounts, to be completed by their agents: {', '.join(resultat.comptes)}")
     return 0
 
 
@@ -558,8 +558,8 @@ def _ui(args: argparse.Namespace, usine: Usine) -> int:
 
     messagerie, demo = resolveur()
     if demo:
-        print("aucune boîte configurée : ouverture de la boîte de démonstration "
-              "(crée la tienne depuis l'interface, ou `messenger.py setup --box <chemin>`)", flush=True)
+        print("no mailbox configured: opening the demo mailbox "
+              "(create yours in the interface, or run `messenger.py setup --box <path>`)", flush=True)
     adresse = args.link or (f"http://127.0.0.1:{args.port}/" if front else None)
     annonceur = None if args.no_notify else Annonceur(
         messagerie, usine.notificateur(), compte,
@@ -574,7 +574,7 @@ def _notify(args: argparse.Namespace, usine: Usine) -> int:
     messagerie = usine.ouvrir(_boite(args))
     annonceur = Annonceur(messagerie, usine.notificateur(), compte)
     annonceur.relever()
-    print(f"notifications système pour {messagerie.emplacement} — Ctrl+C pour arrêter", flush=True)
+    print(f"system notifications for {messagerie.emplacement} — Ctrl+C to stop", flush=True)
     while True:
         time.sleep(args.interval)
         try:
@@ -589,14 +589,14 @@ def _notify(args: argparse.Namespace, usine: Usine) -> int:
 def _boite(args: argparse.Namespace) -> str:
     chemin = poste.resoudre_boite(getattr(args, "box", None))
     if not chemin:
-        raise _Refus("boîte inconnue : passe --box, ou MESSENGER_BOX, ou `messenger.py setup --box <chemin>`")
+        raise _Refus("unknown mailbox: pass --box, set MESSENGER_BOX, or run `messenger.py setup --box <path>`")
     return chemin
 
 
 def _nom_agent(args: argparse.Namespace) -> str:
     agent = poste.resoudre_agent(getattr(args, "agent", None))
     if not agent:
-        raise _Refus("agent inconnu : passe --agent <nom>, ou MESSENGER_AGENT")
+        raise _Refus("unknown agent: pass --agent <name> or set MESSENGER_AGENT")
     return valider_adresse(agent)
 
 
@@ -607,16 +607,16 @@ def _agent(args: argparse.Namespace, messagerie: Messagerie) -> str:
 
 def _projet(args: argparse.Namespace, dossier: Optional[str] = None) -> Optional[str]:
     projet = poste.resoudre_projet(getattr(args, "project", None), dossier)
-    return valider_nom(projet, "projet") if projet else None
+    return valider_nom(projet, "project") if projet else None
 
 
 def _afficher_hotes(etats) -> None:
     for e in etats:
         if not e.present:
-            print(f"  {e.nom:12} non installé sur ce poste")
+            print(f"  {e.nom:12} not installed on this machine")
             continue
-        marque = "équipé" if e.equipe else "à équiper"
-        print(f"  {e.nom:12} {marque:10} serveur MCP : {e.mcp} · relève : {e.releve} · skill : {e.skill}")
+        marque = "ready" if e.equipe else "set up"
+        print(f"  {e.nom:12} {marque:10} MCP server: {e.mcp} · mail checks: {e.releve} · skill: {e.skill}")
         if e.note:
             print(f"  {'':12} {e.note}")
 
@@ -640,9 +640,9 @@ def _consigne_veille(agent: str, session: Optional[str], depot: str) -> str:
     """Le rappel d'armer sa veille : la session sera réveillée à l'arrivée d'un message, au lieu de dormir dessus."""
     messenger = os.path.join(depot, "messenger.py")
     options = f" --session {session}" if session else ""
-    return ("ARME TA VEILLE : lance en tâche de fond (outil Bash, run_in_background) "
-            f"`python \"{messenger}\" watch --agent {agent}{options}` — tu seras réveillé dès qu'un message "
-            "t'arrive, au lieu de dormir dessus. Quand elle rend la main : lis, marque, et relance-la.")
+    return ("ARM YOUR WATCH: run in the background (Bash tool, run_in_background) "
+            f"`python \"{messenger}\" watch --agent {agent}{options}`. It wakes you as soon as mail "
+            "arrives. When it returns: read, mark, and start it again.")
 
 
 def _annoncer_courrier_en_attente(chemin: Optional[str], session: Optional[str], evenement: Optional[str],
@@ -664,14 +664,14 @@ def _annoncer_courrier_en_attente(chemin: Optional[str], session: Optional[str],
     messenger = os.path.join(usine.depot(), "messenger.py")
     options = f" --host {hote}" + (f" --session {session}" if session else "")
     sys.stdout.write("\n".join([
-        f"📬 arkalabs-messenger — du courrier attend un compte créé par {hote} sur ce poste, et cette session "
-        "n'a pas d'identité ici :",
+        f"📬 arkalabs-messenger — mail is waiting for an account created by {hote} on this machine, "
+        "but this session has no identity here:",
         *(f"- {c.nom}{' (' + c.affichage + ')' if c.affichage else ''} — {n} message(s) · {c.role}"
           for c, n in attendus),
-        "Si l'un de ces comptes est le tien, reprends-le depuis ce dossier :",
-        "- si ton hôte a le serveur MCP « arkalabs-messenger » : outil `identify` (argument `address`), puis `check` ;",
-        f"- sinon : \"{sys.executable}\" \"{messenger}\" identify --address <adresse>{options}",
-        "Sinon, ignore ceci : ce courrier n'est pas pour toi — n'agis pas, ne le marque pas.",
+        "If one of these accounts is yours, identify it from this directory:",
+        "- with the arkalabs-messenger MCP server: call `identify` with `address`, then `check`;",
+        f"- otherwise: \"{sys.executable}\" \"{messenger}\" identify --address <address>{options}",
+        "Otherwise ignore this notice: the mail is not for you. Do not act or mark it.",
     ]) + "\n")
     return True
 
@@ -681,21 +681,21 @@ def _annoncer_enrolement(chemin: Optional[str], projet: Optional[str], session: 
     """Invite une session sans identité à s'enrôler, dans un dépôt connecté à la boîte."""
     messenger = os.path.join(depot, "messenger.py")
     options = (f" --host {hote}" if hote else "") + (f" --session {session}" if session else "")
-    boite = f" · Boîte : {chemin}" if chemin else (
-        " · Boîte : non configurée sur ce poste (`messenger.py setup --box <dossier>`, ou demande à ton humain)")
+    boite = f" · Mailbox: {chemin}" if chemin else (
+        " · Mailbox: not configured on this machine (`messenger.py setup --box <directory>`, or ask your human)")
     sys.stdout.write("\n".join([
-        "📬 arkalabs-messenger — ce dépôt est connecté à une boîte aux lettres, mais tu n'y es pas encore enrôlé.",
-        f"Projet : {projet or '— (compte commun)'}" + boite,
-        "Choisis un intitulé de tâche court et durable, puis crée ton compte :",
-        "- si ton hôte a le serveur MCP « arkalabs-messenger » : appelle son outil `enroll` ;",
-        f"- sinon : \"{sys.executable}\" \"{messenger}\" enroll --task \"<ta tâche>\"{options}",
-        "Ton adresse (cl-agent-<tâche>-win) et ton nom lisible (CL_Agent-<Tâche>_WIN) se déduisent de ton",
-        "hôte et de ton poste. Ensuite, ta relève se fait toute seule.",
+        "📬 arkalabs-messenger — this repository is connected to a mailbox, but you are not enrolled yet.",
+        f"Project: {projet or '— (shared account)'}" + boite,
+        "Choose a short, durable task title, then create your account:",
+        "- with the arkalabs-messenger MCP server: call `enroll`;",
+        f"- otherwise: \"{sys.executable}\" \"{messenger}\" enroll --task \"<your task>\"{options}",
+        "Your address (cl-agent-<task>-win) and display name (CL_Agent-<Task>_WIN) are derived from",
+        "your host and machine. Mail checks then run automatically.",
     ]) + "\n")
 
 
 def _resume(m: Message) -> str:
-    return f"- {m.id} · {m.titre}  (de {m.de} · PJ : {m.pj or '—'})"
+    return f"- {m.id} · {m.titre}  (from {m.de} · attachment: {m.pj or '—'})"
 
 
 class _Parseur(argparse.ArgumentParser):
@@ -707,152 +707,152 @@ class _Parseur(argparse.ArgumentParser):
 
 
 def _parseur() -> argparse.ArgumentParser:
-    p = _Parseur(prog="messenger.py", description="Boîte aux lettres JSON partagée entre agents IA.")
+    p = _Parseur(prog="messenger.py", description="Shared JSON mailbox for AI agents.")
     p.add_argument("--version", action="version", version=__version__)
     s = p.add_subparsers(dest="nom", required=True, parser_class=_Parseur)
 
     def commande(nom: str, aide: str, fonction, agent: bool = True, projet: bool = True) -> argparse.ArgumentParser:
         sp = s.add_parser(nom, help=aide, description=aide)
-        sp.add_argument("--box", help="chemin de la boîte .json (sinon MESSENGER_BOX, sinon setup)")
+        sp.add_argument("--box", help="mailbox .json path (otherwise MESSENGER_BOX, then setup)")
         if agent:
-            sp.add_argument("--agent", help="ton nom d'agent (sinon MESSENGER_AGENT)")
+            sp.add_argument("--agent", help="your agent name (otherwise MESSENGER_AGENT)")
         if projet:
-            sp.add_argument("--project", help="le projet (sinon MESSENGER_PROJECT, sinon le .messenger.json du dépôt)")
+            sp.add_argument("--project", help="project (otherwise MESSENGER_PROJECT, then repository .messenger.json)")
         sp.set_defaults(commande=fonction)
         return sp
 
-    commande("init", "crée une boîte vide, son manifeste et sa vue", _init, agent=False, projet=False)
-    commande("setup", "mémorise la boîte de ce poste (--box) et/ou le projet de ce dépôt (--project)", _setup,
+    commande("init", "create an empty mailbox, account manifest, and human view", _init, agent=False, projet=False)
+    commande("setup", "remember this machine's mailbox (--box) and/or this repository's project (--project)", _setup,
              agent=False)
-    x = commande("activate", "connecte ce dépôt à la boîte : boîte du poste, projet, hôtes IA équipés", _activate,
+    x = commande("activate", "connect this repository: machine mailbox, project, and configured AI hosts", _activate,
                  agent=False)
-    x.add_argument("--no-releve", action="store_true", help="poser le serveur MCP sans la relève (hooks)")
+    x.add_argument("--no-releve", action="store_true", help="install the MCP server without mail-check hooks")
 
     ids = ", ".join(h.id for h in hotes.HOTES)
-    x = commande("install", "équipe les hôtes IA de ce poste : serveur MCP et relève", _install,
+    x = commande("install", "configure this machine's AI hosts: MCP server and mail-check hooks", _install,
                  agent=False, projet=False)
-    x.add_argument("--host", action="append", help=f"un hôte précis, répétable ({ids}) ; défaut : ceux du poste")
-    x.add_argument("--no-releve", action="store_true", help="poser le serveur MCP sans la relève (hooks)")
+    x.add_argument("--host", action="append", help=f"specific repeatable host ({ids}); default: installed hosts")
+    x.add_argument("--no-releve", action="store_true", help="install the MCP server without mail-check hooks")
     x.add_argument("--force", action="store_true",
-                   help="remplacer l'entrée d'une autre installation d'arkalabs-messenger")
-    x = commande("uninstall", "retire des hôtes IA ce que `install` y a posé", _uninstall, agent=False, projet=False)
-    x.add_argument("--host", action="append", help=f"un hôte précis, répétable ({ids})")
-    x = commande("hosts", "où en sont les hôtes IA de ce poste", _hosts, agent=False, projet=False)
-    x.add_argument("--json", action="store_true", help="sortie JSON")
-    x = commande("mcp", "le serveur MCP de la boîte, sur l'entrée et la sortie standard (lancé par l'hôte)", _mcp)
-    x.add_argument("--host", help=f"l'hôte qui lance ce serveur ({ids})")
+                   help="replace an entry created by another arkalabs-messenger installation")
+    x = commande("uninstall", "remove only what `install` added to AI hosts", _uninstall, agent=False, projet=False)
+    x.add_argument("--host", action="append", help=f"specific repeatable host ({ids})")
+    x = commande("hosts", "report AI-host setup on this machine", _hosts, agent=False, projet=False)
+    x.add_argument("--json", action="store_true", help="JSON output")
+    x = commande("mcp", "mailbox MCP server over standard input/output (started by the host)", _mcp)
+    x.add_argument("--host", help=f"host starting this server ({ids})")
 
-    x = commande("register", "crée ou met à jour ton compte", _register)
-    x.add_argument("--host", required=True, help="ton hôte : claude-code, kimi-code, codex, hermes, humain…")
-    x.add_argument("--role", required=True, help="en une ligne : ce que tu fais, pour qu'on sache quand t'écrire")
-    x.add_argument("--machine", help="où tu tournes (défaut : nom du poste)")
-    x.add_argument("--model", help="ton modèle, si utile")
-    x.add_argument("--human", help="l'humain responsable")
-    x.add_argument("--wake", help="comment tu relèves ton courrier (hooks, watch…)")
-    x.add_argument("--display", help="nom lisible pour un humain (sinon déduit par enroll)")
-    x.add_argument("--update", action="store_true", help="mettre à jour ton compte existant")
+    x = commande("register", "create or update your account", _register)
+    x.add_argument("--host", required=True, help="your host: claude-code, kimi-code, codex, hermes, human…")
+    x.add_argument("--role", required=True, help="one line describing what you do and when to write to you")
+    x.add_argument("--machine", help="where you run (default: machine name)")
+    x.add_argument("--model", help="your model, when useful")
+    x.add_argument("--human", help="responsible human")
+    x.add_argument("--wake", help="how you check mail (hooks, watch…)")
+    x.add_argument("--display", help="human-readable display name (otherwise derived by enroll)")
+    x.add_argument("--update", action="store_true", help="update your existing account")
 
-    x = commande("enroll", "s'inscrire avec une identité lisible déduite (hôte, tâche, poste)", _enroll, agent=False)
-    x.add_argument("--task", required=True, help="l'intitulé de ta tâche, court et durable (ex. « MessengerAI »)")
-    x.add_argument("--host", help="ton hôte : claude-code, codex, kimi-code… (défaut : claude-code)")
-    x.add_argument("--poste", help="le code du poste : win, mac, lnx (défaut : d'après le système)")
-    x.add_argument("--machine", help="où tu tournes (défaut : nom du poste)")
-    x.add_argument("--role", help="ce que tu fais, en une ligne (défaut : d'après l'hôte et la tâche)")
-    x.add_argument("--human", help="l'humain responsable")
-    x.add_argument("--wake", help="comment tu relèves (défaut : hooks check --hook)")
-    x.add_argument("--session", help="l'id de session à rattacher à cet agent")
-    x.add_argument("--update", action="store_true", help="mettre à jour ton compte existant")
+    x = commande("enroll", "enroll with a readable identity derived from host, task, and machine", _enroll, agent=False)
+    x.add_argument("--task", required=True, help="short, durable task title (for example, MessengerAI)")
+    x.add_argument("--host", help="your host: claude-code, codex, kimi-code… (default: claude-code)")
+    x.add_argument("--poste", help="machine code: win, mac, lnx (default: detected)")
+    x.add_argument("--machine", help="where you run (default: machine name)")
+    x.add_argument("--role", help="one-line role (default: derived from host and task)")
+    x.add_argument("--human", help="responsible human")
+    x.add_argument("--wake", help="how you check mail (default: check --hook hooks)")
+    x.add_argument("--session", help="session id to link to this agent")
+    x.add_argument("--update", action="store_true", help="update your existing account")
 
-    x = commande("identify", "reprendre ton compte depuis ton dossier de travail (la relève saura qui tu es)",
+    x = commande("identify", "identify your existing account from this working directory",
                  _identify, agent=False)
-    x.add_argument("--address", required=True, help="ton adresse : nom, ou nom@projet")
-    x.add_argument("--host", help="ton hôte : claude-code, codex, kimi-code… (défaut : claude-code)")
-    x.add_argument("--session", help="l'id de session à rattacher à cet agent")
+    x.add_argument("--address", required=True, help="your address: name or name@project")
+    x.add_argument("--host", help="your host: claude-code, codex, kimi-code… (default: claude-code)")
+    x.add_argument("--session", help="session id to link to this agent")
 
-    x = commande("attach", "range un compte commun dans un projet, ou l'en sort (geste de l'humain)", _attach,
+    x = commande("attach", "organize a shared account into or out of a project (human action)", _attach,
                  agent=False, projet=False)
-    x.add_argument("--account", required=True, help="l'adresse du compte (sans @projet)")
-    x.add_argument("--to", default="", help="le projet ; vide pour le sortir de tout projet")
+    x.add_argument("--account", required=True, help="account address without @project")
+    x.add_argument("--to", default="", help="project; empty removes it from every project")
 
-    x = commande("merge", "fusionne deux comptes d'un même agent : courrier en attente et adresse suivent",
+    x = commande("merge", "merge two accounts owned by one agent; pending mail and addressing follow",
                  _merge, agent=False, projet=False)
-    x.add_argument("--account", required=True, help="l'adresse absorbée (l'ancien compte, en entier)")
-    x.add_argument("--into", required=True, help="l'adresse qui absorbe (le compte gardé, en entier)")
+    x.add_argument("--account", required=True, help="absorbed address (old full account)")
+    x.add_argument("--into", required=True, help="surviving full account address")
 
-    x = commande("agents", "liste les comptes", _agents, agent=False)
-    x.add_argument("--all", action="store_true", help="inclure les comptes désactivés")
-    x.add_argument("--json", action="store_true", help="sortie JSON (le manifeste)")
+    x = commande("agents", "list accounts", _agents, agent=False)
+    x.add_argument("--all", action="store_true", help="include inactive accounts")
+    x.add_argument("--json", action="store_true", help="JSON manifest output")
 
-    commande("deactivate", "désactive un compte (jamais supprimé)", _deactivate)
+    commande("deactivate", "deactivate an account without deleting it", _deactivate)
 
-    x = commande("send", "poste un message", _send)
+    x = commande("send", "send a message", _send)
     x.add_argument("--to", required=True,
-                   help="destinataires, séparés par des virgules : adresses, noms courts, ou alias de ton carnet")
+                   help="comma-separated recipients: addresses, short names, or your address-book aliases")
     x.add_argument("--subject", required=True)
-    x.add_argument("--body", default="", help="deux lignes au plus")
-    x.add_argument("--attach", help="fichier joint (copié dans le dossier de la boîte s'il n'y est pas)")
-    x.add_argument("--reply-to", help="identifiant du message auquel tu réponds")
+    x.add_argument("--body", default="", help="at most two lines")
+    x.add_argument("--attach", help="attachment copied into the mailbox when needed")
+    x.add_argument("--reply-to", help="identifier of the message being answered")
 
-    x = commande("contacts", "ton carnet d'adresses : des alias pour une adresse, ou pour un groupe", _contacts)
-    x.add_argument("--json", action="store_true", help="sortie JSON")
+    x = commande("contacts", "your address book: aliases for one address or a group", _contacts)
+    x.add_argument("--json", action="store_true", help="JSON output")
 
-    x = commande("contact-add", "note un contact dans ton carnet (utilisable dans `send --to`)", _contact_add)
-    x.add_argument("--alias", required=True, help="l'alias court : minuscules, chiffres, . _ - (32 max)")
-    x.add_argument("--to", required=True, help="l'adresse, ou plusieurs séparées par des virgules (un groupe)")
-    x.add_argument("--note", help="une ligne : qui c'est, quand lui écrire")
-    x.add_argument("--replace", action="store_true", help="remplacer un contact existant")
+    x = commande("contact-add", "save a contact for use in `send --to`", _contact_add)
+    x.add_argument("--alias", required=True, help="short alias: lowercase letters, digits, . _ - (32 max)")
+    x.add_argument("--to", required=True, help="one address or a comma-separated group")
+    x.add_argument("--note", help="one line describing who it is and when to write")
+    x.add_argument("--replace", action="store_true", help="replace an existing contact")
 
-    x = commande("contact-remove", "retire un contact de ton carnet", _contact_remove)
+    x = commande("contact-remove", "remove a contact from your address book", _contact_remove)
     x.add_argument("--alias", required=True)
 
-    x = commande("check", "relève le courrier « nouveau » (hooks)", _check)
-    x.add_argument("--wake", action="store_true", help="résumé sur stderr et code 2 s'il y a du courrier")
-    x.add_argument("--json", action="store_true", help="sortie JSON")
+    x = commande("check", "check mail with status nouveau (used by hooks)", _check)
+    x.add_argument("--wake", action="store_true", help="summary on stderr and exit code 2 when mail exists")
+    x.add_argument("--json", action="store_true", help="JSON output")
     x.add_argument("--hook", action="store_true",
-                   help="lit la charge JSON du hook Claude Code (session_id, cwd) sur l'entrée standard")
-    x.add_argument("--session", help="l'id de session (sinon lu du hook avec --hook)")
-    x.add_argument("--host", help="l'hôte qui lance cette relève (posé par `install`)")
-    x.add_argument("--event", help="le moment de la relève : SessionStart ou UserPromptSubmit (posé par `install`)")
+                   help="read hook JSON (session_id, cwd) from standard input")
+    x.add_argument("--session", help="session id (otherwise read from --hook input)")
+    x.add_argument("--host", help="host running this mail check (set by install)")
+    x.add_argument("--event", help="hook event such as SessionStart or UserPromptSubmit")
 
-    x = commande("mark", "fait avancer le statut d'un message reçu", _mark)
+    x = commande("mark", "advance the status of a received message", _mark)
     x.add_argument("--id", required=True)
     x.add_argument("--status", required=True, choices=STATUTS[1:])
 
-    x = commande("list", "affiche les messages, du plus récent au plus ancien", _list)
+    x = commande("list", "list messages from newest to oldest", _list)
     x.add_argument("--status", choices=STATUTS)
     x.add_argument("--limit", type=int, default=20)
-    x.add_argument("--json", action="store_true", help="sortie JSON")
+    x.add_argument("--json", action="store_true", help="JSON output")
 
-    x = commande("watch", "attend le prochain message pour un agent (et tient la veille de sa session)", _watch)
-    x.add_argument("--interval", type=float, default=10.0, help="secondes entre deux relèves")
+    x = commande("watch", "wait for an agent's next message and keep its session watch armed", _watch)
+    x.add_argument("--interval", type=float, default=10.0, help="seconds between checks")
     x.add_argument("--max-hours", type=float, default=12.0)
-    x.add_argument("--session", help="l'id de la session couverte : sa relève de fin de tour saura qu'elle veille")
-    x.add_argument("--host", help="ton hôte, pour retrouver ton identité mémorisée (sinon --agent)")
+    x.add_argument("--session", help="covered session id, so end-of-turn checks know a watch is active")
+    x.add_argument("--host", help="your host, used to resolve remembered identity when --agent is absent")
 
-    x = commande("migrate", "importe une ancienne boîte Markdown", _migrate, agent=False, projet=False)
-    x.add_argument("--from", dest="source", required=True, help="la boîte Markdown à importer")
+    x = commande("migrate", "import a legacy Markdown mailbox", _migrate, agent=False, projet=False)
+    x.add_argument("--from", dest="source", required=True, help="Markdown mailbox to import")
 
-    x = commande("ui", "ouvre l'interface web locale (et son API)", _ui, projet=False)
+    x = commande("ui", "open the local web interface and API", _ui, projet=False)
     x.add_argument("--port", type=int, default=8765)
-    x.add_argument("--api", action="store_true", help="API seule, sans interface (utilisé par `npm run dev`)")
-    x.add_argument("--front", help="dossier de l'interface construite (défaut : ui/dist)")
-    x.add_argument("--no-browser", action="store_true", help="ne pas ouvrir le navigateur")
+    x.add_argument("--api", action="store_true", help="API only, without the interface (used by `npm run dev`)")
+    x.add_argument("--front", help="built interface directory (default: ui/dist)")
+    x.add_argument("--no-browser", action="store_true", help="do not open the browser")
     x.add_argument("--exit-with-parent", action="store_true",
-                   help="s'arrêter quand l'entrée standard se ferme (utilisé par `npm run dev`)")
-    x.add_argument("--no-notify", action="store_true", help="sans notifications système")
-    x.add_argument("--link", help="adresse de l'interface, ouverte au clic sur une notification")
+                   help="stop when standard input closes (used by `npm run dev`)")
+    x.add_argument("--no-notify", action="store_true", help="disable system notifications")
+    x.add_argument("--link", help="interface URL opened when clicking a notification")
 
-    x = commande("start", "ouvre l'interface web locale — le point d'entrée humain (raccourci de `ui`)",
+    x = commande("start", "open the local web interface, the human entry point (ui shortcut)",
                  _start, projet=False)
     x.add_argument("--port", type=int, default=8765)
-    x.add_argument("--no-browser", action="store_true", help="ne pas ouvrir le navigateur")
-    x.add_argument("--no-notify", action="store_true", help="sans notifications système")
-    x.add_argument("--log", help="écrire le journal dans ce fichier (lancement sans console : raccourci du bureau)")
+    x.add_argument("--no-browser", action="store_true", help="do not open the browser")
+    x.add_argument("--no-notify", action="store_true", help="disable system notifications")
+    x.add_argument("--log", help="write logs to this file (console-free desktop shortcut)")
 
-    x = commande("shortcut", "pose l'icône « Messenger » sur le bureau : un double-clic allume la boîte", _shortcut,
+    x = commande("shortcut", "create a Messenger desktop icon that starts the mailbox", _shortcut,
                  agent=False, projet=False)
-    x.add_argument("--remove", action="store_true", help="retirer l'icône du bureau")
+    x.add_argument("--remove", action="store_true", help="remove the desktop icon")
 
-    x = commande("notify", "notifie chaque message qui passe, sans interface", _notify, projet=False)
-    x.add_argument("--interval", type=float, default=5.0, help="secondes entre deux relèves")
+    x = commande("notify", "notify every message without opening the interface", _notify, projet=False)
+    x.add_argument("--interval", type=float, default=5.0, help="seconds between checks")
     return p

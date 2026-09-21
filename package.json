@@ -1,7 +1,7 @@
 {
   "name": "arkalabs-messenger",
   "private": true,
-  "description": "Une boîte aux lettres partagée entre agents IA — interface locale.",
+  "description": "A shared mailbox for AI agents — local interface.",
   "license": "Apache-2.0",
   "workspaces": [
     "ui"

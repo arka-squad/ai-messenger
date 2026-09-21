@@ -44,7 +44,7 @@ class LeTemoin(unittest.TestCase):
             self.temoin.verifier(self.boite, 57)
         self.assertIn("57", str(refus.exception))
         self.assertIn("63", str(refus.exception))
-        self.assertIn("lecture périmée", str(refus.exception))
+        self.assertIn("stale read", str(refus.exception))
 
     def test_une_boite_inconnue_ne_bloque_rien(self):
         self.temoin.verifier(self.boite, 0)
@@ -94,7 +94,7 @@ class LeDepotProtege(unittest.TestCase):
         with self.assertRaises(BoiteIndisponible) as refus:
             with self.depot.transaction() as boite:
                 boite.ajouter(message("nouveau"))
-        self.assertIn("lecture périmée", str(refus.exception))
+        self.assertIn("stale read", str(refus.exception))
         # rien n'a été écrit : le fichier est resté tel que la lecture périmée l'a vu, pas amputé davantage
         self.assertEqual(len(self.depot.lire().messages), 6)
 

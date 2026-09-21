@@ -42,7 +42,7 @@ class Annonces(unittest.TestCase):
         m.envoyer("claude-windows", ["kimi-mac"], "Build prêt")
         self.assertEqual(len(annonceur.relever()), 2)
         self.assertEqual(notificateur.recues, [
-            ("kimi-mac t'écrit", ["On publie ce soir ?", "Le plugin est prêt."],
+            ("kimi-mac wrote to you", ["On publie ce soir ?", "Le plugin est prêt."],
              f"http://interface/?message={pour_moi.id}"),
             ("claude-windows → kimi-mac", ["Build prêt"], notificateur.recues[1][2]),
         ])
@@ -63,7 +63,7 @@ class Annonces(unittest.TestCase):
             m.envoyer("kimi-mac", ["owner" if i < 2 else "claude-windows"], f"Message {i}")
         annonceur.relever()
         self.assertEqual(len(notificateur.recues), 1)
-        self.assertEqual(notificateur.recues[0][:2], ("5 nouveaux messages dans la boîte", ["dont 2 pour owner"]))
+        self.assertEqual(notificateur.recues[0][:2], ("5 new messages in the mailbox", ["including 2 for owner"]))
 
     def test_coupe_n_annonce_pas_mais_suit_la_boite(self):
         m, notificateur, annonceur = installation()

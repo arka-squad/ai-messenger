@@ -43,7 +43,7 @@ class BoiteJson(Dossier):
         with open(os.path.join(self.dossier, "boite.md"), encoding="utf-8") as f:
             vue = f.read()
         self.assertIn("### 1 · Objet", vue)
-        self.assertIn("**De** windows → **À** kimi · **Statut** nouveau · **PJ** [detail.md](detail.md)", vue)
+        self.assertIn("**From** windows → **To** kimi · **Status** nouveau · **Attachment** [detail.md](detail.md)", vue)
 
     def test_conserve_les_champs_inconnus(self):
         with open(self.boite, "w", encoding="utf-8") as f:
@@ -72,9 +72,9 @@ class BoiteJson(Dossier):
 
     def test_boite_absente_illisible_ou_non_conforme(self):
         depot = DepotBoiteJson(self.boite)
-        with self.assertRaisesRegex(BoiteIndisponible, "introuvable"):
+        with self.assertRaisesRegex(BoiteIndisponible, "not found"):
             depot.lire()
-        for contenu, motif in (("{pas du json", "JSON invalide"), ('{"version": 1}', "non conforme")):
+        for contenu, motif in (("{pas du json", "invalid JSON"), ('{"version": 1}', "invalid mailbox format")):
             with open(self.boite, "w", encoding="utf-8") as f:
                 f.write(contenu)
             with self.assertRaisesRegex(BoiteIndisponible, motif):
@@ -93,7 +93,7 @@ class Verrou(Dossier):
 
     def test_attend_puis_renonce(self):
         open(self.boite + ".lock", "w").close()
-        with self.assertRaisesRegex(BoiteIndisponible, "verrouillé"):
+        with self.assertRaisesRegex(BoiteIndisponible, "locked"):
             with verrou(self.boite, attente=0.3):
                 pass
 
@@ -120,7 +120,7 @@ class Pieces(Dossier):
             f.write("détail")
         pieces = PiecesDossier(self.dossier)
         self.assertEqual(pieces.deposer(fichier), "rapport.md")
-        with self.assertRaisesRegex(PieceJointeRefusee, "existe déjà"):
+        with self.assertRaisesRegex(PieceJointeRefusee, "already exists"):
             pieces.deposer(fichier)
         self.assertEqual(pieces.deposer(os.path.join(self.dossier, "rapport.md")), "rapport.md")
         self.assertIsNotNone(pieces.localiser("rapport.md"))

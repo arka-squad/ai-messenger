@@ -76,8 +76,8 @@ class LigneDeCommande(unittest.TestCase):
         # ré-enrôlement de la même machine → on réutilise le même compte
         code, out, _ = self.cmd("enroll", "--task", "Build", "--host", "claude-code", "--poste", "win",
                                 "--machine", "PC-A")
-        self.assertIn("déjà inscrit", out)
-        self.assertIn("(adresse cl-agent-build-win)", out)
+        self.assertIn("already enrolled", out)
+        self.assertIn("(address cl-agent-build-win)", out)
 
     def test_check_hook_releve_par_session_sans_variable(self):
         self.cmd("init")
@@ -98,8 +98,8 @@ class LigneDeCommande(unittest.TestCase):
         charge = json.dumps({"session_id": "S9", "cwd": self.dossier, "hook_event_name": "SessionStart"})
         code, out, _ = self.cmd("check", "--hook", "--host", "codex", entree=charge)
         self.assertEqual(code, 0)
-        self.assertIn("pas encore enrôlé", out)
-        self.assertIn("outil `enroll`", out)
+        self.assertIn("not enrolled yet", out)
+        self.assertIn("call `enroll`", out)
         self.assertIn("--host codex --session S9", out)
 
     def test_check_hook_muet_hors_d_un_depot_connecte(self):
@@ -129,7 +129,7 @@ class LigneDeCommande(unittest.TestCase):
         os.makedirs(depot_projet)
         code, out, err = self.cmd("activate", "--project", "demo", cwd=depot_projet)
         self.assertEqual(code, 0, err)
-        self.assertIn("dépôt connecté", out)
+        self.assertIn("repository connected", out)
         self.assertIn("Claude Code", out)
         self.assertTrue(os.path.isfile(os.path.join(depot_projet, ".messenger.json")))
         self.assertFalse(os.path.exists(os.path.join(depot_projet, ".claude")))

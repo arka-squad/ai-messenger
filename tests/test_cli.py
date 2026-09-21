@@ -35,7 +35,7 @@ class LigneDeCommande(unittest.TestCase):
     def test_parcours_complet(self):
         code, out, _ = self.cmd("init")
         self.assertEqual(code, 0)
-        self.assertIn("boîte créée", out)
+        self.assertIn("mailbox created", out)
         self.inscrire("windows", "kimi")
 
         code, mid, _ = self.cmd("send", "--agent", "windows", "--to", "kimi", "--subject", "Build prêt",
@@ -46,7 +46,7 @@ class LigneDeCommande(unittest.TestCase):
         code, out, _ = self.cmd("check", "--agent", "kimi")
         self.assertEqual(code, 0)
         self.assertIn(f"- {mid} · Build prêt", out)
-        self.assertIn("Si tu n'es pas kimi, ce courrier ne t'est pas adressé : ignore-le", out)
+        self.assertIn("If you are not kimi, this mail is not addressed to you: ignore it", out)
         self.assertEqual(self.cmd("check", "--agent", "kimi", "--wake")[0], 2)
         self.assertEqual(self.cmd("check", "--agent", "windows")[1], "")
 
@@ -65,7 +65,7 @@ class LigneDeCommande(unittest.TestCase):
         self.assertEqual(liste[1]["historique"][0]["par"], "kimi")
 
         with open(os.path.join(self.dossier, "partage", "boite.md"), encoding="utf-8") as f:
-            self.assertIn(f"Re : {mid} — Reçu", f.read())
+            self.assertIn(f"Re: {mid} — Reçu", f.read())
 
     def test_refus_en_code_1(self):
         self.cmd("init")
@@ -92,7 +92,7 @@ class LigneDeCommande(unittest.TestCase):
     def test_migrate_puis_utilisation(self):
         code, out, _ = self.cmd("migrate", "--from", ANCIENNE)
         self.assertEqual(code, 0)
-        self.assertIn("3 messages importés", out)
+        self.assertIn("3 messages imported", out)
         self.assertIn("mac", self.cmd("agents")[1])
         self.assertIn("20260917-2250-mac", self.cmd("check", "--agent", "windows")[1])
 
@@ -104,7 +104,7 @@ class LigneDeCommande(unittest.TestCase):
         code, _, err = self.cmd("mark", "--agent", "windows", "--id", "20260917-2250-mac", "--status", "lu",
                                 *argv, box=False)
         self.assertEqual(code, 1)
-        self.assertIn("lecture seule", err)
+        self.assertIn("read-only", err)
 
 
 if __name__ == "__main__":

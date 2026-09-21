@@ -32,7 +32,7 @@ class DepotAnnuaireJson(DepotAnnuaire):
         except FileNotFoundError:
             return Annuaire()
         except ValueError:
-            raise BoiteIndisponible(f"manifeste illisible, JSON invalide : {self._chemin}") from None
+            raise BoiteIndisponible(f"unreadable manifest, invalid JSON: {self._chemin}") from None
         except OSError as e:
             raise BoiteIndisponible(f"manifeste injoignable : {self._chemin} ({e.strerror})") from None
         try:

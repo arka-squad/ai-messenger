@@ -1,5 +1,5 @@
-/** La boîte à travers l'API locale (`messenger.py ui`), relayée par Vite en développement. */
-import { LANGUE_DEFAUT, langueDuNavigateur, normaliseLangue, t, type Langue } from '../domain/langue/index.ts';
+/** The mailbox through the local API (`messenger.py ui`), proxied by Vite in development. */
+import { LANGUE_DEFAUT, normaliseLangue, t, type Langue } from '../domain/langue/index.ts';
 import type { PortBoite } from '../application/ports.ts';
 import type { Activation, Creation, Etat, Invitation, Message, Poste, Statut } from '../domain/types.ts';
 
@@ -13,12 +13,11 @@ export function messageDErreur(langue: Langue, statut: number, erreur: string | 
   return erreur ?? t(langue, 'technique.api_silencieuse', { statut });
 }
 
-/** La langue de l'interface, relue à chaque appel : cet adaptateur vit hors de React, où la langue est un
- *  contexte. La clé est celle de `PreferencesLocales` ; à défaut de préférence, la langue du navigateur,
- *  comme au premier montage du fournisseur. */
+/** Read the interface language on every call because this adapter lives outside React context.
+ *  The key matches `PreferencesLocales`; without a saved preference, English is the product default. */
 function langueCourante(): Langue {
   try {
-    return normaliseLangue(window.localStorage.getItem('arkalabs-messenger:langue')) ?? langueDuNavigateur();
+    return normaliseLangue(window.localStorage.getItem('arkalabs-messenger:langue')) ?? LANGUE_DEFAUT;
   } catch {
     return LANGUE_DEFAUT;
   }

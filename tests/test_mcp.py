@@ -129,7 +129,7 @@ class Identite(Serveur):
         self.messagerie.inscrire("kimi-mac", "kimi-code", "plugins", machine="un-autre-poste")
         _, resultat = self.outil("identify", address="kimi-mac")
         self.assertTrue(resultat["isError"])
-        self.assertIn("autre poste", resultat["content"][0]["text"])
+        self.assertIn("another machine", resultat["content"][0]["text"])
 
     def test_le_projet_vient_du_depot(self):
         poste.attacher_projet(self.depot, "talos")
@@ -167,10 +167,10 @@ class Courrier(Serveur):
     def test_les_refus_du_domaine_arrivent_en_clair(self):
         pas_pour_moi = self.messagerie.envoyer("owner", ["owner"], "Note à moi-même").message
         for nom, arguments, attendu in (
-                ("mark", {"id": pas_pour_moi.id, "status": "lu"}, "n'est pas destinataire"),
-                ("send", {"to": ["personne"], "subject": "s"}, "sans compte actif"),
-                ("send", {"to": ["owner"], "subject": "s", "body": "a\nb\nc"}, "deux lignes"),
-                ("read", {"id": "inexistant"}, "introuvable")):
+                ("mark", {"id": pas_pour_moi.id, "status": "lu"}, "not a recipient"),
+                ("send", {"to": ["personne"], "subject": "s"}, "without an active account"),
+                ("send", {"to": ["owner"], "subject": "s", "body": "a\nb\nc"}, "two lines"),
+                ("read", {"id": "inexistant"}, "not found")):
             with self.subTest(outil=nom):
                 _, resultat = self.outil(nom, **arguments)
                 self.assertTrue(resultat["isError"])
@@ -191,7 +191,7 @@ class Courrier(Serveur):
         self.assertEqual((envoi["to"], envoi["expanded"]), (["owner"], {"chef": ["owner"]}))
         _, refus = self.outil("contact_add", alias="owner", addresses=["owner"])
         self.assertTrue(refus["isError"])
-        self.assertIn("déjà l'adresse d'un compte", refus["content"][0]["text"])
+        self.assertIn("already an account address", refus["content"][0]["text"])
         self.assertEqual(self.outil("contact_remove", alias="chef")[0]["removed"]["alias"], "chef")
         self.assertEqual(self.outil("contacts")[0]["contacts"], [])
 

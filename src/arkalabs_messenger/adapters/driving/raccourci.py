@@ -50,7 +50,7 @@ def bureau_du_poste(systeme: Optional[str] = None) -> str:
         trouve = None
     bureau = trouve if trouve and os.path.isdir(trouve) else os.path.join(os.path.expanduser("~"), "Desktop")
     if not os.path.isdir(bureau):
-        raise RaccourciImpossible(f"dossier du bureau introuvable ({bureau})")
+        raise RaccourciImpossible(f"desktop directory not found ({bureau})")
     return bureau
 
 
@@ -71,7 +71,7 @@ def poser(depot: str, python: Optional[str] = None, bureau: Optional[str] = None
         else:
             _poser_linux(cible, python, messenger)
     except OSError as e:
-        raise RaccourciImpossible(f"raccourci impossible à écrire ({cible}) : {e.strerror or e}") from None
+        raise RaccourciImpossible(f"could not write shortcut ({cible}): {e.strerror or e}") from None
     return cible
 
 
@@ -108,7 +108,7 @@ def _poser_windows(cible: str, python: str, messenger: str, depot: str) -> None:
         "$r.Arguments = $env:AM_ARGS",
         "$r.WorkingDirectory = $env:AM_DOSSIER",
         "$r.IconLocation = $env:AM_ICONE",
-        "$r.Description = 'Allumer la boîte aux lettres des agents'",
+        "$r.Description = 'Open the agent mailbox'",
         "$r.WindowStyle = 7",
         "$r.Save()",
     ])
@@ -116,7 +116,8 @@ def _poser_windows(cible: str, python: str, messenger: str, depot: str) -> None:
                               capture_output=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if resultat.returncode != 0 or not os.path.isfile(cible):
         detail = " ".join(resultat.stderr.decode("utf-8", "replace").split())[:200]
-        raise RaccourciImpossible(f"Windows a refusé de créer le raccourci ({detail or 'code ' + str(resultat.returncode)})")
+        raise RaccourciImpossible(f"Windows refused to create the shortcut "
+                                  f"({detail or 'code ' + str(resultat.returncode)})")
 
 
 def _poser_macos(cible: str, python: str, messenger: str) -> None:
@@ -140,7 +141,7 @@ def _poser_linux(cible: str, python: str, messenger: str) -> None:
     with open(cible, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join([
             "[Desktop Entry]", "Type=Application", f"Name={NOM}",
-            "Comment=Allumer la boîte aux lettres des agents",
+            "Comment=Open the agent mailbox",
             f"Exec={_sh(python)} {_sh(messenger)} start --log {_sh(os.path.join(os.path.expanduser('~'), JOURNAL))}",
             f"Icon={os.path.join(_RESSOURCES, 'messenger.png')}", "Terminal=false", "Categories=Utility;", ""]))
     os.chmod(cible, os.stat(cible).st_mode | stat.S_IXUSR)

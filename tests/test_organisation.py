@@ -34,7 +34,7 @@ class Rattachement(unittest.TestCase):
         self.assertEqual((a.projet_de("windows"), a.projet_de("kimi@talos"), a.projet_de("inconnu@x")),
                          ("cortex", "talos", "x"))
         self.assertIsNone(a.rattacher("windows", None).projet)
-        with self.assertRaisesRegex(MessageInvalide, "porte déjà son projet"):
+        with self.assertRaisesRegex(MessageInvalide, "already carries its project"):
             a.rattacher("kimi@talos", "cortex")
         with self.assertRaises(CompteInconnu):
             a.rattacher("personne", "cortex")
@@ -76,7 +76,7 @@ class Reprendre(unittest.TestCase):
         self.assertEqual(self.m.reprendre("addon", "claude-code", "mon-mac").nom, "addon")
 
     def test_pas_celui_d_un_autre_poste(self):
-        with self.assertRaisesRegex(CompteExistant, "autre poste"):
+        with self.assertRaisesRegex(CompteExistant, "another machine"):
             self.m.reprendre("addon", "claude-code", "un-autre-poste")
         with self.assertRaises(CompteInconnu):
             self.m.reprendre("personne", "claude-code", "mon-mac")
@@ -128,20 +128,20 @@ class Releve(unittest.TestCase):
         return self.cmd("check", "--hook", "--host", "claude-code", "--event", evenement, entree=charge)
 
     def test_la_ou_il_s_est_enrole_il_recoit(self):
-        self.assertIn(f"COURRIER — 1 message(s) au statut « nouveau » pour {self.adresse}", self.hook(self.ici, "s1"))
+        self.assertIn(f"MAIL — 1 message(s) with status nouveau for {self.adresse}", self.hook(self.ici, "s1"))
 
     def test_ailleurs_il_est_prevenu_une_fois_puis_il_reprend_son_compte(self):
         sortie = self.hook(self.travail, "s2")
-        self.assertIn("du courrier attend un compte créé par claude-code sur ce poste", sortie)
+        self.assertIn("mail is waiting for an account created by claude-code on this machine", sortie)
         self.assertIn(f"- {self.adresse} (CL_Agent-Addon_{poste.code_du_poste().upper()}) — 1 message(s)", sortie)
         self.assertIn("identify --address", sortie)
         self.assertEqual(self.hook(self.travail, "s2"), "")  # pas à chaque message
         self.assertEqual(self.hook(self.travail, "s3", "SessionStart").count("📬"), 1)  # une autre session, si
 
         depot = os.path.dirname(self.travail)
-        self.assertIn("c'est bien toi", self.cmd("identify", "--address", self.adresse, "--host", "claude-code",
+        self.assertIn("identity confirmed", self.cmd("identify", "--address", self.adresse, "--host", "claude-code",
                                                  cwd=depot))
-        self.assertIn("COURRIER — 1 message(s)", self.hook(self.travail, "s4"))  # reconnu dans le sous-dossier
+        self.assertIn("MAIL — 1 message(s)", self.hook(self.travail, "s4"))  # recognized in a subdirectory
 
     def test_le_courrier_arrive_en_fin_de_tour_retient_l_agent_une_fois(self):
         """L'événement `Stop` de Claude Code : l'agent est rattrapé avant de s'endormir, sans boucle."""
@@ -150,9 +150,9 @@ class Releve(unittest.TestCase):
                           entree=json.dumps(charge))
         reponse = json.loads(sortie)
         self.assertEqual(reponse["decision"], "block")
-        self.assertIn("arrivé(s) pendant que tu travaillais", reponse["reason"])
+        self.assertIn("received while you were working", reponse["reason"])
         self.assertIn("Tu me reçois ?", reponse["reason"])
-        self.assertIn("ARME TA VEILLE", reponse["reason"])  # la session n'a pas de veille : on le lui dit
+        self.assertIn("ARM YOUR WATCH", reponse["reason"])
         # la prolongation ne bloque pas une seconde fois : pas de boucle
         charge["stop_hook_active"] = True
         self.assertEqual(self.cmd("check", "--hook", "--host", "claude-code", "--event", "Stop",
@@ -164,7 +164,7 @@ class Releve(unittest.TestCase):
         charge = {"session_id": "s6", "cwd": self.ici, "hook_event_name": "Stop"}
         rappel = json.loads(self.cmd("check", "--hook", "--host", "claude-code", "--event", "Stop",
                                      entree=json.dumps(charge)))
-        self.assertIn("ARME TA VEILLE", rappel["reason"])
+        self.assertIn("ARM YOUR WATCH", rappel["reason"])
         self.assertIn(f"watch --agent {self.adresse} --session s6", rappel["reason"])
         self.assertEqual(self.cmd("check", "--hook", "--host", "claude-code", "--event", "Stop",
                                   entree=json.dumps(charge)), "")
@@ -196,7 +196,7 @@ class Releve(unittest.TestCase):
             sortie, _ = veilleur.communicate(timeout=30)
             self.assertEqual(veilleur.returncode, 0)
             self.assertIn("Réveil", sortie.decode("utf-8"))
-            self.assertIn("relance ta veille", sortie.decode("utf-8"))
+            self.assertIn("restart your watch", sortie.decode("utf-8"))
         finally:
             if veilleur.poll() is None:
                 veilleur.kill()
@@ -207,14 +207,14 @@ class Releve(unittest.TestCase):
                  "--status", "lu")
         rappel = json.loads(self.cmd("check", "--hook", "--host", "claude-code", "--event", "Stop",
                                      entree=charge))
-        self.assertIn("ARME TA VEILLE", rappel["reason"])
+        self.assertIn("ARM YOUR WATCH", rappel["reason"])
 
     def test_la_fin_de_tour_ne_derange_pas_une_session_sans_identite(self):
         """Et ne consomme pas l'annonce « du courrier attend » : elle reste due au prochain vrai moment."""
         charge = json.dumps({"session_id": "s7", "cwd": self.travail, "hook_event_name": "Stop"})
         self.assertEqual(self.cmd("check", "--hook", "--host", "claude-code", "--event", "Stop",
                                   entree=charge), "")
-        self.assertIn("du courrier attend", self.hook(self.travail, "s7"))
+        self.assertIn("mail is waiting", self.hook(self.travail, "s7"))
 
     def test_un_autre_hote_n_est_pas_derange(self):
         charge = json.dumps({"session_id": "k1", "cwd": self.travail})
@@ -222,8 +222,8 @@ class Releve(unittest.TestCase):
                                   entree=charge), "")
 
     def test_ranger_un_compte_depuis_la_ligne_de_commande(self):
-        self.assertIn(f"{self.adresse} → projet cortex", self.cmd("attach", "--account", self.adresse, "--to", "cortex"))
-        self.assertIn("sans projet", self.cmd("attach", "--account", self.adresse))
+        self.assertIn(f"{self.adresse} → project cortex", self.cmd("attach", "--account", self.adresse, "--to", "cortex"))
+        self.assertIn("no project", self.cmd("attach", "--account", self.adresse))
 
 
 class Interface(unittest.TestCase):
@@ -268,7 +268,7 @@ class Interface(unittest.TestCase):
     def test_l_invite_porte_le_projet_choisi_et_le_cree(self):
         code, rep = self.post("/api/invite", {"projet": "cortex"})
         self.assertEqual(code, 200)
-        self.assertIn('enroll --task "<ta tâche>" --project cortex', rep["invite"])
+        self.assertIn('enroll --task "<your-task>" --project cortex', rep["invite"])
         self.assertEqual(self.get("/api/boite")["projets"], ["cortex"])  # connu avant qu'un agent arrive
         self.assertIn('--project ""', self.post("/api/invite", {"projet": None})[1]["invite"])
         self.assertEqual(self.post("/api/invite", {"projet": "Pas Valide"})[0], 409)
@@ -293,7 +293,7 @@ class Interface(unittest.TestCase):
         self.assertEqual([c.alias for c in self.messagerie.carnet("windows").contacts], ["equipe"])
         code, rep = self.post("/api/contact", {"compte": "windows", "alias": "mac", "adresses": ["owner"]})
         self.assertEqual(code, 409)
-        self.assertIn("déjà l'adresse d'un compte", rep["erreur"])
+        self.assertIn("already an account address", rep["erreur"])
         self.assertEqual(self.post("/api/contact-retirer", {"compte": "windows", "alias": "equipe"})[0], 200)
         self.assertEqual(self.messagerie.carnet("windows").contacts, ())
         self.assertEqual(self.post("/api/contact", {"compte": "windows", "alias": "x"})[0], 400)
@@ -305,7 +305,7 @@ class Interface(unittest.TestCase):
         self.assertEqual([m.id for m in self.messagerie.releve("mac")], [recu.id])
         code, rep = self.post("/api/fusionner", {"compte": "windows", "dans": "owner"})
         self.assertEqual(code, 409)
-        self.assertIn("déjà fusionné", rep["erreur"])
+        self.assertIn("already merged", rep["erreur"])
 
     def test_dire_au_poste_ou_est_la_boite(self):
         """Le geste NAS : chaque machine désigne le même dossier partagé, vu par son propre chemin."""
@@ -318,7 +318,7 @@ class Interface(unittest.TestCase):
         self.assertEqual(poste.resoudre_boite(None), autre.emplacement)  # mémorisé pour ce poste
         code, rep = self.post("/api/boite-du-poste", {"dossier": os.path.join(self.dossier, "vide")})
         self.assertEqual(code, 404)
-        self.assertIn("aucune boîte dans ce dossier", rep["erreur"])
+        self.assertIn("no mailbox in this directory", rep["erreur"])
 
     def test_ce_poste_et_sa_preparation(self):
         avant = self.get("/api/poste")

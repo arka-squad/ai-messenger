@@ -1,13 +1,13 @@
-/** La langue de l'interface : un réglage de ce poste, jamais de la boîte (qui est partagée). */
+/** Interface language: a machine-local preference, never shared mailbox data. */
 export type Langue = 'fr' | 'en';
 
-export const LANGUE_DEFAUT: Langue = 'fr';
+export const LANGUE_DEFAUT: Langue = 'en';
 
 export function normaliseLangue(valeur: string | null): Langue | null {
   return valeur === 'fr' || valeur === 'en' ? valeur : null;
 }
 
-/** La langue du navigateur, ramenée à fr ou en : tout ce qui n'est pas francophone donne en. */
+/** Browser language reduced to fr or en. Kept for explicit opt-in or migrations. */
 export function langueDuNavigateur(): Langue {
   return typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('fr') ? 'fr' : 'en';
 }

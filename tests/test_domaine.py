@@ -41,7 +41,7 @@ class Redaction(unittest.TestCase):
         self.assertEqual(b.corps, ("ligne 1", "ligne 2"))
 
     def test_refuse_un_corps_de_trois_lignes(self):
-        with self.assertRaisesRegex(MessageInvalide, "deux lignes"):
+        with self.assertRaisesRegex(MessageInvalide, "two lines"):
             Brouillon.rediger("windows", ["kimi"], "Objet", ["a", "b", "c"])
 
     def test_refuse_objet_vide_et_sans_destinataire(self):
@@ -62,11 +62,11 @@ class Statuts(unittest.TestCase):
         self.assertEqual([(t.par, t.statut, t.date) for t in m.historique], [("kimi", "lu", "t1"), ("kimi", "traité", "t2")])
 
     def test_seul_un_destinataire_fait_avancer(self):
-        with self.assertRaisesRegex(TransitionRefusee, "n'est pas destinataire"):
+        with self.assertRaisesRegex(TransitionRefusee, "not a recipient"):
             message().avancer("windows", "lu", "t")
 
     def test_un_statut_ne_recule_pas(self):
-        with self.assertRaisesRegex(TransitionRefusee, "ne recule pas"):
+        with self.assertRaisesRegex(TransitionRefusee, "cannot move backward"):
             message(statut="traité").avancer("kimi", "lu", "t")
         with self.assertRaises(TransitionRefusee):
             message(statut="lu").avancer("kimi", "lu", "t")
@@ -78,7 +78,7 @@ class Statuts(unittest.TestCase):
         self.assertIsNone(message().suite_pour("windows"))
 
     def test_titre_d_une_reponse(self):
-        self.assertEqual(message(re="20260918-2248-kimi").titre, "Re : 20260918-2248-kimi — Objet")
+        self.assertEqual(message(re="20260918-2248-kimi").titre, "Re: 20260918-2248-kimi — Objet")
 
 
 class BoiteAgregat(unittest.TestCase):
@@ -110,7 +110,7 @@ class Comptes(unittest.TestCase):
     def test_inscrire_puis_refuser_le_doublon(self):
         a = Annuaire()
         self.assertTrue(a.inscrire(Compte.ouvrir("kimi-mac", "kimi-code", "dev", machine="Mac")))
-        with self.assertRaisesRegex(CompteExistant, "existe déjà"):
+        with self.assertRaisesRegex(CompteExistant, "already exists"):
             a.inscrire(Compte.ouvrir("kimi-mac", "kimi-code", "autre"))
 
     def test_mise_a_jour_garde_creation_et_champs_omis(self):
@@ -126,9 +126,9 @@ class Comptes(unittest.TestCase):
         a.inscrire(Compte.ouvrir("kimi", "kimi-code", "dev"))
         a.desactiver("kimi")
         self.assertEqual(a.actifs(), ["windows"])
-        with self.assertRaisesRegex(CompteInconnu, "comptes actifs : windows"):
+        with self.assertRaisesRegex(CompteInconnu, "active accounts: windows"):
             a.verifier("windows", ["kimi"])
-        with self.assertRaisesRegex(CompteInconnu, "n'a pas de compte actif"):
+        with self.assertRaisesRegex(CompteInconnu, "has no active account"):
             a.verifier("kimi", ["windows"])
 
     def test_role_obligatoire(self):

@@ -100,36 +100,35 @@ def _invite(messagerie: Messagerie, demonstration: bool, depot: Optional[str],
     if demonstration or messagerie.lecture_seule:
         return None
     onboarding = os.path.join(messagerie.racine, "onboarding.md")
-    outil = os.path.join(depot, "messenger.py") if depot else "messenger.py (dépôt arkalabs-messenger)"
-    agents = os.path.join(depot, "AGENTS.md") if depot else "AGENTS.md du dépôt arkalabs-messenger"
+    outil = os.path.join(depot, "messenger.py") if depot else "messenger.py (arkalabs-messenger repository)"
+    agents = os.path.join(depot, "AGENTS.md") if depot else "AGENTS.md in the arkalabs-messenger repository"
     if compte is not None:
         return "\n".join([
-            f"Tu es l'agent « {compte.affichage or compte.nom} » (adresse {compte.nom}) de la boîte aux lettres "
-            "partagée des agents. Du courrier t'y attend peut-être, et ta relève ne te reconnaît pas encore ici.",
-            f"Boîte : {messagerie.emplacement}",
-            f"Outil : {outil} (lis {agents})",
-            "Depuis ton dossier de travail, reprends ton compte — ta relève saura ensuite qui tu es :",
-            f"- si ton hôte a le serveur MCP « arkalabs-messenger » : outil `identify` avec address \"{compte.nom}\" ;",
-            f"- sinon : python3 \"{outil}\" identify --address {compte.nom} --host <ton hôte>",
-            "Puis relève ton courrier (`check`), lis les pièces jointes, réponds, et marque « traité ».",
-            f"Si la machine n'est pas encore équipée, suis d'abord l'étape 1 de {onboarding}.",
+            f'You are agent "{compte.affichage or compte.nom}" (address {compte.nom}) in the shared agent '
+            "mailbox. Mail may be waiting, and mail checks do not recognize you here yet.",
+            f"Mailbox: {messagerie.emplacement}",
+            f"Tool: {outil} (read {agents})",
+            "From your working directory, resume your account so future mail checks recognize you:",
+            f'- if your host has the `arkalabs-messenger` MCP server, call `identify` with address "{compte.nom}";',
+            f'- otherwise: python3 "{outil}" identify --address {compte.nom} --host <your-host>',
+            "Then check your mail (`check`), read attachments, reply, and mark messages `traité`.",
+            f"If the machine is not configured yet, complete step 1 in {onboarding} first.",
         ])
     if projet is _PROJET_DU_DEPOT:
         consigne = []
     elif projet:
-        consigne = [f"Ton projet : {projet} — crée ton compte DANS ce projet : outil MCP `enroll` avec "
-                    f"project \"{projet}\", ou `enroll --task \"<ta tâche>\" --project {projet}`."]
+        consigne = [f"Your project: {projet}. Create your account IN this project with MCP tool `enroll` and "
+                    f"project \"{projet}\", or `enroll --task \"<your-task>\" --project {projet}`."]
     else:
-        consigne = ["Ton projet : aucun — crée un compte commun à tous les projets : outil MCP `enroll` avec "
-                    "project \"\", ou `enroll --task \"<ta tâche>\" --project \"\"`."]
+        consigne = ["Your project: none. Create an account shared by all projects with MCP tool `enroll` and "
+                    "project \"\", or `enroll --task \"<your-task>\" --project \"\"`."]
     return "\n".join([
-        "Tu es un agent IA sur cette machine. Une boîte aux lettres partagée est active : "
-        "présente-toi et relève ton courrier.",
-        f"Boîte : {messagerie.emplacement}",
-        f"Outil : {outil} (lis {agents})",
+        "You are an AI agent on this machine. A shared mailbox is active: introduce yourself and check your mail.",
+        f"Mailbox: {messagerie.emplacement}",
+        f"Tool: {outil} (read {agents})",
         *consigne,
-        f"Lis {onboarding} et suis-le : équipe cette machine si personne ne l'a encore fait "
-        "(étape 1), puis crée ton compte (étape 2), puis relève ton courrier.",
+        f"Read and follow {onboarding}: configure this machine if nobody has done so yet (step 1), "
+        "create your account (step 2), then check your mail.",
     ])
 
 
@@ -167,13 +166,13 @@ def servir(messagerie: Messagerie, compte: str, port: int, front: Optional[str],
         serveur = creer_serveur(messagerie, compte, port, front, demonstration, annonceur, depot, resolveur, usine,
                                 eteignable=bool(front) and not lie_au_parent)
     except OSError:
-        raise BoiteIndisponible(f"le port {port} est occupé : relance avec --port <autre>") from None
+        raise BoiteIndisponible(f"port {port} is in use; restart with --port <another-port>") from None
     url = f"http://127.0.0.1:{serveur.server_address[1]}/"
-    mode = "lecture seule (ancienne boîte Markdown)" if messagerie.lecture_seule else f"au nom de {compte}"
+    mode = "read-only (legacy Markdown mailbox)" if messagerie.lecture_seule else f"as {compte}"
     print(f"Messenger — {url}{'' if front else 'api/boite'}", flush=True)
-    print(f"boîte : {messagerie.emplacement} · {mode}", flush=True)
+    print(f"mailbox: {messagerie.emplacement} · {mode}", flush=True)
     if not front and not lie_au_parent:  # lancée par `npm run dev`, l'interface est déjà là
-        print("API seule : l'interface se lance avec `npm run dev`, ou se construit avec `npm run build`.",
+        print("API only: run the interface with `npm run dev`, or build it with `npm run build`.",
               flush=True)
     elif ouvrir_navigateur:
         threading.Timer(0.4, lambda: webbrowser.open(url)).start()
@@ -257,7 +256,7 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
         # -- Routes -----------------------------------------------------------
         def do_GET(self) -> None:  # noqa: N802
             if not self._hote_admis():
-                return self._erreur(403, "hôte refusé")
+                return self._erreur(403, "host refused")
             chemin = urllib.parse.urlsplit(self.path).path
             try:
                 if chemin == "/api/boite":
@@ -273,27 +272,27 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                     return self._piece_jointe(urllib.parse.unquote(chemin[len("/pj/"):]))
                 if front and not chemin.startswith("/api/"):
                     return self._front(chemin)
-                return self._erreur(404, "introuvable")
+                return self._erreur(404, "not found")
             except ErreurMessenger as e:
                 return self._erreur(503, str(e))
             except OSError as e:
-                return self._erreur(503, f"boîte injoignable : {e.strerror or e}")
+                return self._erreur(503, f"mailbox unavailable: {e.strerror or e}")
 
         def do_POST(self) -> None:  # noqa: N802
             if not self._hote_admis() or not self._meme_origine():
-                return self._erreur(403, "requête refusée : origine inconnue")
+                return self._erreur(403, "request refused: unknown origin")
             chemin = urllib.parse.urlsplit(self.path).path
             if chemin not in ("/api/statut", "/api/notifications", "/api/activer", "/api/creer",
                               "/api/choisir-dossier", "/api/preparer", "/api/eteindre", "/api/invite",
                               "/api/rattacher", "/api/contact", "/api/contact-retirer", "/api/fusionner",
                               "/api/boite-du-poste"):
-                return self._erreur(404, "introuvable")
+                return self._erreur(404, "not found")
             if not self.headers.get("Content-Type", "").startswith("application/json"):
-                return self._erreur(415, "JSON attendu")
+                return self._erreur(415, "expected JSON")
             try:
                 taille = int(self.headers.get("Content-Length") or 0)
                 if taille > _ENTREE_MAX:
-                    return self._erreur(413, "demande trop longue")
+                    return self._erreur(413, "request too large")
                 demande = json.loads(self.rfile.read(taille) or b"{}")
                 if chemin == "/api/notifications":
                     return self._notifications(demande)
@@ -315,13 +314,13 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                 messagerie = self._courant()[0]
                 message = messagerie.marquer(compte, str(demande["id"]), str(demande["statut"]))
             except (ValueError, KeyError, TypeError):
-                return self._erreur(400, "demande illisible : {\"id\", \"statut\"} attendus")
+                return self._erreur(400, 'unreadable request: expected {"id", "statut"}')
             except BoiteIndisponible as e:
                 return self._erreur(503, str(e))
             except ErreurMessenger as e:
                 return self._erreur(409, str(e))
             except OSError as e:
-                return self._erreur(503, f"boîte injoignable : {e.strerror or e}")
+                return self._erreur(503, f"mailbox unavailable: {e.strerror or e}")
             vu = {**message_vers_dict(message), "mien": message.statut_vu_par(messagerie.identites(compte))}
             return self._json(200, {"message": vu, "version": messagerie.version()})
 
@@ -330,9 +329,9 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
             dans un projet, tenir le carnet d'adresses d'un agent."""
             messagerie, demonstration = self._courant()
             if demonstration or messagerie.lecture_seule:
-                return self._erreur(409, "aucune boîte inscriptible : crée d'abord la boîte")
+                return self._erreur(409, "no writable mailbox; create the mailbox first")
             if not isinstance(demande, dict):
-                return self._erreur(400, "demande illisible : un objet JSON est attendu")
+                return self._erreur(400, "unreadable request: expected a JSON object")
             try:
                 if chemin == "/api/invite":
                     return self._json(200, {"invite": self._inviter(messagerie, demande)})
@@ -344,18 +343,18 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                 elif chemin == "/api/contact":
                     adresses = demande["adresses"]
                     if not isinstance(adresses, list) or not all(isinstance(a, str) for a in adresses):
-                        return self._erreur(400, 'demande illisible : "adresses" est une liste d\'adresses')
+                        return self._erreur(400, 'unreadable request: "adresses" must be a list of addresses')
                     note = demande.get("note")
                     messagerie.noter_contact(adresse, str(demande["alias"]), adresses,
                                              str(note) if note else None, remplacer=bool(demande.get("remplacer")))
                 else:
                     messagerie.retirer_contact(adresse, str(demande["alias"]))
             except KeyError as e:
-                return self._erreur(400, f"demande illisible : champ {e} attendu")
+                return self._erreur(400, f"unreadable request: expected field {e}")
             except ErreurMessenger as e:
                 return self._erreur(409, str(e))
             except OSError as e:
-                return self._erreur(503, f"boîte injoignable : {e.strerror or e}")
+                return self._erreur(503, f"mailbox unavailable: {e.strerror or e}")
             return self._json(200, {"version": messagerie.version()})
 
         def _inviter(self, messagerie: Messagerie, demande: Dict[str, Any]) -> Optional[str]:
@@ -366,7 +365,7 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
                 if compte is None:
                     raise KeyError("compte")
                 return _invite(messagerie, False, depot, compte=compte)
-            projet = valider_nom(str(demande["projet"]), "projet") if demande.get("projet") else None
+            projet = valider_nom(str(demande["projet"]), "project") if demande.get("projet") else None
             if projet:
                 messagerie.declarer_projet(projet)
             return _invite(messagerie, False, depot, projet=projet)
@@ -380,19 +379,19 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
         def _preparer(self) -> None:
             """Équipe les outils d'IA du poste (voir `hotes.py`) : le geste de `messenger.py install`."""
             if not depot:
-                return self._erreur(409, "préparation indisponible : dépôt de l'outil introuvable")
+                return self._erreur(409, "setup unavailable: tool repository not found")
             try:
                 hotes.equiper_presents(hotes.contexte(depot))
             except hotes.EquipementRefuse as e:
                 return self._erreur(409, str(e))
             except OSError as e:
-                return self._erreur(500, f"préparation impossible : {e.strerror or e}")
+                return self._erreur(500, f"setup failed: {e.strerror or e}")
             return self._json(200, self._poste())
 
         def _eteindre(self) -> None:
             """Arrête cette fenêtre sur la boîte. Les agents n'en dépendent pas : ils continuent de s'écrire."""
             if not eteignable:
-                return self._erreur(409, "cette boîte n'a pas été allumée d'ici : ferme l'outil qui l'a lancée")
+                return self._erreur(409, "this mailbox was not started here; close the tool that started it")
             self._json(200, {"eteinte": True})
             threading.Thread(target=self.server.shutdown, daemon=True).start()
 
@@ -400,16 +399,16 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
             """Connecte un projet : déclare le dépôt et équipe les hôtes IA du poste (voir `hotes.py`)."""
             messagerie, demonstration = self._courant()
             if demonstration or messagerie.lecture_seule:
-                return self._erreur(409, "aucune boîte inscriptible : crée d'abord la boîte")
+                return self._erreur(409, "no writable mailbox; create the mailbox first")
             if not depot:
-                return self._erreur(409, "activation indisponible : dépôt de l'outil introuvable")
+                return self._erreur(409, "activation unavailable: tool repository not found")
             if not isinstance(demande, dict) or not isinstance(demande.get("dossier"), str) \
                     or not demande["dossier"].strip():
-                return self._erreur(400, 'demande illisible : {"dossier": "<chemin local>", "projet": "<nom?>"}')
+                return self._erreur(400, 'unreadable request: {"dossier": "<local path>", "projet": "<name?>"}')
             projet = None
             if demande.get("projet"):
                 try:
-                    projet = valider_nom(str(demande["projet"]), "projet")
+                    projet = valider_nom(str(demande["projet"]), "project")
                 except ErreurMessenger as e:
                     return self._erreur(400, str(e))
             try:
@@ -417,25 +416,25 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
             except poste.ActivationRefusee as e:
                 return self._erreur(400, str(e))
             except OSError as e:
-                return self._erreur(500, f"activation impossible : {e.strerror or e}")
+                return self._erreur(500, f"activation failed: {e.strerror or e}")
             if resume["projet"]:
                 try:  # le projet est connu de la boîte dès maintenant : l'interface le montre sans attendre un agent
                     messagerie.declarer_projet(resume["projet"])
                 except (ErreurMessenger, BoiteIndisponible, OSError) as e:
-                    return self._erreur(500, f"projet connecté, mais pas noté dans la boîte : {e}")
+                    return self._erreur(500, f"project connected but not recorded in the mailbox: {e}")
             return self._json(200, {**resume, "hotes": [h.vers_dict() for h in resume["hotes"]]})
 
         def _creer(self, demande: Any) -> None:
             """Crée une boîte (arbo .aimessenger/) dans un dossier et s'y branche pour ce poste."""
             if usine is None:
-                return self._erreur(409, "création indisponible pour cette interface")
+                return self._erreur(409, "mailbox creation is unavailable in this interface")
             if not isinstance(demande, dict) or not isinstance(demande.get("dossier"), str) \
                     or not demande["dossier"].strip():
-                return self._erreur(400, 'demande illisible : {"dossier": "<dossier partagé>"}')
+                return self._erreur(400, 'unreadable request: {"dossier": "<shared directory>"}')
             try:
                 messagerie = usine.ouvrir(demande["dossier"])
                 if messagerie.lecture_seule:
-                    return self._erreur(409, "ce dossier pointe une boîte Markdown en lecture seule")
+                    return self._erreur(409, "this directory points to a read-only Markdown mailbox")
                 try:
                     messagerie.initialiser()
                 except BoiteExistante:
@@ -445,7 +444,7 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
             except ErreurMessenger as e:
                 return self._erreur(409, str(e))
             except OSError as e:
-                return self._erreur(500, f"création impossible : {e.strerror or e}")
+                return self._erreur(500, f"creation failed: {e.strerror or e}")
             return self._json(200, {"cree": True, "boite": messagerie.emplacement})
 
         def _boite_du_poste(self, demande: Any) -> None:
@@ -456,18 +455,17 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
             """
             if not isinstance(demande, dict) or not isinstance(demande.get("dossier"), str) \
                     or not demande["dossier"].strip():
-                return self._erreur(400, 'demande illisible : {"dossier": "<chemin local du dossier partagé>"}')
+                return self._erreur(400, 'unreadable request: {"dossier": "<local path to shared directory>"}')
             boite = poste.trouver_boite(demande["dossier"].strip())
             if boite is None:
-                return self._erreur(404, "aucune boîte dans ce dossier : vérifie le chemin, "
-                                         "ou crée-la ici avec « Créer la boîte »")
+                return self._erreur(404, "no mailbox in this directory; check the path or create one here")
             try:
                 if usine is None:
-                    return self._erreur(409, "changement de boîte indisponible pour cette interface")
+                    return self._erreur(409, "switching mailboxes is unavailable in this interface")
                 messagerie = usine.ouvrir(boite)
                 messagerie.instantane()  # refuse une boîte illisible avant de la mémoriser
             except (ErreurMessenger, OSError) as e:
-                return self._erreur(409, f"cette boîte ne s'ouvre pas : {e}")
+                return self._erreur(409, f"cannot open this mailbox: {e}")
             poste.memoriser_boite(messagerie.emplacement)
             return self._json(200, {"boite": messagerie.emplacement})
 
@@ -478,20 +476,20 @@ def _gestionnaire(resolveur, compte: str, front: Optional[str], depot: Optional[
             except poste.SelecteurIndisponible as e:
                 return self._erreur(501, str(e))
             except OSError as e:
-                return self._erreur(500, f"sélecteur indisponible : {e.strerror or e}")
+                return self._erreur(500, f"directory picker unavailable: {e.strerror or e}")
 
         def _notifications(self, demande: Any) -> None:
             if annonceur is None:
-                return self._erreur(409, "notifications système indisponibles pour cette interface")
+                return self._erreur(409, "system notifications are unavailable in this interface")
             if not isinstance(demande, dict) or not isinstance(demande.get("actives"), bool):
-                return self._erreur(400, 'demande illisible : {"actives": true|false} attendu')
+                return self._erreur(400, 'unreadable request: expected {"actives": true|false}')
             annonceur.actif = demande["actives"]
             return self._json(200, {"notifications": annonceur.actif})
 
         def _piece_jointe(self, nom: str) -> None:
             chemin = self._courant()[0].piece_jointe(nom)
             if not chemin:
-                return self._erreur(404, f"pièce jointe introuvable : {nom}")
+                return self._erreur(404, f"attachment not found: {nom}")
             extension = os.path.splitext(nom)[1].lower()
             isolee = {"Content-Security-Policy": "sandbox", "Content-Disposition": "inline"}
             if extension in _IMAGES:

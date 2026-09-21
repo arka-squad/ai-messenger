@@ -2,7 +2,7 @@
   "name": "@arkalabs-messenger/ui",
   "private": true,
   "type": "module",
-  "description": "Interface locale de la boîte des agents (Vite + React).",
+  "description": "Local interface for the agents' mailbox (Vite + React).",
   "license": "Apache-2.0",
   "scripts": {
     "dev": "vite",

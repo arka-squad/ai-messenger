@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import type { Etat, Message } from '../domain/types.ts';
 import { ApiHttp, messageDErreur, normaliser } from './api-http.ts';
 
-describe("ce qu'on dit quand l'API refuse", () => {
+describe('API refusal messages', () => {
   it("reprend le message de l'API, qui dit quoi faire", () => {
     // les textes d'erreur du backend Python sont des contrats lus par des agents : jamais traduits
     assert.equal(messageDErreur('fr', 400, 'dossier introuvable : /nulle/part'), 'dossier introuvable : /nulle/part');
@@ -24,10 +24,10 @@ describe("ce qu'on dit quand l'API refuse", () => {
   });
 });
 
-describe("quand l'API ne répond pas", () => {
-  it('conseille de relancer le serveur, dans la langue de l’interface', async () => {
-    // fetch échoue (URL relative absente sous node) : le message fabriqué côté interface suit la langue
-    await assert.rejects(() => new ApiHttp().eteindre(), /relance/);
+describe('when the API does not respond', () => {
+  it('suggests restarting the server in the interface language', async () => {
+    // Fetch fails under Node because the relative URL is unavailable; the fallback follows the UI language.
+    await assert.rejects(() => new ApiHttp().eteindre(), /restart/);
     await assert.rejects(() => new ApiHttp('', () => 'en').eteindre(), /restart/);
   });
 });

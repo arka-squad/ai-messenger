@@ -35,11 +35,11 @@ CLE = "arkalabs-messenger"
 """Le nom du serveur MCP, et de la skill, dans la configuration des hôtes."""
 
 ABSENT = "absent"
-VERIFIE = "vérifié"
+VERIFIE = "verified"
 DIVERGENT = "divergent"
-AILLEURS = "ailleurs"
-ILLISIBLE = "illisible"
-SANS_OBJET = "sans objet"
+AILLEURS = "elsewhere"
+ILLISIBLE = "unreadable"
+SANS_OBJET = "not applicable"
 
 EVENEMENTS: Tuple[str, ...] = ("SessionStart", "UserPromptSubmit")
 """Les deux moments de la relève, chez tous les hôtes à hooks : au début d'une session,
@@ -106,7 +106,7 @@ def hote(identifiant: str) -> Hote:
     for h in HOTES:
         if h.id == identifiant:
             return h
-    raise EquipementRefuse(f"hôte inconnu « {identifiant} » : {', '.join(h.id for h in HOTES)}")
+    raise EquipementRefuse(f"unknown host \"{identifiant}\": {', '.join(h.id for h in HOTES)}")
 
 
 @dataclass(frozen=True)
@@ -197,7 +197,7 @@ def etat(h: Hote, ctx: Contexte) -> EtatHote:
     fichiers = tuple(f for f in (ctx.fichier_mcp(h), ctx.fichier_hooks(h)) if f)
     if not ctx.present(h):
         return EtatHote(h.id, h.nom, False, ABSENT, ABSENT if h.releve else SANS_OBJET,
-                        ABSENT if h.skills else SANS_OBJET, fichiers, "hôte non installé sur ce poste")
+                        ABSENT if h.skills else SANS_OBJET, fichiers, "host not installed on this machine")
     return EtatHote(h.id, h.nom, True, _etat_mcp(h, ctx), _etat_releve(h, ctx), _etat_skill(h, ctx), fichiers)
 
 
@@ -212,18 +212,18 @@ def equiper(h: Hote, ctx: Contexte, releve: bool = True, forcer: bool = False) -
     avant = etat(h, ctx)
     if ILLISIBLE in (avant.mcp, avant.releve):
         raise EquipementRefuse(
-            f"{h.nom} : configuration illisible ({', '.join(avant.fichiers)}) — corrige-la à la main, "
-            "je ne réécris pas un fichier que je ne sais pas lire")
+            f"{h.nom}: unreadable configuration ({', '.join(avant.fichiers)}); fix it manually. "
+            "I will not rewrite a file I cannot read")
     notes = []
     if avant.mcp in (ABSENT, DIVERGENT) or (avant.mcp == AILLEURS and forcer):
         _poser_mcp(h, ctx)
     elif avant.mcp == AILLEURS:
-        notes.append("serveur MCP : une autre installation d'arkalabs-messenger est déjà déclarée (laissée en place)")
+        notes.append("MCP server: another arkalabs-messenger installation is already configured (left unchanged)")
     if releve and h.releve:
         if avant.releve in (ABSENT, DIVERGENT) or (avant.releve == AILLEURS and forcer):
             _poser_releve(h, ctx)
         elif avant.releve == AILLEURS:
-            notes.append("relève : une autre installation est déjà en place (laissée en place)")
+            notes.append("mail hooks: another installation is already configured (left unchanged)")
     if h.skills and avant.skill in (ABSENT, DIVERGENT):
         _poser_skill(h, ctx)
     apres = etat(h, ctx)
@@ -237,7 +237,7 @@ def retirer(h: Hote, ctx: Contexte) -> EtatHote:
         return etat(h, ctx)
     avant = etat(h, ctx)
     if ILLISIBLE in (avant.mcp, avant.releve):
-        raise EquipementRefuse(f"{h.nom} : configuration illisible ({', '.join(avant.fichiers)}) — rien retiré")
+        raise EquipementRefuse(f"{h.nom}: unreadable configuration ({', '.join(avant.fichiers)}); nothing removed")
     if avant.mcp != ABSENT:
         _retirer_mcp(h, ctx)
     if h.releve and avant.releve != ABSENT:
@@ -373,7 +373,7 @@ def _poser_releve(h: Hote, ctx: Contexte) -> None:
         crochet: Dict[str, Any] = {"type": "command", "command": ctx.commande_releve(h, evenement),
                                    "timeout": _DELAI_HOOK}
         if evenement == "SessionStart":
-            crochet["statusMessage"] = "Relève du courrier"
+            crochet["statusMessage"] = "Checking mail"
         hooks.setdefault(evenement, []).append({"hooks": [crochet]})
     _ecrire_json(chemin, data)
 

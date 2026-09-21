@@ -340,8 +340,8 @@ def lire_selecteur(systeme: str, code: int, sortie: bytes, erreurs: bytes) -> Op
     if annule:
         return None
     raise SelecteurIndisponible(
-        f"la fenêtre de choix n'a pas pu s'ouvrir (code {code}{' : ' + detail[:200] if detail else ''}) : "
-        "colle le chemin à la main")
+        f"the directory picker could not open (code {code}{': ' + detail[:200] if detail else ''}); "
+        "enter the path manually")
 
 
 def choisir_dossier() -> Optional[str]:
@@ -352,8 +352,8 @@ def choisir_dossier() -> Optional[str]:
     de thread. Une seule fenêtre à la fois : un second clic ne doit pas en empiler une autre.
     """
     if not _selecteur_ouvert.acquire(blocking=False):
-        raise SelecteurIndisponible("une fenêtre de choix est déjà ouverte : regarde derrière le navigateur, "
-                                    "ou colle le chemin à la main")
+        raise SelecteurIndisponible("a directory picker is already open; check behind the browser or enter the "
+                                    "path manually")
     try:
         systeme = platform.system()
         manquants = []
@@ -365,14 +365,14 @@ def choisir_dossier() -> Optional[str]:
                 manquants.append(commande[0])
                 continue
             except subprocess.TimeoutExpired:
-                raise SelecteurIndisponible("la fenêtre de choix est restée ouverte trop longtemps : je l'ai fermée — "
-                                            "rouvre-la, ou colle le chemin à la main") from None
+                raise SelecteurIndisponible("the directory picker remained open too long and was closed; open it "
+                                            "again or enter the path manually") from None
             except (OSError, ValueError) as e:
-                raise SelecteurIndisponible(f"la fenêtre de choix n'a pas pu s'ouvrir ({e}) : "
-                                            "colle le chemin à la main") from None
+                raise SelecteurIndisponible(f"the directory picker could not open ({e}); "
+                                            "enter the path manually") from None
             return lire_selecteur(systeme, resultat.returncode, resultat.stdout, resultat.stderr)
-        raise SelecteurIndisponible(f"pas de fenêtre de choix sur ce poste ({', '.join(manquants)} introuvable) : "
-                                    "colle le chemin à la main")
+        raise SelecteurIndisponible(f"no directory picker is available on this machine "
+                                    f"({', '.join(manquants)} not found); enter the path manually")
     finally:
         _selecteur_ouvert.release()
 
@@ -388,7 +388,7 @@ def activer_depot(dossier: str, projet: Optional[str], depot: str, box: Optional
     """
     dossier = os.path.abspath(os.path.expanduser(dossier))
     if not os.path.isdir(dossier):
-        raise ActivationRefusee(f"dossier introuvable : {dossier}")
+        raise ActivationRefusee(f"directory not found: {dossier}")
     if box:
         memoriser_boite(box)
     if projet:

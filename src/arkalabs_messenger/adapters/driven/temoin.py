@@ -48,10 +48,10 @@ class Temoin:
         vu = self.lu(chemin)
         if vu is not None and messages < vu:
             raise LecturePerimee(
-                f"lecture périmée, rien écrit : cette boîte contient {messages} message(s), "
-                f"mais ce poste en a déjà lu {vu}. Une boîte ne perd jamais de message — c'est la "
-                f"lecture qui est fausse (cache d'un partage réseau, montage à moitié perdu). "
-                f"Réessaie ; si la boîte a vraiment été remplacée, efface son témoin : {self._fichier}")
+                f"stale read; nothing was written: this mailbox contains {messages} message(s), "
+                f"but this machine has already read {vu}. A mailbox never loses messages—the current "
+                f"read is unreliable (network-share cache or a partially disconnected mount). "
+                f"Try again; if the mailbox was intentionally replaced, delete its witness: {self._fichier}")
 
     def noter(self, chemin: str, messages: int) -> None:
         """Retient ce que ce poste vient de voir. Le témoin ne recule jamais."""

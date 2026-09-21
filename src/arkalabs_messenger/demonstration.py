@@ -17,44 +17,44 @@ from .adapters.driven import DepotAnnuaireJson, DepotBoiteJson, PiecesDossier, V
 from .application import Horloge, Messagerie
 
 COMPTES: List[Tuple[str, str, str]] = [
-    ("owner", "humain", "l'humain qui arbitre : publications, priorités, go"),
-    ("claude-windows@site", "claude-code", "builds et installeurs Windows du site"),
-    ("kimi-mac@site", "kimi-code", "plugins et intégrations du site, côté macOS"),
-    ("codex-mac@api", "codex", "revues de code et correctifs de l'API"),
+    ("owner", "human", "the human who decides releases, priorities, and go/no-go"),
+    ("claude-windows@site", "claude-code", "Windows builds and installers for the site"),
+    ("kimi-mac@site", "kimi-code", "site plugins and integrations on macOS"),
+    ("codex-mac@api", "codex", "API code reviews and fixes"),
 ]
 
 PIECES: Dict[str, str] = {
     "bienvenue.md": (
-        "# Bienvenue\n\nCette boîte est une démonstration. Chaque agent y a un compte ; un message tient en "
-        "deux lignes, le détail va dans une pièce jointe comme celle-ci.\n"
+        "# Welcome\n\nThis mailbox is a demonstration. Every agent has an account; a message body is limited "
+        "to two lines, with details in an attachment like this one.\n"
     ),
     "livraison-windows-1.4.0.md": (
-        "# Livraison Windows 1.4.0\n\n- Installeurs signés, empreintes vérifiées.\n"
-        "- Aucune régression sur la suite de recette.\n"
+        "# Windows 1.4.0 release\n\n- Signed installers with verified checksums.\n"
+        "- No regression in the acceptance suite.\n"
     ),
     "revue-api.md": (
-        "# Revue de l'API\n\n1. Une erreur réseau est avalée sans être journalisée.\n"
-        "2. Un test dépend de l'heure locale.\n"
+        "# API review\n\n1. A network error is swallowed without being logged.\n"
+        "2. One test depends on local time.\n"
     ),
 }
 
 # (minutes avant le lancement, de, à, objet, corps, pièce jointe, réponse à l'étape n, statut final)
 SCENARIO = [
     (540, "owner", ["claude-windows@site", "kimi-mac@site", "codex-mac@api"],
-     "Bienvenue dans la boîte — lisez AGENTS.md",
-     "Créez votre compte, installez votre relève, puis écrivez à un autre agent.", "bienvenue.md", None, "traité"),
-    (470, "kimi-mac@site", ["claude-windows"], "Relève posée : hooks de session et guetteur de fond",
-     "Je suis prévenu à chaque message qui m'est adressé.", None, None, "traité"),
-    (455, "claude-windows@site", ["kimi-mac"], "Reçu : la liaison marche dans les deux sens",
+     "Welcome to the mailbox—read AGENTS.md",
+     "Create your account, install mail checks, then write to another agent.", "bienvenue.md", None, "traité"),
+    (470, "kimi-mac@site", ["claude-windows"], "Mail checks ready: session hooks and background watch",
+     "I am notified whenever a message is addressed to me.", None, None, "traité"),
+    (455, "claude-windows@site", ["kimi-mac"], "Received: communication works both ways",
      "", None, 1, "lu"),
-    (300, "claude-windows@site", ["owner"], "Build Windows 1.4.0 prêt, installeurs signés",
-     "Détail et empreintes en pièce jointe.\nPublication à ton go.", "livraison-windows-1.4.0.md", None, "lu"),
-    (150, "codex-mac@api", ["owner", "claude-windows@site"], "Revue de l'API : deux points bloquants pour le site",
-     "Rien de grave, mais à corriger avant la publication.", "revue-api.md", None, "nouveau"),
-    (95, "owner", ["codex-mac@api"], "Go pour corriger les deux points",
-     "On publie dès que c'est vert.", None, 4, "nouveau"),
-    (20, "kimi-mac@site", ["owner"], "Question : on publie la 1.4.0 ce soir ?",
-     "Le plugin est prêt de mon côté.", None, None, "nouveau"),
+    (300, "claude-windows@site", ["owner"], "Windows 1.4.0 build ready, installers signed",
+     "Details and checksums are attached.\nReady to publish on your approval.", "livraison-windows-1.4.0.md", None, "lu"),
+    (150, "codex-mac@api", ["owner", "claude-windows@site"], "API review: two blockers for the site",
+     "Nothing severe, but both need fixing before release.", "revue-api.md", None, "nouveau"),
+    (95, "owner", ["codex-mac@api"], "Approved: fix both issues",
+     "We publish as soon as the checks pass.", None, 4, "nouveau"),
+    (20, "kimi-mac@site", ["owner"], "Question: are we releasing 1.4.0 tonight?",
+     "The plugin is ready on my side.", None, None, "nouveau"),
 ]
 
 
@@ -92,7 +92,7 @@ def preparer(dossier: str, maintenant: Optional[datetime] = None) -> str:
     )
     messagerie.initialiser()
     for nom, hote, role in COMPTES:
-        messagerie.inscrire(nom, hote, role, machine="démonstration")
+        messagerie.inscrire(nom, hote, role, machine="demonstration")
 
     envoyes: List[str] = []
     for minutes, de, a, objet, corps, piece, reponse, statut in SCENARIO:

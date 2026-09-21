@@ -1,15 +1,14 @@
 /**
- * La langue de l'interface, tenue dans un contexte React.
+ * Interface language, held in a React context.
  *
- * Source de vérité : la préférence `langue` de ce poste (localStorage via le port préférences) ;
- * à défaut, la langue du navigateur. La boîte n'est jamais consultée : la langue est un réglage
- * personnel, comme le thème. `<html lang>` suit le choix.
+ * Source of truth: this machine's `langue` preference (localStorage through the preferences port).
+ * English is the default when no preference exists. The mailbox is never consulted: language is
+ * personal, like the theme. `<html lang>` follows the selection.
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { PortPreferences } from './ports.ts';
 import {
   LANGUE_DEFAUT,
-  langueDuNavigateur,
   normaliseLangue,
   type Langue,
 } from '../domain/langue/index.ts';
@@ -23,7 +22,7 @@ const ContexteLangue = createContext<ValeurLangue>({ langue: LANGUE_DEFAUT, fixe
 
 export function FournisseurLangue({ preferences, children }: { preferences: PortPreferences; children: ReactNode }) {
   const [langue, setLangue] = useState<Langue>(
-    () => normaliseLangue(preferences.lire('langue')) ?? langueDuNavigateur(),
+    () => normaliseLangue(preferences.lire('langue')) ?? LANGUE_DEFAUT,
   );
   useEffect(() => {
     preferences.ecrire('langue', langue);
@@ -36,7 +35,7 @@ export function utiliseLangue(): Langue {
   return useContext(ContexteLangue).langue;
 }
 
-/** Le commutateur visible de l'en-tête : affiche la langue visée, comme font FR/EN. */
+/** Header switch: displays the language the user can switch to. */
 export function CommutateurLangue() {
   const { langue, fixerLangue } = useContext(ContexteLangue);
   const autre: Langue = langue === 'fr' ? 'en' : 'fr';

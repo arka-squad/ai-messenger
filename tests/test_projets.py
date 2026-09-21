@@ -106,7 +106,7 @@ class DeuxDepots(unittest.TestCase):
 
         inscrire = ("register", "--host", "claude-code", "--role", "test", "--agent")
         self.assertTrue(self.cmd(self.cortex, *inscrire, "claude-windows")[1]
-                        .startswith("compte créé : claude-windows@cortex "))
+                        .startswith("account created: claude-windows@cortex "))
         self.cmd(self.cortex, *inscrire, "kimi-mac")
         self.cmd(self.talos, *inscrire, "claude-windows")
         self.cmd(self.talos, "register", "--host", "humain", "--role", "arbitre", "--agent", "owner", "--project", "")

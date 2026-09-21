@@ -57,7 +57,7 @@ class Ouverture(unittest.TestCase):
             raise FileNotFoundError(commande[0])
 
         subprocess.run = absent
-        with self.assertRaisesRegex(poste.SelecteurIndisponible, "zenity, kdialog introuvable"):
+        with self.assertRaisesRegex(poste.SelecteurIndisponible, "zenity, kdialog not found"):
             poste.choisir_dossier()
         self.assertEqual(essais, ["zenity", "kdialog"])
 
@@ -75,7 +75,7 @@ class Ouverture(unittest.TestCase):
             raise subprocess.TimeoutExpired(commande, options["timeout"])
 
         subprocess.run = trop_long
-        with self.assertRaisesRegex(poste.SelecteurIndisponible, "trop longtemps"):
+        with self.assertRaisesRegex(poste.SelecteurIndisponible, "too long"):
             poste.choisir_dossier()
 
     def test_une_seule_fenetre_a_la_fois(self):
@@ -91,7 +91,7 @@ class Ouverture(unittest.TestCase):
         fil = threading.Thread(target=lambda: resultats.append(poste.choisir_dossier()))
         fil.start()
         self.assertTrue(ouverte.wait(10))
-        with self.assertRaisesRegex(poste.SelecteurIndisponible, "déjà ouverte"):
+        with self.assertRaisesRegex(poste.SelecteurIndisponible, "already open"):
             poste.choisir_dossier()
         fermer.set()
         fil.join(10)

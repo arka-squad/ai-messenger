@@ -31,7 +31,7 @@ def verrou(chemin: str, attente: float = ATTENTE_MAX, perime: float = VERROU_PER
             except OSError:
                 continue  # le verrou vient d'être levé : on retente aussitôt
             if time.monotonic() - debut > attente:
-                raise BoiteIndisponible(f"verrouillé depuis plus de {attente:.0f} s : {lock}") from None
+                raise BoiteIndisponible(f"locked for more than {attente:.0f} seconds: {lock}") from None
             time.sleep(0.2)
         else:
             os.write(fd, f"{os.getpid()} {time.time()}".encode())

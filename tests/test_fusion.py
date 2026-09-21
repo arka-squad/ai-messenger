@@ -42,19 +42,19 @@ class Domaine(unittest.TestCase):
 
     def test_les_refus(self):
         a = annuaire("cloud", "cible", "autre")
-        with self.assertRaisesRegex(MessageInvalide, "lui-même"):
+        with self.assertRaisesRegex(MessageInvalide, "itself"):
             a.fusionner("cloud", "cloud")
         with self.assertRaisesRegex(CompteInconnu, "personne"):
             a.fusionner("personne", "cible")
         with self.assertRaisesRegex(CompteInconnu, "personne"):
             a.fusionner("cloud", "personne")
         a.fusionner("cloud", "cible")
-        with self.assertRaisesRegex(CompteExistant, "déjà fusionné dans cible"):
+        with self.assertRaisesRegex(CompteExistant, "already merged into cible"):
             a.fusionner("cloud", "autre")
-        with self.assertRaisesRegex(MessageInvalide, "fusionné dans cible"):
+        with self.assertRaisesRegex(MessageInvalide, "merged into cible"):
             a.fusionner("autre", "cloud")  # une adresse fusionnée n'absorbe rien
         a.desactiver("autre")
-        with self.assertRaisesRegex(MessageInvalide, "désactivé"):
+        with self.assertRaisesRegex(MessageInvalide, "inactive"):
             a.fusionner("cible", "autre")
 
     def test_les_fusions_se_suivent_en_chaine(self):
@@ -76,9 +76,9 @@ class Domaine(unittest.TestCase):
     def test_un_compte_fusionne_ne_se_range_pas_et_ne_se_met_pas_a_jour(self):
         a = annuaire("cloud", "cible")
         a.fusionner("cloud", "cible")
-        with self.assertRaisesRegex(MessageInvalide, "fusionné dans cible"):
+        with self.assertRaisesRegex(MessageInvalide, "merged into cible"):
             a.rattacher("cloud", "cortex")
-        with self.assertRaisesRegex(CompteExistant, "fusionné dans cible"):
+        with self.assertRaisesRegex(CompteExistant, "merged into cible"):
             a.inscrire(Compte.ouvrir("cloud", "claude-code", "je reviens"), mise_a_jour=True)
 
     def test_enroll_ne_reutilise_pas_un_compte_fusionne(self):
@@ -121,7 +121,7 @@ class CasDUsage(unittest.TestCase):
 
     def test_reprendre_un_compte_fusionne_renvoie_au_bon(self):
         self.m.fusionner("cloud", "cl-agent-cloud-mac@cortex")
-        with self.assertRaisesRegex(CompteExistant, "reprends « cl-agent-cloud-mac@cortex »"):
+        with self.assertRaisesRegex(CompteExistant, 'identify as "cl-agent-cloud-mac@cortex"'):
             self.m.reprendre("cloud", "claude-code", "mon-mac")
 
 
@@ -144,8 +144,8 @@ class LigneDeCommande(unittest.TestCase):
                 cmd("register", "--agent", nom, "--host", "claude-code", "--role", "test")
             mid = cmd("send", "--agent", "windows", "--to", "cloud", "--subject", "Avant la fusion").strip()
             sortie = cmd("merge", "--account", "cloud", "--into", "garde")
-            self.assertIn("cloud → fusionné dans garde", sortie)
-            self.assertIn("1 message(s) « nouveau » à relever", sortie)
+            self.assertIn("cloud → merged into garde", sortie)
+            self.assertIn("1 nouveau message(s) to check", sortie)
             self.assertIn(mid, cmd("check", "--agent", "garde"))
             cmd("mark", "--agent", "garde", "--id", mid, "--status", "lu")
             apres = cmd("send", "--agent", "windows", "--to", "cloud", "--subject", "Après").strip()

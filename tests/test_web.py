@@ -75,7 +75,7 @@ class Api(unittest.TestCase):
     def test_refus_du_domaine(self):
         code, reponse = self.post({"id": self.pour_windows.message.id, "statut": "lu"})
         self.assertEqual(code, 409)
-        self.assertIn("n'est pas destinataire", reponse["erreur"])
+        self.assertIn("not a recipient", reponse["erreur"])
 
     def test_refus_d_une_autre_origine_ou_d_un_autre_format(self):
         self.assertEqual(self.post({"id": "x", "statut": "lu"}, origine=False)[0], 403)
@@ -181,7 +181,7 @@ class Activation(unittest.TestCase):
     def test_activer_refuse_un_dossier_absent(self):
         code, rep = self.post({"dossier": os.path.join(self.dossier, "absent"), "projet": "demo"})
         self.assertEqual(code, 400)
-        self.assertIn("introuvable", rep["erreur"])
+        self.assertIn("not found", rep["erreur"])
 
 
 class CreationDepuisLInterface(unittest.TestCase):

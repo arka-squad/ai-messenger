@@ -34,9 +34,9 @@ class Domaine(unittest.TestCase):
 
     def test_un_compte_l_emporte_toujours_sur_un_alias(self):
         a = annuaire("windows@cortex", "mac@cortex", "owner")
-        with self.assertRaisesRegex(ContactRefuse, "déjà l'adresse d'un compte"):
+        with self.assertRaisesRegex(ContactRefuse, "already an account address"):
             a.noter_contact("windows@cortex", "mac", ["owner"])       # compte du même projet
-        with self.assertRaisesRegex(ContactRefuse, "déjà l'adresse d'un compte"):
+        with self.assertRaisesRegex(ContactRefuse, "already an account address"):
             a.noter_contact("windows@cortex", "owner", ["mac"])       # compte commun
         a.noter_contact("windows@cortex", "kimi", ["owner"])
         a.inscrire(Compte.ouvrir("kimi@cortex", "kimi-code", "arrivé après"))
@@ -52,20 +52,20 @@ class Domaine(unittest.TestCase):
 
     def test_refus(self):
         a = annuaire("windows", "mac")
-        with self.assertRaisesRegex(ContactRefuse, "sans compte actif : kimi"):
+        with self.assertRaisesRegex(ContactRefuse, "without an active account: kimi"):
             a.noter_contact("windows", "k", ["kimi"])
         with self.assertRaises(NomInvalide):
             a.noter_contact("windows", "Pas Valide", ["mac"])
-        with self.assertRaisesRegex(ContactRefuse, "sans adresse"):
+        with self.assertRaisesRegex(ContactRefuse, "has no address"):
             a.noter_contact("windows", "vide", [" "])
-        with self.assertRaisesRegex(CompteInconnu, "appartient à un compte"):
+        with self.assertRaisesRegex(CompteInconnu, "belongs to an account"):
             a.noter_contact("inconnu", "m", ["mac"])
-        with self.assertRaisesRegex(ContactRefuse, "200 au plus"):
+        with self.assertRaisesRegex(ContactRefuse, "at most 200"):
             a.noter_contact("windows", "bavard", ["mac"], "x" * 201)
         a.noter_contact("windows", "m", ["mac"])
-        with self.assertRaisesRegex(ContactRefuse, "existe déjà"):
+        with self.assertRaisesRegex(ContactRefuse, "already exists"):
             a.noter_contact("windows", "m", ["mac"])
-        with self.assertRaisesRegex(ContactRefuse, "introuvable.*ton carnet : m"):
+        with self.assertRaisesRegex(ContactRefuse, "not found.*your address book: m"):
             a.retirer_contact("windows", "autre")
 
     def test_remplacer_garde_la_date_et_retirer_rend_le_contact(self):
@@ -85,7 +85,7 @@ class Domaine(unittest.TestCase):
     def test_un_destinataire_inconnu_rappelle_le_carnet(self):
         a = annuaire("windows", "mac")
         a.noter_contact("windows", "m", ["mac"])
-        with self.assertRaisesRegex(CompteInconnu, "ton carnet : m"):
+        with self.assertRaisesRegex(CompteInconnu, "your address book: m"):
             a.verifier("windows", ["personne"])
 
     def test_projets_declares(self):
@@ -178,10 +178,10 @@ class LigneDeCommande(unittest.TestCase):
         return r.returncode, r.stdout, r.stderr
 
     def test_noter_lister_envoyer_retirer(self):
-        self.assertIn("carnet vide", self.cmd("contacts", "--agent", "windows")[1])
+        self.assertIn("empty address book", self.cmd("contacts", "--agent", "windows")[1])
         code, out, _ = self.cmd("contact-add", "--agent", "windows", "--alias", "release", "--to", "mac,owner",
                                 "--note", "la chaîne de release")
-        self.assertEqual((code, out.strip()), (0, "contact noté : release → mac, owner"))
+        self.assertEqual((code, out.strip()), (0, "contact saved: release → mac, owner"))
         self.assertIn("release              → mac, owner  — la chaîne de release",
                       self.cmd("contacts", "--agent", "windows")[1])
         carnet = json.loads(self.cmd("contacts", "--agent", "windows", "--json")[1])
@@ -189,7 +189,7 @@ class LigneDeCommande(unittest.TestCase):
 
         code, mid, err = self.cmd("send", "--agent", "windows", "--to", "release", "--subject", "Build prêt")
         self.assertEqual(code, 0)
-        self.assertIn("(carnet : release → mac, owner)", err)
+        self.assertIn("(address book: release → mac, owner)", err)
         self.assertIn(mid.strip(), self.cmd("check", "--agent", "mac")[1])
         self.assertIn(mid.strip(), self.cmd("check", "--agent", "owner")[1])
 

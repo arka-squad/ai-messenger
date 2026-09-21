@@ -112,7 +112,7 @@ class Importer(unittest.TestCase):
                            objet="Demande", statut="traité", importe=True)]
         resultat = m.importer(SourceMemoire(anciens))
         self.assertEqual((resultat.messages, resultat.comptes), (1, ("mac", "windows")))
-        self.assertEqual(comptes.lire().compte("mac").hote, "inconnu")
+        self.assertEqual(comptes.lire().compte("mac").hote, "unknown")
 
     def test_refuse_d_ecraser_une_boite(self):
         m, *_ = messagerie()

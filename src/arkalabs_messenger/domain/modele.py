@@ -50,18 +50,18 @@ _RE_NOM = re.compile(rf"^{_NOM}$")
 _RE_ADRESSE = re.compile(rf"^{_NOM}(@{_NOM})?$")
 
 
-def valider_nom(nom: Optional[str], quoi: str = "nom") -> str:
+def valider_nom(nom: Optional[str], quoi: str = "name") -> str:
     """Rend le nom s'il est valide : minuscules, chiffres, `.`, `_`, `-`, 32 au plus."""
     if not nom or not _RE_NOM.match(nom):
-        raise NomInvalide(f"{quoi} invalide « {nom} » : minuscules, chiffres, . _ - (32 max)")
+        raise NomInvalide(f"invalid {quoi} “{nom}”: lowercase letters, digits, . _ - (32 max)")
     return nom
 
 
-def valider_adresse(adresse: Optional[str], quoi: str = "adresse") -> str:
+def valider_adresse(adresse: Optional[str], quoi: str = "address") -> str:
     """Rend l'adresse si elle est valide : `nom`, ou `nom@projet`."""
     if not adresse or not _RE_ADRESSE.match(adresse):
-        raise NomInvalide(f"{quoi} invalide « {adresse} » : nom ou nom@projet — minuscules, chiffres, . _ - "
-                          "(32 max de chaque côté)")
+        raise NomInvalide(f"invalid {quoi} “{adresse}”: name or name@project — lowercase letters, digits, . _ - "
+                          "(32 max on each side)")
     return adresse
 
 
@@ -111,10 +111,10 @@ def composer_identite(hote: str, tache: str, poste: str) -> Tuple[str, str]:
     casse choisie par l'agent, pour un humain. `hote` donne le fournisseur, `poste` la machine.
     """
     prov = initiales_hote(hote)
-    poste_slug = slugifier(poste) or "poste"
+    poste_slug = slugifier(poste) or "machine"
     tache_nette = _une_ligne(tache)
     if not tache_nette:
-        raise MessageInvalide("tâche vide : donne un intitulé court et durable (ex. « MessengerAI »)")
+        raise MessageInvalide("empty task: provide a short, durable title (for example, “MessengerAI”)")
     reserve = len(f"{prov}-agent--{poste_slug}")
     tache_slug = slugifier(tache_nette, max(4, 32 - reserve)) or "agent"
     adresse = f"{prov}-agent-{tache_slug}-{poste_slug}"
@@ -180,7 +180,7 @@ class Message:
     @property
     def titre(self) -> str:
         """L'objet tel qu'on l'affiche : préfixé de `Re : <id> — ` pour une réponse."""
-        return (f"Re : {self.re} — " if self.re else "") + self.objet
+        return (f"Re: {self.re} — " if self.re else "") + self.objet
 
     def est_pour(self, compte: str) -> bool:
         return compte in self.a
@@ -221,16 +221,16 @@ class Message:
         et l'historique enregistre `par`, celui qui agit vraiment.
         """
         if statut not in STATUTS[1:]:
-            raise TransitionRefusee(f"statut inconnu « {statut} » : lu ou traité")
+            raise TransitionRefusee(f"unknown status “{statut}”: use lu or traité")
         siennes = [d for d in self.a if d == par or d in set(aussi)]
         if not siennes:
             raise TransitionRefusee(
-                f"{par} n'est pas destinataire de {self.id} : seul un destinataire fait avancer le statut")
+                f"{par} is not a recipient of {self.id}: only a recipient may advance its status")
         statuts = dict(self.statuts)
         avance = [d for d in siennes if rang(statuts[d]) < rang(statut)]
         if not avance:
             sien = min((statuts[d] for d in siennes), key=rang)
-            raise TransitionRefusee(f"{self.id} est déjà « {sien} » pour {par} : un statut ne recule pas")
+            raise TransitionRefusee(f"{self.id} is already “{sien}” for {par}: a status cannot move backward")
         statuts.update({d: statut for d in avance})
         return replace(self, statuts=statuts, historique=self.historique + (Transition(date, par, statut),))
 
@@ -248,18 +248,18 @@ class Brouillon:
     @classmethod
     def rediger(cls, de: str, a: Iterable[str], objet: str, corps: Iterable[str] = (),
                 re: Optional[str] = None) -> "Brouillon":
-        valider_adresse(de, "expéditeur")
+        valider_adresse(de, "sender")
         destinataires = tuple(dict.fromkeys(d.strip() for d in a if d and d.strip()))
         if not destinataires:
-            raise MessageInvalide("aucun destinataire")
+            raise MessageInvalide("no recipient")
         for d in destinataires:
-            valider_adresse(d, "destinataire")
+            valider_adresse(d, "recipient")
         objet = _une_ligne(objet)
         if not objet:
-            raise MessageInvalide("objet vide")
+            raise MessageInvalide("empty subject")
         lignes = tuple(l.rstrip() for l in corps if l and l.strip())
         if len(lignes) > CORPS_MAX:
-            raise MessageInvalide("corps de plus de deux lignes : mets le détail dans une pièce jointe (--attach)")
+            raise MessageInvalide("body exceeds two lines: put details in an attachment (--attach)")
         return cls(de, destinataires, objet, lignes, re or None)
 
     def emettre(self, id: str, date: str, pj: Optional[str] = None) -> Message:
@@ -278,7 +278,7 @@ class Boite:
         for m in self.messages:
             if m.id == mid:
                 return m
-        raise MessageIntrouvable(f"message introuvable : {mid}")
+        raise MessageIntrouvable(f"message not found: {mid}")
 
     def recents(self) -> List[Message]:
         """Du plus récent au plus ancien."""
@@ -299,9 +299,9 @@ class Boite:
     def controler(self, reponse_a: Optional[str] = None, nouvel_id: Optional[str] = None) -> None:
         """Refuse une réponse à un message absent, ou un identifiant déjà pris."""
         if reponse_a and not any(m.id == reponse_a for m in self.messages):
-            raise MessageIntrouvable(f"le message auquel tu réponds est introuvable : {reponse_a}")
+            raise MessageIntrouvable(f"the message you are replying to was not found: {reponse_a}")
         if nouvel_id and any(m.id == nouvel_id for m in self.messages):
-            raise MessageInvalide(f"identifiant déjà pris : {nouvel_id}")
+            raise MessageInvalide(f"identifier already in use: {nouvel_id}")
 
     def ajouter(self, message: Message) -> None:
         self.controler(message.re, message.id)
@@ -312,7 +312,7 @@ class Boite:
             if m.id == mid:
                 self.messages[i] = m.avancer(par, statut, date, aussi)
                 return self.messages[i]
-        raise MessageIntrouvable(f"message introuvable : {mid}")
+        raise MessageIntrouvable(f"message not found: {mid}")
 
     def participants(self) -> List[str]:
         """Les noms vus dans la boîte, dans l'ordre de première apparition."""
@@ -348,14 +348,14 @@ class Contact:
         valider_nom(alias, "alias")
         uniques = tuple(dict.fromkeys(a.strip() for a in adresses if a and a.strip()))
         if not uniques:
-            raise ContactRefuse(f"contact « {alias} » sans adresse : donne au moins un destinataire")
+            raise ContactRefuse(f"contact “{alias}” has no address: provide at least one recipient")
         if len(uniques) > ADRESSES_PAR_CONTACT_MAX:
-            raise ContactRefuse(f"contact « {alias} » : {ADRESSES_PAR_CONTACT_MAX} adresses au plus")
+            raise ContactRefuse(f"contact “{alias}”: at most {ADRESSES_PAR_CONTACT_MAX} addresses")
         for a in uniques:
-            valider_adresse(a, "adresse du contact")
+            valider_adresse(a, "contact address")
         note = _une_ligne(note or "") or None
         if note and len(note) > NOTE_MAX:
-            raise ContactRefuse(f"note trop longue ({len(note)} caractères) : {NOTE_MAX} au plus, en une ligne")
+            raise ContactRefuse(f"note too long ({len(note)} characters): at most {NOTE_MAX}, on one line")
         return cls(alias, uniques, note, cree)
 
 
@@ -405,10 +405,10 @@ class Compte:
         valider_adresse(nom)
         role = _une_ligne(role)
         if not role:
-            raise MessageInvalide("rôle vide : dis en une ligne ce que fait cet agent")
+            raise MessageInvalide("empty role: describe what this agent does in one line")
         hote = _une_ligne(hote)
         if not hote:
-            raise MessageInvalide("hôte vide : claude-code, kimi-code, codex, hermes, humain…")
+            raise MessageInvalide("empty host: use claude-code, kimi-code, codex, hermes, human…")
         return cls(nom=nom, hote=hote, role=role, **infos)
 
 
@@ -441,11 +441,11 @@ class Annuaire:
         ses messages, son carnet et ce que les autres ont noté de lui restent valables."""
         compte = self.compte(nom)
         if compte is None:
-            raise CompteInconnu(f"compte introuvable : {nom}")
+            raise CompteInconnu(f"account not found: {nom}")
         if compte.fusionne_dans:
-            raise MessageInvalide(f"« {nom} » a été fusionné dans {self.cible_de(nom)} : c'est ce compte-là qu'on range")
+            raise MessageInvalide(f"“{nom}” was merged into {self.cible_de(nom)}: organize that account instead")
         if projet_de(nom):
-            raise MessageInvalide(f"« {nom} » porte déjà son projet dans son adresse : il ne se range pas ailleurs")
+            raise MessageInvalide(f"“{nom}” already carries its project in its address and cannot be organized elsewhere")
         if projet:
             self.declarer(projet, date)
         nouveau = replace(compte, rattachement=projet or None)
@@ -454,7 +454,7 @@ class Annuaire:
 
     def declarer(self, projet: str, date: Optional[str] = None) -> bool:
         """Note qu'un projet est connecté à la boîte. Rend True s'il ne l'était pas."""
-        valider_nom(projet, "projet")
+        valider_nom(projet, "project")
         if any(p.nom == projet for p in self.declares):
             return False
         self.declares.append(ProjetDeclare(projet, date))
@@ -500,14 +500,14 @@ class Annuaire:
         de, vers = self.compte(source), self.compte(cible)
         if de is None or vers is None:
             manque = source if de is None else cible
-            raise CompteInconnu(f"compte introuvable : {manque} — comptes actifs : {', '.join(self.actifs())}")
+            raise CompteInconnu(f"account not found: {manque} — active accounts: {', '.join(self.actifs())}")
         if source == cible:
-            raise MessageInvalide("un compte ne se fusionne pas dans lui-même")
+            raise MessageInvalide("an account cannot be merged into itself")
         if de.fusionne_dans:
-            raise CompteExistant(f"« {source} » est déjà fusionné dans {self.cible_de(source)}")
+            raise CompteExistant(f"“{source}” is already merged into {self.cible_de(source)}")
         if vers.fusionne_dans or not vers.actif:
-            raise MessageInvalide(f"« {cible} » ne peut rien absorber : ce compte est "
-                                  + ("fusionné dans " + self.cible_de(cible) if vers.fusionne_dans else "désactivé"))
+            raise MessageInvalide(f"“{cible}” cannot absorb another account: it is "
+                                  + ("merged into " + self.cible_de(cible) if vers.fusionne_dans else "inactive"))
         place = max(0, CONTACTS_MAX - len(vers.contacts))
         repris = [c for c in de.contacts if vers.contact(c.alias) is None][:place]
         if repris:
@@ -546,12 +546,11 @@ class Annuaire:
             self.comptes.append(compte)
             return True
         if existant.fusionne_dans:
-            raise CompteExistant(f"« {existant.nom} » a été fusionné dans {self.cible_de(existant.nom)} : "
-                                 "utilise ce compte-là")
+            raise CompteExistant(f"“{existant.nom}” was merged into {self.cible_de(existant.nom)}: use that account")
         if not mise_a_jour:
             raise CompteExistant(
-                f"le compte « {existant.nom} » existe déjà ({existant.hote}, {existant.machine}, "
-                f"« {existant.role} ») : choisis un autre nom, ou --update si c'est bien toi")
+                f"account “{existant.nom}” already exists ({existant.hote}, {existant.machine}, "
+                f"“{existant.role}”): choose another name, or use --update if it is yours")
         fusion = replace(
             compte,
             machine=compte.machine or existant.machine,
@@ -571,7 +570,7 @@ class Annuaire:
     def desactiver(self, nom: str) -> None:
         existant = self.compte(nom)
         if existant is None:
-            raise CompteInconnu(f"compte introuvable : {nom}")
+            raise CompteInconnu(f"account not found: {nom}")
         self.comptes[self.comptes.index(existant)] = replace(existant, actif=False)
 
     def verifier(self, de: str, destinataires: Iterable[str]) -> None:
@@ -579,14 +578,14 @@ class Annuaire:
         actifs = self.actifs()
         if de not in actifs:
             raise CompteInconnu(
-                f"« {de} » n'a pas de compte actif : `messenger.py register --agent {de} --host … --role …`")
+                f"“{de}” has no active account: `messenger.py register --agent {de} --host … --role …`")
         inconnus = [d for d in destinataires if d not in actifs]
         if inconnus:
             expediteur = self.compte(de)
             carnet = ", ".join(c.alias for c in expediteur.contacts) if expediteur else ""
-            raise CompteInconnu(f"destinataire(s) sans compte actif : {', '.join(inconnus)} — "
-                                f"comptes actifs : {', '.join(actifs)}"
-                                + (f" — ton carnet : {carnet}" if carnet else ""))
+            raise CompteInconnu(f"recipient(s) without an active account: {', '.join(inconnus)} — "
+                                f"active accounts: {', '.join(actifs)}"
+                                + (f" — your address book: {carnet}" if carnet else ""))
 
     # -- Le carnet d'adresses --------------------------------------------------
     def developper(self, de: str, destinataires: Iterable[str]) -> Tuple[List[str], Dict[str, Tuple[str, ...]]]:
@@ -621,22 +620,22 @@ class Annuaire:
         valider_nom(alias, "alias")
         homonyme = self.compte(self.resoudre(alias, compte.projet))
         if homonyme is not None:
-            raise ContactRefuse(f"« {alias} » est déjà l'adresse d'un compte ({homonyme.nom}) : écris-lui "
-                                "directement, ou choisis un autre alias")
-        resolues = [self.resoudre(valider_adresse(a.strip(), "adresse du contact"), compte.projet)
+            raise ContactRefuse(f"“{alias}” is already an account address ({homonyme.nom}): write to it "
+                                "directly or choose another alias")
+        resolues = [self.resoudre(valider_adresse(a.strip(), "contact address"), compte.projet)
                     for a in adresses if a and a.strip()]
         contact = Contact.composer(alias, resolues, note, date)
         actifs = self.actifs()
         absents = [a for a in contact.adresses if a not in actifs]
         if absents:
-            raise ContactRefuse(f"adresse(s) sans compte actif : {', '.join(absents)} — "
-                                f"comptes actifs : {', '.join(actifs)}")
+            raise ContactRefuse(f"address(es) without an active account: {', '.join(absents)} — "
+                                f"active accounts: {', '.join(actifs)}")
         existant = compte.contact(alias)
         if existant is not None and not remplacer:
-            raise ContactRefuse(f"le contact « {alias} » existe déjà ({', '.join(existant.adresses)}) : "
-                                "--replace pour le remplacer")
+            raise ContactRefuse(f"contact “{alias}” already exists ({', '.join(existant.adresses)}): "
+                                "use --replace to replace it")
         if existant is None and len(compte.contacts) >= CONTACTS_MAX:
-            raise ContactRefuse(f"carnet plein : {CONTACTS_MAX} contacts au plus")
+            raise ContactRefuse(f"address book full: at most {CONTACTS_MAX} contacts")
         if existant is not None:
             contact = replace(contact, cree=existant.cree or contact.cree, autres=existant.autres)
         carnet = tuple(c for c in compte.contacts if c.alias != alias) + (contact,)
@@ -647,8 +646,8 @@ class Annuaire:
         compte = self._titulaire(proprietaire)
         existant = compte.contact(alias)
         if existant is None:
-            connus = ", ".join(c.alias for c in compte.contacts) or "aucun"
-            raise ContactRefuse(f"contact introuvable : « {alias} » — ton carnet : {connus}")
+            connus = ", ".join(c.alias for c in compte.contacts) or "none"
+            raise ContactRefuse(f"contact not found: “{alias}” — your address book: {connus}")
         self._remplacer(compte, replace(compte, contacts=tuple(c for c in compte.contacts if c.alias != alias)))
         return existant
 
@@ -663,7 +662,7 @@ class Annuaire:
     def _titulaire(self, nom: str) -> Compte:
         compte = self.compte(nom)
         if compte is None or not compte.actif:
-            raise CompteInconnu(f"« {nom} » n'a pas de compte actif : le carnet d'adresses appartient à un compte")
+            raise CompteInconnu(f"“{nom}” has no active account: an address book belongs to an account")
         return compte
 
     def _remplacer(self, ancien: Compte, nouveau: Compte) -> None:

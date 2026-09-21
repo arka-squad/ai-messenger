@@ -12,7 +12,7 @@ import { App } from './ui/App.tsx';
 const veille = new Veille(new ApiHttp());
 const preferences = new PreferencesLocales();
 const racine = document.getElementById('app');
-if (!racine) throw new Error('élément #app absent de index.html');
+if (!racine) throw new Error('missing #app element in index.html');
 
 createRoot(racine).render(
   <StrictMode>

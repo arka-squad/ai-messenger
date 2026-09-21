@@ -129,7 +129,7 @@ class ClaudeCode(Poste):
             "type": "stdio", "command": "python3", "args": [autre, "mcp", "--host", "claude-code"]}}}))
         etat = hotes.equiper(self.hote, self.ctx)
         self.assertEqual(etat.mcp, AILLEURS)
-        self.assertIn("autre installation", etat.note)
+        self.assertIn("another arkalabs-messenger installation", etat.note)
         self.assertEqual(self.json(".claude.json")["mcpServers"]["arkalabs-messenger"]["args"][0], autre)
         self.assertEqual(hotes.equiper(self.hote, self.ctx, forcer=True).mcp, VERIFIE)
 

@@ -75,7 +75,7 @@ def message_depuis_dict(d: Any) -> Message:
             autres={k: v for k, v in d.items() if k not in _CHAMPS_MESSAGE},
         )
     except (TypeError, AttributeError) as e:
-        raise FormatInvalide(f"message {d.get('id', '?')} mal formé : {e}") from None
+        raise FormatInvalide(f"malformed message {d.get('id', '?')}: {e}") from None
 
 
 def boite_vers_dict(b: Boite) -> Dict[str, Any]:
@@ -86,7 +86,7 @@ def boite_vers_dict(b: Boite) -> Dict[str, Any]:
 
 def boite_depuis_dict(d: Any) -> Boite:
     if not isinstance(d, dict) or not isinstance(d.get("messages"), list):
-        raise FormatInvalide("clé « messages » absente")
+        raise FormatInvalide('missing "messages" key')
     return Boite(messages=[message_depuis_dict(m) for m in d["messages"]],
                  autres={k: v for k, v in d.items() if k not in ("version", "messages")})
 
@@ -156,7 +156,7 @@ def annuaire_vers_dict(a: Annuaire, nom_boite: str) -> Dict[str, Any]:
 
 def annuaire_depuis_dict(d: Any) -> Annuaire:
     if not isinstance(d, dict) or not isinstance(d.get("comptes", []), list):
-        raise FormatInvalide("clé « comptes » absente ou mal formée")
+        raise FormatInvalide('missing or malformed "comptes" key')
     return Annuaire(comptes=[compte_depuis_dict(c) for c in d.get("comptes", [])],
                     declares=[_projet_depuis_dict(p) for p in _liste(d, "projets")],
                     autres={k: v for k, v in d.items() if k not in ("version", "boite", "comptes", "projets")})
@@ -173,7 +173,7 @@ def _projet_depuis_dict(d: Any) -> ProjetDeclare:
 def _texte(d: Dict[str, Any], cle: str) -> str:
     v = d[cle] if cle in d else None
     if not isinstance(v, str):
-        raise FormatInvalide(f"champ « {cle} » absent ou non textuel")
+        raise FormatInvalide(f'missing or non-string field "{cle}"')
     return v
 
 

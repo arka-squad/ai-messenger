@@ -41,7 +41,7 @@ class DepotBoiteJson(DepotBoite):
         os.makedirs(os.path.dirname(os.path.abspath(self._chemin)), exist_ok=True)
         with verrou(self._chemin):
             if self.existe():
-                raise BoiteExistante(f"existe déjà, rien écrit : {self._chemin}")
+                raise BoiteExistante(f"already exists; nothing was written: {self._chemin}")
             self._ecrire(boite or Boite())
 
     def lire(self) -> Boite:
@@ -50,15 +50,15 @@ class DepotBoiteJson(DepotBoite):
             with open(self._chemin, encoding="utf-8") as f:
                 data = json.load(f)
         except FileNotFoundError:
-            raise BoiteIndisponible(f"boîte introuvable : {self._chemin} (crée-la avec `init`)") from None
+            raise BoiteIndisponible(f"mailbox not found: {self._chemin} (create it with `init`)") from None
         except ValueError:
-            raise BoiteIndisponible(f"boîte illisible, JSON invalide : {self._chemin}") from None
+            raise BoiteIndisponible(f"unreadable mailbox, invalid JSON: {self._chemin}") from None
         except OSError as e:
-            raise BoiteIndisponible(f"boîte injoignable : {self._chemin} ({e.strerror})") from None
+            raise BoiteIndisponible(f"mailbox unavailable: {self._chemin} ({e.strerror})") from None
         try:
             boite = boite_depuis_dict(data)
         except FormatInvalide as e:
-            raise BoiteIndisponible(f"boîte non conforme ({e}) : {self._chemin}") from None
+            raise BoiteIndisponible(f"invalid mailbox format ({e}): {self._chemin}") from None
         self._temoin.noter(self._chemin, len(boite.messages))
         return boite
 

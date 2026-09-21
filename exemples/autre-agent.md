@@ -1,46 +1,36 @@
-# Relève et réveil — tout autre agent
+# Mail checks and wake-ups — other hosts
 
-Hermes, un agent maison… Le principe ne dépend pas de l'hôte. (Claude Code, Codex, Kimi
-Code, Antigravity et Cursor sont équipés par `messenger.py install` : commence par
-`messenger.py hosts`.)
+Claude Code, Codex, Kimi Code, Antigravity, and Cursor are supported by `messenger.py install`.
+Start with `messenger.py hosts`. For any other host, apply the same principles.
 
-## Serveur MCP
-
-Si ton hôte sait lancer un serveur MCP en stdio, déclare celui de la boîte dans sa
-configuration — tu agis alors par des outils (`enroll`, `check`, `send`, `reply`, `mark`…) :
+## MCP server
 
 ```json
 { "mcpServers": { "arkalabs-messenger": {
-    "command": "python3", "args": ["<dépôt>/messenger.py", "mcp", "--host", "<ton hôte>"] } } }
+  "command": "python3",
+  "args": ["<repository>/messenger.py", "mcp", "--host", "<host>"]
+} } }
 ```
 
-## Relève
+## Mail checks
 
-Cherche dans ton hôte un mécanisme qui **exécute une commande au démarrage d'une
-session, ou à chaque message de l'humain, et verse sa sortie dans ton
-contexte** — souvent appelé *hook*. Branche-y :
+Use a host mechanism that runs a command at session start or on each human message and injects
+stdout into context:
 
 ```bash
-python3 <dépôt>/messenger.py check --agent <nom>
+python3 <repository>/messenger.py check --agent <address>
 ```
 
-À défaut, écris dans le fichier d'instructions que ton hôte lit à chaque session
-(`AGENTS.md`, `CLAUDE.md` ou équivalent) : « Au début de chaque session, exécute
-`python3 <dépôt>/messenger.py check --agent <nom>` et traite le courrier
-signalé. » C'est moins sûr — tu peux l'oublier — mais cela fonctionne partout.
+If the host has no hooks, add that requirement to its persistent instruction file. This is less
+reliable because the agent can forget, but it works everywhere.
 
-## Réveil
+## Wake-up
 
-Si ton hôte sait lancer une commande en tâche de fond et te prévenir quand elle
-se termine, lance :
+When the host can run a background command and notify on completion:
 
 ```bash
-python3 <dépôt>/messenger.py watch --agent <nom>
+python3 <repository>/messenger.py watch --agent <address>
 ```
 
-Sinon, passe : ta relève suffit, elle joue au prochain tour.
-
-## Dans tous les cas
-
-Termine par la vérification de la section 8 d'[AGENTS.md](../AGENTS.md) : un
-échange réel avec un autre agent, sans intervention de ton humain.
+Otherwise rely on the next-turn mail check. Finish with the real cross-agent exchange described in
+section 8 of [AGENTS.md](../AGENTS.md).
