@@ -51,6 +51,34 @@ fn configured_channel_delivers_only_to_its_live_session() {
 }
 
 #[test]
+fn newer_claude_code_stays_equipped_and_an_older_one_is_refused() {
+    let root = env::temp_dir().join(format!("messenger-claude-version-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+    let config = root.join("claude.json");
+    fs::write(
+        &config,
+        json!({ "mcpServers": { super::super::claude_http::NAME: {
+            "type": "http", "url": super::super::claude_http::URL
+        } } })
+        .to_string(),
+    )
+    .unwrap();
+    for (index, (version, ready)) in [("2.1.285 (Claude Code)", true), ("2.1.200 (Claude Code)", false)]
+        .into_iter()
+        .enumerate()
+    {
+        let command = root.join(format!("claude-{index}"));
+        fs::write(&command, format!("#!/bin/sh\necho '{version}'\n")).unwrap();
+        fs::set_permissions(&command, fs::Permissions::from_mode(0o700)).unwrap();
+        let provider = Provider::with_paths(command, root.join("absent-channel"), config.clone());
+        assert_eq!(provider.present().equipped, ready, "{version}");
+        assert_eq!(provider.present().available, ready, "{version}");
+    }
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn conflicting_configuration_is_never_overwritten() {
     let root = env::temp_dir().join(format!("messenger-claude-safe-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);

@@ -13,6 +13,7 @@ use crate::domain::{
     Reachability,
 };
 
+/// Oldest version proven with Messenger; later versions still need the agents and queue probes.
 pub const PROVEN_VERSION: &str = "codex-cli 0.152.0";
 const MCP_NAME: &str = "arkalabs-messenger-app";
 const MCP_URL: &str = "http://127.0.0.1:47652/mcp";
@@ -146,9 +147,9 @@ fn probe(command: &Path) -> ProviderStatus {
     if !version.status.success() {
         return unavailable("Codex ne répond pas", None);
     }
-    if version_text != PROVEN_VERSION {
+    if !super::at_least(&version_text, PROVEN_VERSION) {
         return unavailable(
-            &format!("Version attendue : {PROVEN_VERSION}; installée : {version_text}"),
+            &format!("Version minimale : {PROVEN_VERSION}; installée : {version_text}"),
             Some(version_text),
         );
     }

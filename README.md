@@ -70,13 +70,14 @@ depuis plus de six mois devient dormant ; son retour signale une éventuelle pé
 
 | Fournisseur vérifié | Relève | Remise facultative |
 | --- | --- | --- |
-| Codex CLI 0.152.0 | MCP local | File d’une session existante ; état « prochaine ouverture ». |
-| Claude Code 2.1.274 | MCP local | Canal authentifié de la session qui l’a activé. |
+| Codex CLI 0.152.0 et suivantes | MCP local | File d’une session existante ; état « prochaine ouverture ». |
+| Claude Code 2.1.274 et suivantes | MCP local | Canal authentifié de la session qui l’a activé. |
 | Kimi CLI 1.6 | MCP local | Aucune session humaine ouverte n’est annoncée comme atteinte. |
 
-La relève reste disponible sans la remise facultative. Une version incompatible ou une
-capacité absente est affichée dans les réglages. Messenger ne crée pas de session pour
-donner l’illusion d’avoir atteint un agent.
+Codex et Claude Code se mettent à jour seuls : une version plus récente que celle du tableau
+est acceptée, seule une version plus ancienne est refusée. La relève reste disponible sans la
+remise facultative. Une version incompatible ou une capacité absente est affichée dans les
+réglages. Messenger ne crée pas de session pour donner l’illusion d’avoir atteint un agent.
 
 Les quinze outils sont `qui_suis_je`, `m_enroler`, `me_reconnaitre`, `relever`, `lire`,
 `envoyer`, `repondre`, `marquer`, `agents`, `contacts`, `demander_validation`,

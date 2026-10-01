@@ -1,0 +1,58 @@
+name: Build macOS DMG
+
+on:
+  push:
+    branches: [codex/tauri-messenger-hcm]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dmg:
+    # Intel runner: same x64 target as the DMG validated on the Intel Mac.
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - uses: oven-sh/setup-bun@v2
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build -- --bundles app
+
+      - name: Sign ad hoc and package the DMG
+        run: |
+          set -euo pipefail
+          app="src-tauri/target/release/bundle/macos/arkalabs Messenger.app"
+          version=$(node -p "require('./package.json').version")
+          out="src-tauri/target/release/bundle/dmg"
+          dmg="$out/arkalabs Messenger_${version}_x64.dmg"
+          codesign --force --deep --sign - "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          stage=$(mktemp -d)
+          cp -R "$app" "$stage/"
+          ln -s /Applications "$stage/Applications"
+          mkdir -p "$out"
+          hdiutil create -volname "arkalabs Messenger" -srcfolder "$stage" -fs APFS -format UDZO -ov "$dmg"
+          hdiutil verify "$dmg"
+          mount=$(mktemp -d)
+          hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount"
+          codesign --verify --deep --strict --verbose=2 "$mount/arkalabs Messenger.app"
+          hdiutil detach "$mount"
+          (cd "$out" && shasum -a 256 "$(basename "$dmg")" | tee "$(basename "$dmg").sha256")
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arkalabs-messenger-macos-x64
+          path: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/dmg/*.sha256
+          if-no-files-found: error

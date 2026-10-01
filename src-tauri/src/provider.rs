@@ -49,6 +49,7 @@ pub(crate) fn executable(name: &str) -> std::path::PathBuf {
         .unwrap_or_default();
     [
         home.join(".local/bin"),
+        home.join(".claude/local"),
         home.join("AppData/Roaming/npm"),
         std::path::PathBuf::from("/usr/local/bin"),
         std::path::PathBuf::from("/opt/homebrew/bin"),
@@ -57,6 +58,21 @@ pub(crate) fn executable(name: &str) -> std::path::PathBuf {
     .flat_map(|p| files.iter().map(move |file| p.join(file)))
     .find(|p| p.is_file())
     .unwrap_or_else(|| name.into())
+}
+
+/// Compares the first dotted number of each text: "2.1.285 (Claude Code)" satisfies
+/// "2.1.274 (Claude Code)". A provider that updates itself must not require a downgrade.
+pub(crate) fn at_least(installed: &str, minimum: &str) -> bool {
+    fn numbers(text: &str) -> Option<Vec<u64>> {
+        let start = text.find(|c: char| c.is_ascii_digit())?;
+        text[start..]
+            .split(|c: char| !c.is_ascii_digit() && c != '.')
+            .next()?
+            .split('.')
+            .map(|part| part.parse().ok())
+            .collect()
+    }
+    matches!((numbers(installed), numbers(minimum)), (Some(installed), Some(minimum)) if installed >= minimum)
 }
 
 pub async fn serve_claude<R, E>(mailbox: Arc<MailboxService<R, E>>)
@@ -173,5 +189,16 @@ mod tests {
             Reachability::NoSession
         );
         assert!(provider.find("fake").unwrap().receive());
+    }
+
+    #[test]
+    fn newer_provider_versions_are_accepted_and_older_ones_refused() {
+        assert!(super::at_least("2.1.274 (Claude Code)", "2.1.274 (Claude Code)"));
+        assert!(super::at_least("2.1.285 (Claude Code)", "2.1.274 (Claude Code)"));
+        assert!(super::at_least("3.0.0 (Claude Code)", "2.1.274 (Claude Code)"));
+        assert!(super::at_least("codex-cli 0.153.0-alpha.1", "codex-cli 0.152.0"));
+        assert!(!super::at_least("2.1.273 (Claude Code)", "2.1.274 (Claude Code)"));
+        assert!(!super::at_least("codex-cli 0.99.9", "codex-cli 0.152.0"));
+        assert!(!super::at_least("", "codex-cli 0.152.0"));
     }
 }

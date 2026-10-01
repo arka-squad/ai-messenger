@@ -31,6 +31,7 @@ use crate::{
     mcp::{self, RouteContext},
 };
 
+/// Oldest version proven with Messenger; later versions are accepted.
 pub const PROVEN_VERSION: &str = "2.1.274 (Claude Code)";
 const MCP_NAME: &str = "arkalabs-messenger-channel";
 
@@ -355,9 +356,9 @@ fn probe(command: &Path, sidecar: &Path, config: &Path) -> ProviderStatus {
         return unavailable("Claude Code est introuvable sur cet ordinateur", None);
     };
     let version_text = stdout(&version).trim().to_owned();
-    if !version.status.success() || version_text != PROVEN_VERSION {
+    if !version.status.success() || !super::at_least(&version_text, PROVEN_VERSION) {
         return unavailable(
-            &format!("Version attendue : {PROVEN_VERSION}; installée : {version_text}"),
+            &format!("Version minimale : {PROVEN_VERSION}; installée : {version_text}"),
             Some(version_text),
         );
     }
@@ -493,30 +494,8 @@ fn command_path() -> PathBuf {
     if let Some(configured) = env::var_os("MESSENGER_CLAUDE_COMMAND") {
         return PathBuf::from(configured);
     }
-    let executable = format!("claude{}", env::consts::EXE_SUFFIX);
-    if let Some(path) = env::var_os("PATH") {
-        if let Some(found) = env::split_paths(&path)
-            .map(|directory| directory.join(&executable))
-            .find(|candidate| candidate.is_file())
-        {
-            return found;
-        }
-    }
-    if let Some(home) = home_directory() {
-        for relative in [".local/bin/claude", ".claude/local/claude"] {
-            let candidate = home.join(relative);
-            if candidate.is_file() {
-                return candidate;
-            }
-        }
-    }
-    for candidate in ["/opt/homebrew/bin/claude", "/usr/local/bin/claude"] {
-        let path = PathBuf::from(candidate);
-        if path.is_file() {
-            return path;
-        }
-    }
-    PathBuf::from(executable)
+    // Shared lookup: it also finds the claude.cmd shim that npm installs on Windows.
+    super::executable("claude")
 }
 
 fn home_directory() -> Option<PathBuf> {
