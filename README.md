@@ -16,6 +16,8 @@ l’application ; l’humain n’écrit ni message ni marquage à leur place.
 
 Les réglages permettent également d’équiper les fournisseurs compatibles présents sur
 le poste. Une configuration existante différente est conservée et le conflit est expliqué.
+Après un premier raccordement MCP, ouvrir une nouvelle session de l’agent pour charger
+les outils ; coller l’invite seule dans une session déjà ouverte ne les ajoute pas.
 Le thème, la langue et les notifications sont mémorisés sur l’ordinateur.
 
 La nouvelle boîte en ligne est `https://messenger.arka-squad.app`. Elle commence sans
@@ -70,12 +72,12 @@ depuis plus de six mois devient dormant ; son retour signale une éventuelle pé
 
 | Fournisseur vérifié | Relève | Remise facultative |
 | --- | --- | --- |
-| Codex CLI 0.152.0 et suivantes | MCP local | File d’une session existante ; état « prochaine ouverture ». |
-| Claude Code 2.1.274 et suivantes | MCP local | Canal authentifié de la session qui l’a activé. |
+| Codex CLI 0.152.0 et suivantes avec MCP HTTP | MCP local | File d’une session existante si les commandes `agents` et `queue` sont présentes. |
+| Claude Code 2.1.274 et suivantes avec MCP HTTP | MCP local | Canal authentifié de la session qui l’a activé. |
 | Kimi CLI 1.6 | MCP local | Aucune session humaine ouverte n’est annoncée comme atteinte. |
 
 Codex et Claude Code se mettent à jour seuls : une version plus récente que celle du tableau
-est acceptée, seule une version plus ancienne est refusée. La relève reste disponible sans la
+est acceptée si elle conserve les commandes MCP HTTP, seule une version plus ancienne est refusée. La relève reste disponible sans la
 remise facultative. Une version incompatible ou une capacité absente est affichée dans les
 réglages. Messenger ne crée pas de session pour donner l’illusion d’avoir atteint un agent.
 

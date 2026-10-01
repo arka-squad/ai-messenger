@@ -8,7 +8,7 @@ use crate::{exchange::DirectoryExchange, storage::LocalStore};
 
 fn command(root: &Path) -> PathBuf {
     let path = root.join("claude");
-    fs::write(&path, format!("#!/bin/sh\necho '{PROVEN_VERSION}'\n")).unwrap();
+    fs::write(&path, format!("#!/bin/sh\nif test \"$1 $2 $3\" = 'mcp add --help'; then echo '--transport http --scope'; else echo '{PROVEN_VERSION}'; fi\n")).unwrap();
     fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
     path
 }
@@ -69,7 +69,7 @@ fn newer_claude_code_stays_equipped_and_an_older_one_is_refused() {
         .enumerate()
     {
         let command = root.join(format!("claude-{index}"));
-        fs::write(&command, format!("#!/bin/sh\necho '{version}'\n")).unwrap();
+        fs::write(&command, format!("#!/bin/sh\nif test \"$1 $2 $3\" = 'mcp add --help'; then echo '--transport http --scope'; else echo '{version}'; fi\n")).unwrap();
         fs::set_permissions(&command, fs::Permissions::from_mode(0o700)).unwrap();
         let provider = Provider::with_paths(command, root.join("absent-channel"), config.clone());
         assert_eq!(provider.present().equipped, ready, "{version}");
@@ -99,6 +99,17 @@ fn conflicting_configuration_is_never_overwritten() {
     assert!(provider.equip().is_err());
     assert_eq!(fs::read(config).unwrap(), before);
     fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn newer_claude_with_http_mcp_can_collect_mail_without_a_live_channel() {
+    let root = crate::test_support::Temporary::new();
+    let command = root.0.join("claude");
+    fs::write(&command, "#!/bin/sh\nif test \"$1 $2 $3\" = 'mcp add --help'; then echo '--transport http --scope'; else echo '2.1.286 (Claude Code)'; fi\n").unwrap();
+    fs::set_permissions(&command, fs::Permissions::from_mode(0o700)).unwrap();
+    let provider = Provider::with_paths(command, root.0.join("missing-channel"), root.0.join("missing-config"));
+    assert!(provider.present().available);
+    assert!(provider.present().can_equip);
 }
 
 #[test]

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::{Path, PathBuf}, process::Command, sync::Arc};
 
 use crate::{
     domain::{
@@ -36,28 +36,37 @@ pub(crate) fn executable(name: &str) -> std::path::PathBuf {
     } else {
         vec![name.into()]
     };
-    if let Some(path) = std::env::var_os("PATH").and_then(|paths| {
-        std::env::split_paths(&paths)
-            .flat_map(|p| files.iter().map(move |file| p.join(file)))
-            .find(|p| p.is_file())
-    }) {
-        return path;
+    search_paths()
+        .into_iter()
+        .flat_map(|p| files.iter().map(move |file| p.join(file)))
+        .find(|p| p.is_file())
+        .unwrap_or_else(|| name.into())
+}
+
+pub(crate) fn command(path: &Path) -> Command {
+    let mut command = Command::new(path);
+    if let Ok(path) = std::env::join_paths(search_paths()) {
+        command.env("PATH", path);
     }
+    command
+}
+
+fn search_paths() -> Vec<PathBuf> {
+    let mut paths = std::env::var_os("PATH")
+        .map(|path| std::env::split_paths(&path).collect::<Vec<_>>())
+        .unwrap_or_default();
     let home = std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(std::path::PathBuf::from)
+        .map(PathBuf::from)
         .unwrap_or_default();
-    [
+    paths.extend([
         home.join(".local/bin"),
         home.join(".claude/local"),
         home.join("AppData/Roaming/npm"),
-        std::path::PathBuf::from("/usr/local/bin"),
-        std::path::PathBuf::from("/opt/homebrew/bin"),
-    ]
-    .into_iter()
-    .flat_map(|p| files.iter().map(move |file| p.join(file)))
-    .find(|p| p.is_file())
-    .unwrap_or_else(|| name.into())
+        PathBuf::from("/usr/local/bin"),
+        PathBuf::from("/opt/homebrew/bin"),
+    ]);
+    paths
 }
 
 /// Compares the first dotted number of each text: "2.1.285 (Claude Code)" satisfies
@@ -200,5 +209,16 @@ mod tests {
         assert!(!super::at_least("2.1.273 (Claude Code)", "2.1.274 (Claude Code)"));
         assert!(!super::at_least("codex-cli 0.99.9", "codex-cli 0.152.0"));
         assert!(!super::at_least("", "codex-cli 0.152.0"));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "requires the three configured AI clients on this Mac"]
+    fn installed_clients_work_with_the_finder_path() {
+        let statuses = ProviderRegistry::new().statuses();
+        for id in ["codex", "claude-code", "kimi"] {
+            let provider = statuses.iter().find(|status| status.id == id).unwrap();
+            assert!(provider.equipped, "{id}: {}", provider.detail);
+        }
     }
 }

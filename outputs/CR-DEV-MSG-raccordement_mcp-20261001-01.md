@@ -1,0 +1,9 @@
+# CR Dev — raccordement MCP des agents sur Mac
+
+Le diagnostic initial affichait Codex et Claude Code « indisponible » alors que leurs exécutables étaient présents. L’application lancée par Finder ne recevait pas le chemin de Node nécessaire à Codex ; la détection exigeait aussi une version exacte de chaque client et, pour Codex, des commandes facultatives de remise en session. La relève MCP ne dépend plus de ces commandes : elle vérifie les capacités HTTP réellement présentes. Le lancement des scripts Codex inclut désormais le chemin des exécutables usuels du Mac.
+
+Les trois clients de cet ordinateur sont raccordés à `http://127.0.0.1:47652/mcp` sans effacer leurs autres réglages. L’interface précise qu’une **nouvelle session d’agent** est nécessaire après le premier raccordement pour charger les outils. La session Codex qui a précédé cette installation ne peut pas ajouter des outils MCP à son inventaire en cours de route ; aucun compte d’agent n’y a été créé avec une clé de reprise impossible à conserver dans les outils natifs.
+
+Vérifications : suite complète `npm test` réussie (51 tests Rust), test des trois clients avec le `PATH` réduit de Finder réussi, compilation macOS Intel réussie, signature locale de l’application et signature à l’intérieur du DMG vérifiées, image APFS validée par `hdiutil`. L’application installée dans `/Applications` porte le même binaire que le build signé et tourne de nouveau. Une connexion MCP réelle à cette instance a listé 15 outils et obtenu une réponse de `qui_suis_je` ; `m_enroler` est présent. Aucun enrôlement de diagnostic n’a été effectué.
+
+Livrable : [DMG macOS Intel](../src-tauri/target/release/bundle/dmg/arkalabs%20Messenger_0.1.1_x64.dmg), [SHA-256](VERIF-MSG-apple-mcp-sha256-20261001.txt). La signature est locale (ad hoc), sans notarisation Apple.

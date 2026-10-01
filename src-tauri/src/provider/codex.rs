@@ -1,7 +1,7 @@
 pub const ID: &str = "codex";
 use std::{
     path::{Path, PathBuf},
-    process::{Command, Output},
+    process::Output,
     sync::Mutex,
 };
 
@@ -13,7 +13,7 @@ use crate::domain::{
     Reachability,
 };
 
-/// Oldest version proven with Messenger; later versions still need the agents and queue probes.
+/// Oldest version proven with Messenger; later versions still need the MCP probes.
 pub const PROVEN_VERSION: &str = "codex-cli 0.152.0";
 const MCP_NAME: &str = "arkalabs-messenger-app";
 const MCP_URL: &str = "http://127.0.0.1:47652/mcp";
@@ -38,17 +38,15 @@ impl Provider {
     }
 
     fn run(&self, arguments: &[&str]) -> Result<Output, PortError> {
-        Command::new(&self.command)
-            .args(arguments)
-            .output()
+        run(&self.command, arguments)
             .map_err(|_| {
                 PortError("Codex ne répond pas sur ce poste. Rouvre-le puis réessaie.".into())
             })
     }
 
     fn queue(&self, session: &str, text: &str) -> Result<Reachability, PortError> {
-        if session.trim().is_empty() {
-            return Err(PortError("la session de retour manque".into()));
+        if session.trim().is_empty() || !queue_supported(&self.command) {
+            return Ok(Reachability::NoSession);
         }
         let status = self.present();
         if !status.available {
@@ -120,7 +118,7 @@ impl ProviderPort for Provider {
                     .into(),
             ));
         }
-        let ready = ready_status(current.version);
+        let ready = ready_status(current.version, queue_supported(&self.command));
         *self.status.lock().expect("provider status lock") = ready.clone();
         Ok(ready)
     }
@@ -153,11 +151,10 @@ fn probe(command: &Path) -> ProviderStatus {
             Some(version_text),
         );
     }
-    let agents = run(command, &["agents", "--help"]);
-    let queue = run(command, &["queue", "--help"]);
-    if !responds(&agents, "shared local app-server daemon") || !responds(&queue, "--thread") {
+    if !responds(&run(command, &["mcp", "add", "--help"]), "--url")
+        || !responds(&run(command, &["mcp", "get", "--help"]), "--json") {
         return unavailable(
-            "Les commandes Codex agents et queue ne sont pas disponibles",
+            "Le transport MCP HTTP de Codex n’est pas disponible",
             Some(version_text),
         );
     }
@@ -174,7 +171,7 @@ fn probe(command: &Path) -> ProviderStatus {
         .as_deref()
         == Some(MCP_URL);
     if equipped {
-        ready_status(Some(version_text))
+        ready_status(Some(version_text), queue_supported(command))
     } else {
         ProviderStatus {
             id: "codex".into(),
@@ -190,7 +187,12 @@ fn probe(command: &Path) -> ProviderStatus {
 }
 
 fn run(command: &Path, arguments: &[&str]) -> Result<Output, std::io::Error> {
-    Command::new(command).args(arguments).output()
+    super::command(command).args(arguments).output()
+}
+
+fn queue_supported(command: &Path) -> bool {
+    responds(&run(command, &["agents", "--help"]), "shared local app-server daemon")
+        && responds(&run(command, &["queue", "--help"]), "--thread")
 }
 
 fn responds(output: &Result<Output, std::io::Error>, proof: &str) -> bool {
@@ -199,14 +201,14 @@ fn responds(output: &Result<Output, std::io::Error>, proof: &str) -> bool {
         .is_ok_and(|output| output.status.success() && stdout(output).contains(proof))
 }
 
-fn ready_status(version: Option<String>) -> ProviderStatus {
+fn ready_status(version: Option<String>, queue: bool) -> ProviderStatus {
     ProviderStatus {
         id: "codex".into(),
         name: "Codex".into(),
         version,
         state: "prêt".into(),
-        detail: "Codex peut relever Messenger et recevoir un verdict dans une session existante."
-            .into(),
+        detail: (if queue {"Codex peut relever Messenger et recevoir un verdict dans une session existante."}
+            else {"Codex relève Messenger par MCP ; la remise dans une session existante est indisponible."}).into(),
         available: true,
         equipped: true,
         can_equip: false,
@@ -256,7 +258,7 @@ mod tests {
         fs::write(
             &command,
             format!(
-                "#!/bin/sh\ncase \"$1 $2\" in\n  '--version ') echo '{PROVEN_VERSION}' ;;\n  'agents --help') echo 'shared local app-server daemon' ;;\n  'queue --help') echo '--thread' ;;\n  'mcp get') if test -f '{}'; then echo '{{\"transport\":{{\"url\":\"http://127.0.0.1:47652/mcp\"}}}}'; else echo \"No MCP server named\" >&2; exit 1; fi ;;\n  'mcp add') touch '{}' ;;\n  'queue --thread') exit 0 ;;\nesac\n",root.join("equipped").display(),root.join("equipped").display()
+                "#!/bin/sh\ncase \"$1 $2\" in\n  '--version ') echo '{PROVEN_VERSION}' ;;\n  'agents --help') echo 'shared local app-server daemon' ;;\n  'queue --help') echo '--thread' ;;\n  'mcp get') if test \"$3\" = '--help'; then echo '--json'; elif test -f '{}'; then echo '{{\"transport\":{{\"url\":\"http://127.0.0.1:47652/mcp\"}}}}'; else echo \"No MCP server named\" >&2; exit 1; fi ;;\n  'mcp add') if test \"$3\" = '--help'; then echo '--url'; else touch '{}'; fi ;;\n  'queue --thread') exit 0 ;;\nesac\n",root.join("equipped").display(),root.join("equipped").display()
             ),
         )
         .unwrap();
@@ -283,7 +285,7 @@ mod tests {
         fs::write(
             &command,
             format!(
-                "#!/bin/sh\ncase \"$1 $2\" in\n  '--version ') echo '{PROVEN_VERSION}' ;;\n  'agents --help') echo 'shared local app-server daemon' ;;\n  'queue --help') echo '--thread' ;;\n  'mcp get') echo '{{\"transport\":{{\"type\":\"stdio\",\"command\":\"legacy\"}}}}' ;;\n  'mcp add') touch '{}' ;;\nesac\n",
+                "#!/bin/sh\ncase \"$1 $2\" in\n  '--version ') echo '{PROVEN_VERSION}' ;;\n  'agents --help') echo 'shared local app-server daemon' ;;\n  'queue --help') echo '--thread' ;;\n  'mcp get') if test \"$3\" = '--help'; then echo '--json'; else echo '{{\"transport\":{{\"type\":\"stdio\",\"command\":\"legacy\"}}}}'; fi ;;\n  'mcp add') if test \"$3\" = '--help'; then echo '--url'; else touch '{}'; fi ;;\nesac\n",
                 overwritten.display()
             ),
         )
@@ -294,5 +296,23 @@ mod tests {
         assert!(provider.equip().is_err());
         assert!(!overwritten.exists());
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn mcp_collection_does_not_depend_on_queue_or_an_exact_version() {
+        let root = crate::test_support::Temporary::new();
+        let command = root.0.join("codex");
+        fs::write(&command, r#"#!/bin/sh
+case "$1 $2" in
+  '--version ') echo 'codex-cli 0.153.0' ;;
+  'mcp add') echo '--url' ;;
+  'mcp get') if test "$3" = '--help'; then echo '--json'; else echo '{"transport":{"url":"http://127.0.0.1:47652/mcp"}}'; fi ;;
+  *) exit 1 ;;
+esac
+"#).unwrap();
+        fs::set_permissions(&command, fs::Permissions::from_mode(0o700)).unwrap();
+        let provider = Provider::with_command(command);
+        assert!(provider.present().equipped);
+        assert_eq!(provider.deliver("session-1", "Courrier").unwrap(), Reachability::NoSession);
     }
 }

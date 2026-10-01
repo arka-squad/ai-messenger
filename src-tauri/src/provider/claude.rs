@@ -362,6 +362,14 @@ fn probe(command: &Path, sidecar: &Path, config: &Path) -> ProviderStatus {
             Some(version_text),
         );
     }
+    let http = run(command, &["mcp", "add", "--help"])
+        .is_ok_and(|output| output.status.success()
+            && stdout(&output).contains("--transport")
+            && stdout(&output).contains("--scope")
+            && stdout(&output).contains("http"));
+    if !http {
+        return unavailable("Le transport MCP HTTP de Claude Code n’est pas disponible", Some(version_text));
+    }
     match super::claude_http::configured(config) {
         Ok(true) => ready_status(Some(version_text)),
         Ok(false) => ProviderStatus {
