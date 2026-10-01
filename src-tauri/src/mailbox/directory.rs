@@ -138,10 +138,43 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
                 )
             })
     }
+    /// Enrols an agent under the box naming rule, as the first mailbox did: the address
+    /// `cl-agent-<tâche>-win` and the display `CL_Agent-<Tâche>_WIN` come from the attested
+    /// provider, the agent's task and this computer's system, so every account names its post.
+    pub async fn enroll_agent(
+        &self,
+        provider: &str,
+        session: &str,
+        task: &str,
+        role: &str,
+        project: Option<String>,
+    ) -> Result<Value, MailboxError> {
+        let (prefix, display) = agent_identity(provider, task, system())
+            .ok_or(MailboxError::from(DomainError::InvalidAccount))?;
+        self.enroll_as(provider, session, &prefix, &display, role, project)
+            .await
+    }
     pub async fn enroll(
         &self,
         provider: &str,
         session: &str,
+        display: &str,
+        role: &str,
+        project: Option<String>,
+    ) -> Result<Value, MailboxError> {
+        let prefix = display
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
+            .collect::<String>()
+            .to_lowercase();
+        self.enroll_as(provider, session, &prefix, display, role, project)
+            .await
+    }
+    async fn enroll_as(
+        &self,
+        provider: &str,
+        session: &str,
+        prefix: &str,
         display: &str,
         role: &str,
         project: Option<String>,
@@ -163,11 +196,6 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
                 "Le nom du projet doit être une adresse simple, sans espace ni chemin.",
             ));
         }
-        let prefix = display
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
-            .collect::<String>()
-            .to_lowercase();
         if prefix.is_empty() || prefix == "owner" {
             return Err(DomainError::InvalidAccount.into());
         }
@@ -175,7 +203,7 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
         let mut suffix = 0;
         let address = loop {
             let local = if suffix == 0 {
-                prefix.clone()
+                prefix.to_owned()
             } else {
                 format!("{prefix}-{suffix}")
             };
@@ -498,6 +526,61 @@ pub(crate) fn project_name(name: &str) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join("-")
+}
+
+/// This computer's system in account names: `win`, `mac` or `lnx`.
+pub(crate) fn system() -> &'static str {
+    if cfg!(windows) {
+        "win"
+    } else if cfg!(target_os = "macos") {
+        "mac"
+    } else {
+        "lnx"
+    }
+}
+
+/// `(address prefix, display)` for an agent: `cl-agent-messengerai-win` and
+/// `CL_Agent-MessengerAI_WIN`. The prefix stays within 32 characters.
+pub(crate) fn agent_identity(provider: &str, task: &str, system: &str) -> Option<(String, String)> {
+    if task.contains(['\n', '\r']) {
+        return None;
+    }
+    let task = task.split_whitespace().collect::<Vec<_>>().join(" ");
+    if task.is_empty() {
+        return None;
+    }
+    let initials = match provider {
+        "claude-code" => "cl".to_owned(),
+        "codex" => "cd".to_owned(),
+        "kimi" | "kimi-code" => "km".to_owned(),
+        "hermes" => "he".to_owned(),
+        other => {
+            let letters = slug(other, 2);
+            if letters.is_empty() { "ag".to_owned() } else { letters }
+        }
+    };
+    let room = 32usize.saturating_sub(format!("{initials}-agent--{system}").len()).max(4);
+    let task_slug = Some(slug(&task, room)).filter(|s| !s.is_empty()).unwrap_or_else(|| "agent".into());
+    Some((
+        format!("{initials}-agent-{task_slug}-{system}"),
+        format!("{}_Agent-{task}_{}", initials.to_uppercase(), system.to_uppercase()),
+    ))
+}
+
+/// Lowercase ASCII, accents folded, other characters reduced to single `-`, at most `max` long.
+fn slug(text: &str, max: usize) -> String {
+    let folded = text.to_lowercase().chars().map(|c| match c {
+        'à' | 'â' | 'ä' | 'á' => 'a',
+        'é' | 'è' | 'ê' | 'ë' => 'e',
+        'î' | 'ï' | 'í' => 'i',
+        'ô' | 'ö' | 'ó' => 'o',
+        'ù' | 'û' | 'ü' | 'ú' => 'u',
+        'ç' => 'c',
+        c if c.is_ascii_alphanumeric() => c,
+        _ => '-',
+    }).collect::<String>();
+    let joined = folded.split('-').filter(|p| !p.is_empty()).collect::<Vec<_>>().join("-");
+    joined.chars().take(max).collect::<String>().trim_matches('-').to_owned()
 }
 
 /// A name another machine may have published: valid, normalized and not the common group.

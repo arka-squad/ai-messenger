@@ -48,17 +48,19 @@ async fn complete_mcp_contract_binds_actor_and_attests_origin_without_trusting_c
         &mailbox,
         "a",
         "m_enroler",
-        json!({"display":"Alpha","role":"dev"}),
+        json!({"tache":"Alpha","role":"dev"}),
     )
     .await["identity"]["account"]
         .as_str()
         .unwrap()
         .to_owned();
+    let system = crate::mailbox::directory::system();
+    assert_eq!(a, format!("cd-agent-alpha-{system}"), "The account names its provider, task and system");
     let b = call(
         &mailbox,
         "b",
         "m_enroler",
-        json!({"display":"Beta","role":"dev"}),
+        json!({"tache":"Beta","role":"dev"}),
     )
     .await["identity"]["account"]
         .as_str()
@@ -96,7 +98,7 @@ async fn complete_mcp_contract_binds_actor_and_attests_origin_without_trusting_c
         &mailbox,
         "c",
         "m_enroler",
-        json!({"display":"Gamma","role":"dev"}),
+        json!({"tache":"Gamma","role":"dev"}),
     )
     .await["identity"]["account"]
         .as_str()
@@ -172,7 +174,7 @@ async fn real_http_sessions_do_not_publish_the_private_transport_credential() {
                 .map(str::to_owned)
         })
         .unwrap();
-    let (_,enrolled)=http(port,Some(transport.clone()),json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"m_enroler","arguments":{"display":"Agent","role":"dev"}}})).await;
+    let (_,enrolled)=http(port,Some(transport.clone()),json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"m_enroler","arguments":{"tache":"Agent","role":"dev"}}})).await;
     assert_ne!(
         enrolled["result"]["structuredContent"]["identity"]["session"],
         transport

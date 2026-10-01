@@ -390,3 +390,22 @@ async fn merged_copies_keep_read_access_without_gaining_recipient_rights() {
         .await
         .is_err());
 }
+
+#[test]
+fn agent_names_follow_the_box_rule_and_name_their_post() {
+    use crate::mailbox::directory::agent_identity;
+    assert_eq!(
+        agent_identity("claude-code", "MessengerAI", "win"),
+        Some(("cl-agent-messengerai-win".into(), "CL_Agent-MessengerAI_WIN".into()))
+    );
+    assert_eq!(
+        agent_identity("codex", "  Cortex   Core 2 ", "mac"),
+        Some(("cd-agent-cortex-core-2-mac".into(), "CD_Agent-Cortex Core 2_MAC".into()))
+    );
+    assert_eq!(agent_identity("kimi", "Équipe Été", "lnx").unwrap().0, "km-agent-equipe-ete-lnx");
+    let (long, _) = agent_identity("claude-code", "Une tâche au titre vraiment beaucoup trop long", "win").unwrap();
+    assert!(long.len() <= 32 && long.starts_with("cl-agent-") && long.ends_with("-win"), "{long}");
+    assert_eq!(agent_identity("mcp", "???", "win").unwrap().0, "mc-agent-agent-win");
+    assert_eq!(agent_identity("codex", "  ", "win"), None);
+    assert_eq!(agent_identity("codex", "deux\nlignes", "win"), None);
+}

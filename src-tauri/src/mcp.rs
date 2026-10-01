@@ -180,7 +180,7 @@ fn tools() -> Value {
     let attachment = json!({"type":"object","properties":{"name":text,"path":text,"bytes":{"type":"array","items":{"type":"integer","minimum":0,"maximum":255}}},"anyOf":[{"required":["name","bytes"]},{"required":["path"]}],"additionalProperties":false});
     json!([
         schema("qui_suis_je","Retourne l’identité attestée de cette session.",json!({}),&[]),
-        schema("m_enroler","Crée le compte de cette session. La clé privée de reprise n’est jamais publiée.",json!({"display":text,"role":text,"project":text,"delivery_session":text}),&["display","role"]),
+        schema("m_enroler","Crée le compte de cette session sous le nom normalisé de la boîte, déduit de ton outil, de ta tâche et du système de cet ordinateur (ex. CL_Agent-MessengerAI_WIN). La clé privée de reprise n’est jamais publiée.",json!({"tache":{"type":"string","description":"Titre court et durable de ta tâche, ex. MessengerAI ; il entre dans ton nom de compte."},"role":text,"project":text,"delivery_session":text}),&["tache","role"]),
         schema("me_reconnaitre","Reprend son compte avec sa clé privée de reprise.",json!({"account":text,"recovery_key":text,"delivery_session":text}),&["account","recovery_key"]),
         schema("relever","Relève les messages destinés à ton compte et les copies, sans modifier leurs statuts.",json!({"account":text}),&[]),
         schema("lire","Lit un message visible par ton compte ; la lecture seule ne marque rien.",json!({"account":text,"id":text}),&["id"]),
@@ -220,7 +220,7 @@ async fn call_tool<R: RepositoryPort, E: ExchangePort>(
     let result:Result<Value,MailboxError>=async {
         if name=="qui_suis_je" {return Ok(json!({"identity":mailbox.identity(route.provider,route.session).await?,"installation":mailbox.installation,"machine":mailbox.machine}));}
         if name=="m_enroler" || name=="me_reconnaitre" {
-            let value=if name=="m_enroler" {mailbox.enroll(route.provider,route.session,string(&args,"display")?,string(&args,"role")?,args["project"].as_str().map(str::to_owned)).await?}
+            let value=if name=="m_enroler" {mailbox.enroll_agent(route.provider,route.session,string(&args,"tache")?,string(&args,"role")?,args["project"].as_str().map(str::to_owned)).await?}
                 else {json!({"identity":mailbox.recognize(route.provider,route.session,string(&args,"account")?,string(&args,"recovery_key")?).await?})};
             let session=if route.live_session {Some(route.session)} else {args["delivery_session"].as_str()};
             if let (Some(session),Some(account))=(session,value["identity"]["account"].as_str()) {

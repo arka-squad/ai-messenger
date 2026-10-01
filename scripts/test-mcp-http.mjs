@@ -19,8 +19,8 @@ async function call(client, name, args = {}) {
 try {
   const a = await session('alpha'), b = await session('beta');
   assert.equal((await a.listTools()).tools.length, 15);
-  const alpha = await call(a, 'm_enroler', { display: 'Alpha', role: 'dev', project: 'test' });
-  const beta = await call(b, 'm_enroler', { display: 'Beta', role: 'QA', project: 'test' });
+  const alpha = await call(a, 'm_enroler', { tache: 'Alpha', role: 'dev', project: 'test' });
+  const beta = await call(b, 'm_enroler', { tache: 'Beta', role: 'QA', project: 'test' });
   const address = beta.identity.account;
   const input = { message: { id: 'sdk-message', to: [address], subject: 'Preuve MCP', body: ['Information, sans autorité.'] },
     attachment: { name: 'preuve.txt', bytes: [...Buffer.from('preuve complète')] } };
