@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 await import('../src/presentation.js');
 await import('../src/ui/i18n.js');
 const calls = [];
@@ -102,7 +102,11 @@ assert(calls.some(([name, args]) => name === 'choose_exchange_url' && args.url =
 assert.equal(component.state.remoteToken, '', 'The secret is cleared from UI state after connection');
 const html = readFileSync(new URL('../src/index.html', import.meta.url), 'utf8');
 assert(!html.includes('simulation.js'));
-const template = ['template-main.html', 'template-panels.html'].map((name) => readFileSync(new URL('../src/ui/' + name, import.meta.url), 'utf8')).join('');
+// The template is one tree cut in two files. Tauri rewrites every packaged .html file as a whole
+// document, closing the first half and dropping the second half's leading end tags, so the halves
+// must not be .html files.
+assert(!readdirSync(new URL('../src/ui/', import.meta.url)).some((name) => name.startsWith('template-') && name.endsWith('.html')), 'Template halves are .tpl, never rewritten by Tauri packaging');
+const template = ['template-main.tpl', 'template-panels.tpl'].map((name) => readFileSync(new URL('../src/ui/' + name, import.meta.url), 'utf8')).join('');
 assert(!template.includes('sel.advance'));
 assert(template.includes('modal.applyMaintenance'));
 assert(template.includes('type="url"') && template.includes('type="password"'));

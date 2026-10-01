@@ -5,8 +5,8 @@ const read = async (path) => {
 };
 
 const [main, panels, core, view] = await Promise.all([
-  read(new URL('./template-main.html', import.meta.url)),
-  read(new URL('./template-panels.html', import.meta.url)),
+  read(new URL('./template-main.tpl', import.meta.url)),
+  read(new URL('./template-panels.tpl', import.meta.url)),
   read(new URL('./controller-core.js', import.meta.url)),
   read(new URL('./controller-view.js', import.meta.url)),
 ]);

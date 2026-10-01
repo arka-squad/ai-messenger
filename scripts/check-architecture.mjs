@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { extname, join } from "node:path";
 
 const roots = ["src", "src-tauri/src", "scripts"];
-const extensions = new Set([".css", ".html", ".js", ".rs"]);
+const extensions = new Set([".css", ".html", ".js", ".rs", ".tpl"]);
 const files = [];
 
 const walk = (directory) => {
