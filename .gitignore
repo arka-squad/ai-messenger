@@ -6,3 +6,4 @@ src-tauri/binaries/
 server/target/
 *.bun-build
 .DS_Store
+src-tauri/gen/schemas/windows-schema.json

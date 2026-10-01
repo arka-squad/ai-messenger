@@ -85,7 +85,7 @@
             <sc-if value="{{ g.open }}" hint-placeholder-val="{{ true }}">
               <div class="fade-in" style="display: flex; flex-direction: column; gap: 3px; padding: 3px 0 0 6px;">
                 <sc-for list="{{ g.agents }}" as="a" hint-placeholder-count="4">
-                  <div onClick="{{ a.open }}" title="{{ a.title }}" style="display: flex; flex-direction: column; gap: 3px; padding: 7px 9px 8px; border-radius: 7px; border: 1px solid {{ a.border }}; background: {{ a.bg }}; cursor: pointer; transition: background 140ms ease, border-color 140ms ease;" style-hover="background: rgba(var(--w), 0.05);">
+                  <div onClick="{{ a.open }}" title="{{ a.tip }}" style="display: flex; flex-direction: column; gap: 3px; padding: 7px 9px 8px; border-radius: 7px; border: 1px solid {{ a.border }}; background: {{ a.bg }}; cursor: pointer; transition: background 140ms ease, border-color 140ms ease;" style-hover="background: rgba(var(--w), 0.05);">
                     <div style="display: flex; align-items: center; gap: 8px;">
                       <span class="{{ a.pulse }}" style="width: 6px; height: 6px; border-radius: 9999px; background: {{ a.dot }}; flex-shrink: 0;"></span>
                       <span style="flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 11.5px; color: {{ a.color }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ a.name }}</span>
@@ -106,6 +106,32 @@
             </sc-if>
           </div>
         </sc-for>
+
+        <sc-if value="{{ hasInactive }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 2px; padding-top: 2px;">
+            <div onClick="{{ toggleInactive }}" style="display: flex; align-items: center; gap: 8px; height: 25px; padding: 0 9px; border-radius: 7px; cursor: pointer;" style-hover="background: rgba(var(--w), 0.05);">
+              <span class="ic" style="width: 11px; height: 11px; color: var(--tx5); transform: {{ inactiveCaret }}; transition: transform 170ms cubic-bezier(0.16, 1, 0.3, 1); -webkit-mask-image: url('./assets/icons/chevron-right.svg'); mask-image: url('./assets/icons/chevron-right.svg');"></span>
+              <span style="font-size: 11px; color: var(--tx5); white-space: nowrap;">{{ inactiveTitle }}</span>
+            </div>
+            <sc-if value="{{ inactiveOpen }}" hint-placeholder-val="{{ false }}">
+              <div class="fade-in" style="display: flex; flex-direction: column; gap: 3px; padding: 3px 0 0 6px;">
+                <span style="font-size: 10.5px; color: var(--tx5); padding: 0 9px 2px;">Leur historique reste dans la boîte.</span>
+                <sc-for list="{{ inactive }}" as="off" hint-placeholder-count="1">
+                  <div title="{{ off.tip }}" style="display: flex; flex-direction: column; gap: 3px; padding: 7px 9px 8px; border-radius: 7px; border: 1px solid rgba(var(--w), 0.07);">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 11px; color: var(--tx4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ off.name }}</span>
+                      <button type="button" onClick="{{ off.reactivate }}" style="height: 22px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(var(--w), 0.14); background: transparent; font-family: var(--font-ui); font-size: 11px; color: var(--tx2); cursor: pointer; white-space: nowrap;">Réactiver</button>
+                    </div>
+                    <span style="font-size: 10.5px; color: var(--tx5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ off.post }}</span>
+                    <sc-if value="{{ off.hasNotice }}" hint-placeholder-val="{{ false }}">
+                      <span role="alert" style="font-size: 11px; color: var(--fail-tx); line-height: 1.45;">{{ off.notice }}</span>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
       </div>
 
       <div style="border-top: 1px solid rgba(var(--w), 0.06); padding: 13px 10px 14px; display: flex; flex-direction: column; gap: 4px;">
@@ -166,7 +192,7 @@
             <span style="font-family: var(--font-mono); font-size: 10px; color: var(--warn-tx);">{{ approvalCount }} en attente</span>
           </div>
           <sc-for list="{{ approvalItems }}" as="request" hint-placeholder-count="1">
-            <article style="display: flex; align-items: flex-start; gap: 12px; padding: 11px 12px; border: 1px solid rgba(var(--w), 0.1); border-radius: 8px; background: var(--zone);">
+            <article ref="{{ request.reveal }}" style="display: flex; align-items: flex-start; gap: 12px; padding: 11px 12px; border: 1px solid {{ request.border }}; border-radius: 8px; background: var(--zone);">
               <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px;">
                 <span style="font-size: 13px; font-weight: 600; color: var(--tx1);">{{ request.gesture }}</span>
                 <span style="font-family: var(--font-mono); font-size: 10px; color: var(--tx4);">{{ request.from }} · {{ request.scope }}</span>

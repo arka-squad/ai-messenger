@@ -7,9 +7,11 @@ const message = (value) => ({
 globalThis.MESSENGER_RUNTIME = {
   available: !!invoke,
   listenMessage: (callback) => globalThis.__TAURI__?.event?.listen('open-message', ({ payload }) => callback(payload)),
+  // Clic sur la notification d'une demande de validation ou d'intervention : la charge utile est son id.
+  listenRequest: (callback) => globalThis.__TAURI__?.event?.listen('open-request', ({ payload }) => callback(payload)),
   async snapshot() {
     const value = await call('snapshot');
-    return { ...value, mail: value.messages.map(message), approvals: value.requests };
+    return { ...value, mail: value.messages.map(message), approvals: value.requests, inactive: value.inactive || [] };
   },
   preferences: (preferences) => call('save_preferences', { preferences }),
   providers: () => call('provider_statuses'),
@@ -21,6 +23,8 @@ globalThis.MESSENGER_RUNTIME = {
   merge: (source, target) => call('merge_accounts', { source, target }),
   file: (account, project) => call('file_account', { account, project: project || null }),
   contacts: (account, contacts) => call('save_contacts', { account, contacts }),
+  updateAccount: (address, role) => call('update_account', { address, role }),
+  setAccountActive: (address, active) => call('set_account_active', { address, active }),
   requestAttachment: (messageId) => call('request_attachment', { messageId }),
   saveAttachment: (messageId) => call('save_attachment', { messageId }),
   openAttachment: (messageId) => call('open_attachment', { messageId }),

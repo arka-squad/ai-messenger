@@ -198,16 +198,39 @@ globalThis.MESSENGER_I18N = (() => {
   "Colle-la dans le chat de ton agent : il crée son compte tout seul, dans ce projet.": "Paste into your agent’s chat so it can enroll in this project.",
   "Son adresse ne change pas.": "Its address remains unchanged.",
   "Reprise terminée. Aucun agent n’a été réveillé.": "Import completed. No agents were woken.",
-  "Suppression effectuée selon l’aperçu.": "Data removed according to the preview."
+  "Suppression effectuée selon l’aperçu.": "Data removed according to the preview.",
+  "Rôle": "Role",
+  "Modifier le rôle": "Edit role",
+  "Le rôle de cet agent": "This agent’s role",
+  "Son rôle, sur une ligne (ex. relecture du code)": "Its role, on one line (e.g. code review)",
+  "Outil d’IA et ordinateur de cet agent": "This agent’s AI tool and computer",
+  "Donne un rôle à ce compte.": "Give this account a role.",
+  "Le rôle tient sur une seule ligne.": "The role must fit on one line.",
+  "Un agent n’est jamais « humain » : décris son rôle de travail.": "An agent is never “human”. Describe its working role.",
+  "Désactiver le compte": "Deactivate account",
+  "Désactiver ce compte ?": "Deactivate this account?",
+  "Son agent ne pourra plus relever ni écrire, et personne ne pourra plus lui écrire. S’il travaille encore, sa prochaine session créera un nouveau compte. Son historique reste dans la boîte ; tu peux le réactiver depuis « Comptes désactivés ».": "Its agent will no longer be able to collect or send mail, and no one will be able to write to it. If it is still working, its next session will create a new account. Its history stays in the mailbox; you can reactivate it from “Deactivated accounts”.",
+  "Fusionner plutôt": "Merge instead",
+  "Outil inconnu": "Unknown tool",
+  "Ce compte n’a jamais été repris": "This account was never resumed",
+  "Ce compte a été repris d’une ancienne boîte : son agent ne l’a jamais repris, il ne relève donc pas son courrier. Envoie-lui son invite : il reprendra son compte depuis son dossier de travail.": "This account was imported from an old mailbox. Its agent never resumed it, so it does not collect its mail. Send it its invitation so it resumes its account from its working folder.",
+  "Désactiver": "Deactivate",
+  "Réactiver": "Reactivate",
+  "Leur historique reste dans la boîte.": "Their history stays in the mailbox."
 };
   const keys = Object.keys(english);
   const ui = (lang) => Object.fromEntries(keys.map((key, index) => ['t' + index, lang === 'EN' ? english[key] : key]));
-  // Phrases portant des noms de projet : traduites sans repasser les noms dans les règles suivantes.
+  // Phrases portant des noms (projet, compte) ou un nombre : traduites sans repasser les noms dans les règles suivantes.
   const named = [
     [/^Projets : /, 'Projects: '],
     [/^Le projet s’appellera (.*) \(minuscules, sans espace\)\.$/, 'The project will be named $1 (lowercase, no spaces).'],
+    [/^(\d+) message\(s\) l’attendent encore : pour un doublon, fusionne-le plutôt dans le compte qui reste \(son courrier en attente le suit\)\.$/, '$1 message(s) still waiting for it. For a duplicate, merge it into the account you keep instead: its pending mail follows.'],
+    [/^(\d+) message\(s\) l’attend\(ent\) depuis (.*)$/, '$1 message(s) waiting for $2'],
+    [/^(.+) a été repris d’une ancienne boîte : son agent ne l’a jamais repris, il ne relève donc pas son courrier\.$/, '$1 was imported from an old mailbox. Its agent never resumed it, so it does not collect its mail.'],
+    [/^Trafic du /, 'Traffic on '],
   ];
   const rules = (text) => text
+    .replace(/^Comptes désactivés \((\d+)\)$/, 'Deactivated accounts ($1)')
     .replace(/^Relève toutes les (\d+) s$/, 'Collecting every $1 s')
     .replace(/^Relève automatique toutes les (\d+) s$/, 'Collecting automatically every $1 s')
     .replace(/^Prêts : /, 'Ready: ')
@@ -221,7 +244,7 @@ globalThis.MESSENGER_I18N = (() => {
     const rule = named.find(([pattern]) => pattern.test(text));
     return english[text] || (rule ? text.replace(...rule) : rules(text));
   };
-  const content = new Set(['objet', 'body', 'line', 'short', 'from', 'to', 'address', 'name', 'role', 'alias', 'note', 'targets', 'gesture', 'scope', 'whyNow', 'ifRefused', 'reversible', 'result', 'pj', 'boxPath', 'query', 'projName', 'targetQuery', 'mergeQuery', 'account', 'counts']);
+  const content = new Set(['objet', 'body', 'line', 'short', 'from', 'to', 'address', 'name', 'role', 'alias', 'note', 'targets', 'gesture', 'scope', 'whyNow', 'ifRefused', 'reversible', 'result', 'pj', 'boxPath', 'query', 'projName', 'targetQuery', 'mergeQuery', 'account', 'counts', 'post', 'tip', 'roleDraft']);
   const render = (value, lang) => {
     if (lang !== 'EN') return { ...value, ui: ui(lang) };
     const walk = (value, key = '', path = '') => {

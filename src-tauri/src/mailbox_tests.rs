@@ -407,5 +407,14 @@ fn agent_names_follow_the_box_rule_and_name_their_post() {
     assert!(long.len() <= 32 && long.starts_with("cl-agent-") && long.ends_with("-win"), "{long}");
     assert_eq!(agent_identity("mcp", "???", "win").unwrap().0, "mc-agent-agent-win");
     assert_eq!(agent_identity("codex", "  ", "win"), None);
+    // A task written as a whole account name is never doubled.
+    assert_eq!(
+        agent_identity("claude-code", "Agent-Cortex-5_WIN", "win"),
+        Some(("cl-agent-cortex-5-win".into(), "CL_Agent-Cortex-5_WIN".into()))
+    );
+    assert_eq!(
+        agent_identity("claude-code", "CL_Agent-Cortex-vocal-1_MAC", "mac"),
+        Some(("cl-agent-cortex-vocal-1-mac".into(), "CL_Agent-Cortex-vocal-1_MAC".into()))
+    );
     assert_eq!(agent_identity("codex", "deux\nlignes", "win"), None);
 }

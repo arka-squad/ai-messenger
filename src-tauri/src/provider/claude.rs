@@ -28,8 +28,9 @@ use crate::{
         Reachability,
     },
     mailbox::MailboxService,
-    mcp::{self, RouteContext},
 };
+
+use super::equipment;
 
 /// Oldest version proven with Messenger; later versions are accepted.
 pub const PROVEN_VERSION: &str = "2.1.274 (Claude Code)";
@@ -47,6 +48,8 @@ pub struct Provider {
     command: PathBuf,
     sidecar: PathBuf,
     config: PathBuf,
+    /// Claude's own folder: `settings.json` for the hooks, `skills/` for the skill.
+    home: PathBuf,
     hub: Arc<ChannelHub>,
     status: Mutex<ProviderStatus>,
 }
@@ -101,14 +104,16 @@ impl ChannelHub {
         connection
     }
 
-    fn unregister(&self, session: &str, connection: u64) {
+    /// `true` when this connection still held the session: a reconnection keeps its binding.
+    fn unregister(&self, session: &str, connection: u64) -> bool {
         let mut sessions = self.sessions.lock().expect("Claude session lock");
-        if sessions
+        let current = sessions
             .get(session)
-            .is_some_and(|(current, _)| *current == connection)
-        {
+            .is_some_and(|(current, _)| *current == connection);
+        if current {
             sessions.remove(session);
         }
+        current
     }
 
     fn deliver(&self, session: &str, content: &str) -> Result<Reachability, PortError> {
@@ -141,25 +146,28 @@ impl ChannelHub {
 impl Provider {
     pub fn new() -> Self {
         let command = command_path();
-        let sidecar = sidecar_path();
+        let sidecar = equipment::sidecar();
         let config = config_path();
-        let status = probe(&command, &sidecar, &config);
+        let home = home_path();
+        let status = probe(&command, &sidecar, &config, &home);
         Self {
             command,
             sidecar,
             config,
+            home,
             hub: hub(),
             status: Mutex::new(status),
         }
     }
 
-    #[cfg(test)]
-    fn with_paths(command: PathBuf, sidecar: PathBuf, config: PathBuf) -> Self {
-        let status = probe(&command, &sidecar, &config);
+    #[cfg(all(test, unix))]
+    fn with_paths(command: PathBuf, sidecar: PathBuf, config: PathBuf, home: PathBuf) -> Self {
+        let status = probe(&command, &sidecar, &config, &home);
         Self {
             command,
             sidecar,
             config,
+            home,
             hub: Arc::new(ChannelHub::default()),
             status: Mutex::new(status),
         }
@@ -187,7 +195,13 @@ impl ProviderPort for Provider {
         if !current.available {
             return Err(PortError(current.detail));
         }
+        let settings = self.home.join("settings.json");
+        let hooks = equipment::hook(&self.sidecar, ID, false);
+        // Every refusal comes before the first write.
+        super::claude_http::configured(&self.config)?;
+        equipment::ready(&settings, &self.home, hooks.as_ref())?;
         super::claude_http::equip(&self.command, &self.config)?;
+        let retired = equipment::install(&settings, &self.home, hooks.as_ref())?;
         // The ordinary MCP connection works even when the optional live channel is unavailable.
         if self.sidecar.is_file()
             && matches!(
@@ -198,7 +212,7 @@ impl ProviderPort for Provider {
             let sidecar = self.sidecar.to_string_lossy();
             let _ = self.run(&["mcp", "add", "--scope", "user", MCP_NAME, "--", &sidecar]);
         }
-        let ready = ready_status(current.version);
+        let ready = ready_status(current.version, hooks.is_some(), &retired);
         *self.status.lock().expect("Claude status lock") = ready.clone();
         Ok(ready)
     }
@@ -292,7 +306,7 @@ where
     {
         return;
     }
-    let session = registration.session;
+    let Registration { session, .. } = registration;
     let (sender, mut outbound) = mpsc::unbounded_channel();
     let rpc_sender = sender.clone();
     let connection = state.hub.register(session.clone(), sender);
@@ -301,6 +315,8 @@ where
         state.hub.unregister(&session, connection);
         return;
     }
+    // The session becomes nameable as a delivery route; nothing is bound from its folder.
+    state.mailbox.register_channel(&session);
     loop {
         tokio::select! {
             Some(frame) = outbound.recv() => {
@@ -310,40 +326,24 @@ where
                 let Some(Ok(Message::Text(raw))) = incoming else { break; };
                 let Ok(rpc) = serde_json::from_str::<RpcRequest>(&raw) else { continue; };
                 if rpc.kind != "rpc" { continue; }
-                let mailbox = state.mailbox.clone();
-                let session = session.clone();
-                let sender = rpc_sender.clone();
-                tokio::spawn(async move {
-                    let response = channel_rpc(&mailbox, &session, rpc.request).await;
-                    let frame = json!({ "type": "rpc_result", "id": rpc.id, "response": response });
-                    let _ = sender.send(frame.to_string());
-                });
+                let frame = json!({ "type": "rpc_result", "id": rpc.id, "response": channel_rpc(&rpc.request) });
+                if rpc_sender.send(frame.to_string()).is_err() { break; }
             }
         }
     }
-    state.hub.unregister(&session, connection);
+    if state.hub.unregister(&session, connection) {
+        state.mailbox.channel_closed(&session);
+    }
 }
 
-async fn channel_rpc<R: RepositoryPort, E: ExchangePort>(
-    mailbox: &MailboxService<R, E>,
-    session: &str,
-    request: Value,
-) -> Value {
+/// The channel only pushes: an older channel binary that still asks for tools gets none.
+fn channel_rpc(request: &Value) -> Value {
     let id = request.get("id").cloned().unwrap_or_else(|| json!(null));
     if request.get("method").and_then(Value::as_str) == Some("tools/list") {
-        return json!({ "jsonrpc": "2.0", "id": id, "result": { "tools": mcp::channel_tools() } });
+        return json!({ "jsonrpc": "2.0", "id": id, "result": { "tools": [] } });
     }
-    mcp::dispatch(
-        mailbox,
-        &request,
-        id,
-        Some(RouteContext {
-            provider: "claude-code",
-            session,
-            live_session: true,
-        }),
-    )
-    .await
+    json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32601,
+        "message": "Ce canal ne fait que pousser les événements Messenger. Utilise les outils arkalabs-messenger-app." } })
 }
 
 fn hub() -> Arc<ChannelHub> {
@@ -351,7 +351,7 @@ fn hub() -> Arc<ChannelHub> {
     HUB.get_or_init(|| Arc::new(ChannelHub::default())).clone()
 }
 
-fn probe(command: &Path, sidecar: &Path, config: &Path) -> ProviderStatus {
+fn probe(command: &Path, sidecar: &Path, config: &Path, home: &Path) -> ProviderStatus {
     let Ok(version) = run(command, &["--version"]) else {
         return unavailable("Claude Code est introuvable sur cet ordinateur", None);
     };
@@ -370,19 +370,28 @@ fn probe(command: &Path, sidecar: &Path, config: &Path) -> ProviderStatus {
     if !http {
         return unavailable("Le transport MCP HTTP de Claude Code n’est pas disponible", Some(version_text));
     }
-    match super::claude_http::configured(config) {
-        Ok(true) => ready_status(Some(version_text)),
+    let hooks = equipment::hook(sidecar, ID, false);
+    let settings = home.join("settings.json");
+    let equipped = super::claude_http::configured(config)
+        .and_then(|tools| Ok(equipment::ready(&settings, home, hooks.as_ref())? && tools));
+    match equipped {
+        Ok(true) => ready_status(Some(version_text), hooks.is_some(), &[]),
         Ok(false) => ProviderStatus {
             id: "claude-code".into(),
             name: "Claude Code".into(),
             version: Some(version_text),
             state: "à équiper".into(),
             detail: format!(
-                "La relève MCP fonctionne sans canal. {}",
+                "Clique pour poser les outils arkalabs-messenger-app et la skill partagée. {}{}",
                 if sidecar.is_file() {
-                    "Le canal empaqueté ajoute une remise dans les sessions qui l’activent."
+                    "La relève s’ajoute à l’ouverture et à chaque message de l’humain ; le canal empaqueté pousse les événements dans les sessions lancées avec l’option des canaux."
                 } else {
-                    "Le canal empaqueté est absent ; la relève reste disponible."
+                    "Le composant empaqueté est absent : ni relève automatique ni canal, les outils restent disponibles."
+                },
+                if equipment::legacy_present(&settings, home) {
+                    " L’ancienne consigne Messenger (skill arkalabs-messenger, hooks messenger.py) sera retirée."
+                } else {
+                    ""
                 }
             ),
             available: true,
@@ -427,14 +436,27 @@ fn configuration(path: &Path, sidecar: &Path) -> Configuration {
     }
 }
 
-fn ready_status(version: Option<String>) -> ProviderStatus {
+/// `retired`: what this equipment just moved or removed of the first mailbox's guidance.
+fn ready_status(version: Option<String>, hooks: bool, retired: &[String]) -> ProviderStatus {
+    let mut detail = format!(
+        "Claude Code est équipé : outils arkalabs-messenger-app, {}skill partagée. Chaque agent retrouve son compte par son dossier de travail. Une session ouverte avant l’équipement ne les charge pas : ouvres-en une nouvelle.",
+        if hooks { "relève à l’ouverture et à chaque message de l’humain, " } else { "" }
+    );
+    if hooks {
+        detail.push_str(&format!(
+            " Les événements en direct n’atteignent que les sessions lancées avec l’option des canaux (claude --dangerously-load-development-channels server:{MCP_NAME}) ; les autres sont averties par la relève."
+        ));
+    }
+    for note in retired {
+        detail.push(' ');
+        detail.push_str(note);
+    }
     ProviderStatus {
         id: "claude-code".into(),
         name: "Claude Code".into(),
         version,
         state: "prêt".into(),
-        detail: "Claude Code est équipé. Colle la même invite dans chaque agent : chacun crée son propre compte. Le canal temps réel reste optionnel et limité aux sessions qui l’ont activé."
-            .into(),
+        detail,
         available: true,
         equipped: true,
         can_equip: false,
@@ -467,35 +489,17 @@ fn unavailable(detail: &str, version: Option<String>) -> ProviderStatus {
     }
 }
 
-fn sidecar_path() -> PathBuf {
-    let name = format!("messenger-claude-channel{}", env::consts::EXE_SUFFIX);
-    if let Ok(executable) = env::current_exe() {
-        let bundled = executable.parent().unwrap_or(Path::new(".")).join(&name);
-        if bundled.is_file() {
-            return bundled;
-        }
-    }
-    let directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries");
-    fs::read_dir(&directory)
-        .ok()
-        .into_iter()
-        .flatten()
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .find(|path| {
-            path.file_name().is_some_and(|file| {
-                file.to_string_lossy()
-                    .starts_with("messenger-claude-channel-")
-            })
-        })
-        .unwrap_or_else(|| directory.join(name))
-}
-
 fn config_path() -> PathBuf {
     if let Some(directory) = env::var_os("CLAUDE_CONFIG_DIR") {
         return PathBuf::from(directory).join(".claude.json");
     }
     home_directory().unwrap_or_default().join(".claude.json")
+}
+
+fn home_path() -> PathBuf {
+    env::var_os("CLAUDE_CONFIG_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home_directory().unwrap_or_default().join(".claude"))
 }
 
 fn command_path() -> PathBuf {
@@ -582,3 +586,7 @@ fn stdout(output: &Output) -> String {
 #[cfg(all(test, unix))]
 #[path = "claude_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "claude_channel_tests.rs"]
+mod channel_tests;

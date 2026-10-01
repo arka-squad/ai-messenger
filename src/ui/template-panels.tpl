@@ -89,8 +89,25 @@
       </div>
       <div style="flex: 1; overflow-y: auto; min-height: 0; padding: 15px 16px 20px; display: flex; flex-direction: column; gap: 16px;">
         <div style="display: flex; flex-direction: column; gap: 7px;">
-          <span style="font-size: 12.5px; color: var(--tx2); line-height: 1.55; text-wrap: pretty;">{{ ag.role }}</span>
-          <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--tx5);">{{ ag.tech }}</span>
+          <sc-if value="{{ ag.acct.viewing }}" hint-placeholder-val="{{ true }}">
+            <span style="font-size: 12.5px; color: var(--tx2); line-height: 1.55; text-wrap: pretty;">{{ ag.role }}</span>
+          </sc-if>
+          <sc-if value="{{ ag.acct.editing }}" hint-placeholder-val="{{ false }}">
+            <div class="fade-in" style="display: flex; align-items: center; gap: 7px;">
+              <input ref="{{ ag.acct.focus }}" value="{{ ag.acct.roleDraft }}" onChange="{{ ag.acct.onRoleDraft }}" onKeyDown="{{ ag.acct.roleKey }}" placeholder="Son rôle, sur une ligne (ex. relecture du code)" aria-label="Le rôle de cet agent" autocomplete="off" style="flex: 1; min-width: 0; height: 30px; box-sizing: border-box; padding: 0 10px; border-radius: 7px; border: 1px solid rgba(var(--w), 0.16); background: transparent; outline: none; font-family: var(--font-ui); font-size: 12.5px; color: var(--tx1);" />
+              <button type="button" onClick="{{ ag.acct.saveRole }}" style="height: 30px; padding: 0 10px; border-radius: 7px; border: 1px solid rgba(var(--w), 0.2); background: rgba(var(--w), 0.08); font-family: var(--font-ui); font-size: 12px; color: var(--tx1); cursor: pointer;">Enregistrer</button>
+              <button type="button" onClick="{{ ag.acct.cancelRole }}" style="height: 30px; padding: 0 10px; border-radius: 7px; border: 1px solid rgba(var(--w), 0.12); background: transparent; font-family: var(--font-ui); font-size: 12px; color: var(--tx3); cursor: pointer;">Annuler</button>
+            </div>
+          </sc-if>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span title="Outil d’IA et ordinateur de cet agent" style="flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 10.5px; color: var(--tx5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ ag.post }}</span>
+            <sc-if value="{{ ag.acct.viewing }}" hint-placeholder-val="{{ true }}">
+              <span onClick="{{ ag.acct.editRole }}" style="font-size: 11.5px; color: var(--tx3); cursor: pointer; white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(var(--w), 0.2);">Modifier le rôle</span>
+            </sc-if>
+          </div>
+          <sc-if value="{{ ag.acct.noticeAtRole }}" hint-placeholder-val="{{ false }}">
+            <span ref="{{ ag.acct.reveal }}" role="alert" style="font-size: 11.5px; color: var(--fail-tx); line-height: 1.5;">{{ ag.acct.notice }}</span>
+          </sc-if>
         </div>
 
         <sc-if value="{{ ag.alert }}" hint-placeholder-val="{{ true }}">
@@ -163,6 +180,32 @@
           </span>
           <span class="ic" style="width: 13px; height: 13px; color: var(--tx5); -webkit-mask-image: url('./assets/icons/chevron-right.svg'); mask-image: url('./assets/icons/chevron-right.svg');"></span>
         </div>
+
+        <sc-if value="{{ ag.acct.idle }}" hint-placeholder-val="{{ true }}">
+          <span onClick="{{ ag.acct.askDeactivate }}" style="display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid rgba(190, 18, 60, 0.3); cursor: pointer;" style-hover="background: rgba(190, 18, 60, 0.08);">
+            <span class="ic" style="width: 13px; height: 13px; color: var(--fail-tx); -webkit-mask-image: url('./assets/icons/user-round-x.svg'); mask-image: url('./assets/icons/user-round-x.svg');"></span>
+            <span style="font-size: 12px; color: var(--fail-tx);">Désactiver le compte</span>
+          </span>
+        </sc-if>
+        <sc-if value="{{ ag.acct.confirming }}" hint-placeholder-val="{{ false }}">
+          <div ref="{{ ag.acct.reveal }}" class="fade-in" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 13px; border: 1px solid rgba(190, 18, 60, 0.32); border-radius: 9px; background: rgba(190, 18, 60, 0.06);">
+            <span style="font-size: 12px; font-weight: 600; color: var(--fail-tx);">Désactiver ce compte ?</span>
+            <span style="font-size: 12px; color: var(--tx3); line-height: 1.55; text-wrap: pretty;">{{ ag.acct.consequence }}</span>
+            <sc-if value="{{ ag.acct.hasWaiting }}" hint-placeholder-val="{{ false }}">
+              <span style="font-size: 12px; color: var(--warn-tx); line-height: 1.55; text-wrap: pretty;">{{ ag.acct.waitingText }}</span>
+            </sc-if>
+            <div style="display: flex; gap: 8px;">
+              <sc-if value="{{ ag.acct.hasWaiting }}" hint-placeholder-val="{{ false }}">
+                <button type="button" onClick="{{ ag.acct.mergeInstead }}" style="height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid rgba(var(--w), 0.2); background: rgba(var(--w), 0.08); font-family: var(--font-ui); font-size: 12px; color: var(--tx1); cursor: pointer;">Fusionner plutôt</button>
+              </sc-if>
+              <button type="button" onClick="{{ ag.acct.deactivate }}" style="height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid rgba(190, 18, 60, 0.4); background: transparent; font-family: var(--font-ui); font-size: 12px; color: var(--fail-tx); cursor: pointer;">Désactiver</button>
+              <button type="button" onClick="{{ ag.acct.cancelDeactivate }}" style="height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid rgba(var(--w), 0.12); background: transparent; font-family: var(--font-ui); font-size: 12px; color: var(--tx3); cursor: pointer;">Annuler</button>
+            </div>
+            <sc-if value="{{ ag.acct.noticeAtDeactivate }}" hint-placeholder-val="{{ false }}">
+              <span role="alert" style="font-size: 11.5px; color: var(--fail-tx); line-height: 1.5;">{{ ag.acct.notice }}</span>
+            </sc-if>
+          </div>
+        </sc-if>
       </div>
     </div>
   </sc-if>
@@ -239,6 +282,27 @@
 
           <sc-if value="{{ modal.isAdv }}" hint-placeholder-val="{{ false }}">
             <div style="display: flex; flex-direction: column; gap: 18px;">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <span style="font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tx5);">Rôle</span>
+                <sc-if value="{{ modal.acct.viewing }}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; align-items: baseline; gap: 10px;">
+                    <span style="flex: 1; min-width: 0; font-size: 12.5px; color: var(--tx3); line-height: 1.55; text-wrap: pretty;">{{ modal.role }}</span>
+                    <span onClick="{{ modal.acct.editRole }}" style="font-size: 11.5px; color: var(--tx3); cursor: pointer; white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(var(--w), 0.2);">Modifier le rôle</span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ modal.acct.editing }}" hint-placeholder-val="{{ false }}">
+                  <div class="fade-in" style="display: flex; align-items: center; gap: 7px;">
+                    <input ref="{{ modal.acct.focus }}" value="{{ modal.acct.roleDraft }}" onChange="{{ modal.acct.onRoleDraft }}" onKeyDown="{{ modal.acct.roleKey }}" placeholder="Son rôle, sur une ligne (ex. relecture du code)" aria-label="Le rôle de cet agent" autocomplete="off" style="flex: 1; min-width: 0; height: 34px; box-sizing: border-box; padding: 0 11px; border-radius: 8px; border: 1px solid rgba(var(--w), 0.16); background: transparent; outline: none; font-family: var(--font-ui); font-size: 12.5px; color: var(--tx1);" />
+                    <button type="button" onClick="{{ modal.acct.saveRole }}" style="height: 34px; padding: 0 11px; border-radius: 8px; border: 1px solid rgba(var(--w), 0.2); background: rgba(var(--w), 0.08); font-family: var(--font-ui); font-size: 12px; color: var(--tx1); cursor: pointer;">Enregistrer</button>
+                    <button type="button" onClick="{{ modal.acct.cancelRole }}" style="height: 34px; padding: 0 11px; border-radius: 8px; border: 1px solid rgba(var(--w), 0.12); background: transparent; font-family: var(--font-ui); font-size: 12px; color: var(--tx3); cursor: pointer;">Annuler</button>
+                  </div>
+                </sc-if>
+                <span title="Outil d’IA et ordinateur de cet agent" style="font-family: var(--font-mono); font-size: 10.5px; color: var(--tx5);">{{ modal.post }}</span>
+                <sc-if value="{{ modal.acct.noticeAtRole }}" hint-placeholder-val="{{ false }}">
+                  <span ref="{{ modal.acct.reveal }}" role="alert" style="font-size: 11.5px; color: var(--fail-tx); line-height: 1.5;">{{ modal.acct.notice }}</span>
+                </sc-if>
+              </div>
+
               <div style="display: flex; flex-direction: column; gap: 8px;">
                 <span style="font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tx5);">Projet</span>
                 <span style="font-size: 12.5px; color: var(--tx3); line-height: 1.55; text-wrap: pretty;">{{ modal.projectText }}</span>
@@ -326,6 +390,32 @@
                   </sc-if>
                 </div>
                 <input value="{{ modal.note }}" onChange="{{ modal.onNote }}" placeholder="Note (facultatif) : quand lui écrire" style="height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(var(--w), 0.12); background: transparent; outline: none; font-family: var(--font-ui); font-size: 12.5px; color: var(--tx1);" />
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <span style="font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tx5);">Désactiver le compte</span>
+                <sc-if value="{{ modal.acct.idle }}" hint-placeholder-val="{{ true }}">
+                  <span onClick="{{ modal.acct.askDeactivate }}" style="display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid rgba(190, 18, 60, 0.3); cursor: pointer;" style-hover="background: rgba(190, 18, 60, 0.08);">
+                    <span class="ic" style="width: 13px; height: 13px; color: var(--fail-tx); -webkit-mask-image: url('./assets/icons/user-round-x.svg'); mask-image: url('./assets/icons/user-round-x.svg');"></span>
+                    <span style="font-size: 12px; color: var(--fail-tx);">Désactiver le compte</span>
+                  </span>
+                </sc-if>
+                <sc-if value="{{ modal.acct.confirming }}" hint-placeholder-val="{{ false }}">
+                  <div ref="{{ modal.acct.reveal }}" class="fade-in" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 13px; border: 1px solid rgba(190, 18, 60, 0.32); border-radius: 9px; background: rgba(190, 18, 60, 0.06);">
+                    <span style="font-size: 12px; font-weight: 600; color: var(--fail-tx);">Désactiver ce compte ?</span>
+                    <span style="font-size: 12px; color: var(--tx3); line-height: 1.55; text-wrap: pretty;">{{ modal.acct.consequence }}</span>
+                    <sc-if value="{{ modal.acct.hasWaiting }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size: 12px; color: var(--warn-tx); line-height: 1.55; text-wrap: pretty;">{{ modal.acct.waitingText }}</span>
+                    </sc-if>
+                    <div style="display: flex; gap: 8px;">
+                      <button type="button" onClick="{{ modal.acct.deactivate }}" style="height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid rgba(190, 18, 60, 0.4); background: transparent; font-family: var(--font-ui); font-size: 12px; color: var(--fail-tx); cursor: pointer;">Désactiver</button>
+                      <button type="button" onClick="{{ modal.acct.cancelDeactivate }}" style="height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid rgba(var(--w), 0.12); background: transparent; font-family: var(--font-ui); font-size: 12px; color: var(--tx3); cursor: pointer;">Annuler</button>
+                    </div>
+                    <sc-if value="{{ modal.acct.noticeAtDeactivate }}" hint-placeholder-val="{{ false }}">
+                      <span role="alert" style="font-size: 11.5px; color: var(--fail-tx); line-height: 1.5;">{{ modal.acct.notice }}</span>
+                    </sc-if>
+                  </div>
+                </sc-if>
               </div>
             </div>
           </sc-if>

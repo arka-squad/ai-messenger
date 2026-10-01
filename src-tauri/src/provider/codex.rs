@@ -13,6 +13,8 @@ use crate::domain::{
     Reachability,
 };
 
+use super::equipment;
+
 /// Oldest version proven with Messenger; later versions still need the MCP probes.
 pub const PROVEN_VERSION: &str = "codex-cli 0.152.0";
 const MCP_NAME: &str = "arkalabs-messenger-app";
@@ -20,25 +22,36 @@ const MCP_URL: &str = "http://127.0.0.1:47652/mcp";
 
 pub struct Provider {
     command: PathBuf,
+    /// `CODEX_HOME`: `hooks.json` for the hooks, `skills/` for the skill.
+    home: PathBuf,
+    sidecar: PathBuf,
     status: Mutex<ProviderStatus>,
 }
 
 impl Provider {
     pub fn new() -> Self {
         let command = super::executable("codex");
-        if command.is_absolute() {
-            return Self::with_command(command);
-        }
-        Self::with_command(bundled_command().unwrap_or(command))
+        let command = if command.is_absolute() {
+            command
+        } else {
+            bundled_command().unwrap_or(command)
+        };
+        Self::with_paths(command, home_path(), equipment::sidecar())
     }
 
-    fn with_command(command: impl Into<PathBuf>) -> Self {
+    fn with_paths(command: impl Into<PathBuf>, home: PathBuf, sidecar: PathBuf) -> Self {
         let command = command.into();
-        let status = probe(&command);
+        let status = probe(&command, &home, &sidecar);
         Self {
             command,
+            home,
+            sidecar,
             status: Mutex::new(status),
         }
+    }
+
+    fn hooks(&self) -> (PathBuf, Option<equipment::Hook>) {
+        (self.home.join("hooks.json"), hook(&self.sidecar))
     }
 
     fn run(&self, arguments: &[&str]) -> Result<Output, PortError> {
@@ -82,6 +95,9 @@ impl ProviderPort for Provider {
         if current.equipped {
             return Ok(current);
         }
+        let (hooks, command) = self.hooks();
+        // A hook of another installation or an unreadable file stops everything before a write.
+        equipment::ready(&hooks, &self.home, command.as_ref())?;
         let output = self.run(&["mcp", "get", MCP_NAME, "--json"])?;
         if output.status.success() {
             let configuration: Value = serde_json::from_slice(&output.stdout)
@@ -122,7 +138,13 @@ impl ProviderPort for Provider {
                     .into(),
             ));
         }
-        let ready = ready_status(current.version, queue_supported(&self.command));
+        let retired = equipment::install(&hooks, &self.home, command.as_ref())?;
+        let ready = ready_status(
+            current.version,
+            queue_supported(&self.command),
+            command.is_some(),
+            &retired,
+        );
         *self.status.lock().expect("provider status lock") = ready.clone();
         Ok(ready)
     }
@@ -140,7 +162,7 @@ impl ProviderPort for Provider {
     }
 }
 
-fn probe(command: &Path) -> ProviderStatus {
+fn probe(command: &Path, home: &Path, sidecar: &Path) -> ProviderStatus {
     let version = run(command, &["--version"]);
     let Ok(version) = version else {
         return unavailable("Codex est introuvable sur cet ordinateur", None);
@@ -162,7 +184,7 @@ fn probe(command: &Path) -> ProviderStatus {
             Some(version_text),
         );
     }
-    let equipped = run(command, &["mcp", "get", MCP_NAME, "--json"])
+    let tools = run(command, &["mcp", "get", MCP_NAME, "--json"])
         .ok()
         .filter(|output| output.status.success())
         .and_then(|output| serde_json::from_slice::<Value>(&output.stdout).ok())
@@ -174,20 +196,65 @@ fn probe(command: &Path) -> ProviderStatus {
         })
         .as_deref()
         == Some(MCP_URL);
-    if equipped {
-        ready_status(Some(version_text), queue_supported(command))
-    } else {
-        ProviderStatus {
+    let hooks = hook(sidecar);
+    let file = home.join("hooks.json");
+    match equipment::ready(&file, home, hooks.as_ref()) {
+        Ok(true) if tools => ready_status(
+            Some(version_text),
+            queue_supported(command),
+            hooks.is_some(),
+            &[],
+        ),
+        Ok(_) => ProviderStatus {
             id: "codex".into(),
             name: "Codex".into(),
             version: Some(version_text),
             state: "à équiper".into(),
-            detail: "Codex est compatible ; clique pour lui donner accès à Messenger.".into(),
+            detail: format!(
+                "Codex est compatible ; clique pour lui donner les outils Messenger{}{}",
+                if hooks.is_some() {
+                    ", la relève automatique et la skill partagée. Codex demandera ensuite d’approuver ses nouveaux hooks : Paramètres > Code > Hooks."
+                } else {
+                    " et la skill partagée."
+                },
+                if equipment::legacy_present(&file, home) {
+                    " L’ancienne consigne Messenger (skill arkalabs-messenger, hooks messenger.py) sera retirée."
+                } else {
+                    ""
+                }
+            ),
             available: true,
             equipped: false,
             can_equip: true,
-        }
+        },
+        Err(error) => ProviderStatus {
+            id: "codex".into(),
+            name: "Codex".into(),
+            version: Some(version_text),
+            state: "à vérifier".into(),
+            detail: error.0,
+            available: true,
+            equipped: false,
+            can_equip: false,
+        },
     }
+}
+
+/// Codex runs `commandWindows` with PowerShell on Windows: that form is added there.
+fn hook(sidecar: &Path) -> Option<equipment::Hook> {
+    equipment::hook(sidecar, ID, cfg!(windows))
+}
+
+fn home_path() -> PathBuf {
+    std::env::var_os("CODEX_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            std::env::var_os("HOME")
+                .or_else(|| std::env::var_os("USERPROFILE"))
+                .map(PathBuf::from)
+                .unwrap_or_default()
+                .join(".codex")
+        })
 }
 
 /// The Codex desktop app ships its CLI inside the app, outside PATH. On Windows the Store
@@ -241,14 +308,23 @@ fn responds(output: &Result<Output, std::io::Error>, proof: &str) -> bool {
         .is_ok_and(|output| output.status.success() && stdout(output).contains(proof))
 }
 
-fn ready_status(version: Option<String>, queue: bool) -> ProviderStatus {
+/// `retired`: what this equipment just moved or removed of the first mailbox's guidance.
+fn ready_status(version: Option<String>, queue: bool, hooks: bool, retired: &[String]) -> ProviderStatus {
+    let mut detail = format!("{}{} Une session ouverte avant l’équipement ne les charge pas : ouvres-en une nouvelle.",
+        if queue {"Codex peut relever Messenger et recevoir un verdict dans une session existante."}
+        else {"Codex relève Messenger par MCP ; la remise dans une session existante est indisponible."},
+        if hooks {" La relève automatique est posée : Codex demande d’approuver les nouveaux hooks dans Paramètres > Code > Hooks."}
+        else {""});
+    for note in retired {
+        detail.push(' ');
+        detail.push_str(note);
+    }
     ProviderStatus {
         id: "codex".into(),
         name: "Codex".into(),
         version,
         state: "prêt".into(),
-        detail: (if queue {"Codex peut relever Messenger et recevoir un verdict dans une session existante."}
-            else {"Codex relève Messenger par MCP ; la remise dans une session existante est indisponible."}).into(),
+        detail,
         available: true,
         equipped: true,
         can_equip: false,
@@ -286,7 +362,7 @@ fn command_error(prefix: &str, _: &Output) -> PortError {
 mod tests {
     use std::{fs, os::unix::fs::PermissionsExt};
 
-    use super::{Provider, ProviderPort, PROVEN_VERSION};
+    use super::{equipment, Provider, ProviderPort, PROVEN_VERSION};
     use crate::domain::Reachability;
 
     #[test]
@@ -304,9 +380,23 @@ mod tests {
         .unwrap();
         fs::set_permissions(&command, fs::Permissions::from_mode(0o700)).unwrap();
 
-        let provider = Provider::with_command(command);
+        let home = root.join("codex-home");
+        let sidecar = root.join("messenger-claude-channel");
+        fs::write(&sidecar, "channel").unwrap();
+        let provider = Provider::with_paths(command, home.clone(), sidecar.clone());
         assert!(provider.present().available);
-        assert!(provider.equip().unwrap().equipped);
+        assert!(provider.present().detail.contains("Paramètres > Code > Hooks"));
+        let ready = provider.equip().unwrap();
+        assert!(ready.equipped);
+        assert!(ready.detail.contains("Paramètres > Code > Hooks"));
+        let hooks: serde_json::Value =
+            serde_json::from_slice(&fs::read(home.join("hooks.json")).unwrap()).unwrap();
+        let expected = equipment::hook(&sidecar, "codex", false).unwrap();
+        assert!(expected.command.ends_with(" hook --host codex"));
+        for event in ["SessionStart", "UserPromptSubmit"] {
+            assert_eq!(hooks["hooks"][event][0]["hooks"][0]["command"], expected.command.as_str());
+        }
+        assert!(equipment::skill_ready(&home));
         assert_eq!(
             provider.deliver_verdict("session-1", "validé").unwrap(),
             Reachability::NextStart
@@ -332,9 +422,11 @@ mod tests {
         .unwrap();
         fs::set_permissions(&command, fs::Permissions::from_mode(0o700)).unwrap();
 
-        let provider = Provider::with_command(command);
+        let home = root.join("codex-home");
+        let provider = Provider::with_paths(command, home.clone(), root.join("absent-channel"));
         assert!(provider.equip().is_err());
         assert!(!overwritten.exists());
+        assert!(!home.exists(), "a refused equipment writes no hook and no skill");
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -351,9 +443,49 @@ case "$1 $2" in
 esac
 "#).unwrap();
         fs::set_permissions(&command, fs::Permissions::from_mode(0o700)).unwrap();
-        let provider = Provider::with_command(command);
+        let home = root.0.join("codex-home");
+        let absent = root.0.join("absent-channel");
+        let provider = Provider::with_paths(command.clone(), home.clone(), absent.clone());
+        assert!(!provider.present().equipped, "the shared skill is still missing");
+        assert!(provider.present().can_equip);
+        equipment::install_skill(&home).unwrap();
+        let provider = Provider::with_paths(command, home, absent);
         assert!(provider.present().equipped);
         assert_eq!(provider.deliver("session-1", "Courrier").unwrap(), Reachability::NoSession);
+    }
+
+    #[test]
+    fn hooks_of_another_codex_installation_block_equipment_before_any_write() {
+        let root = crate::test_support::Temporary::new();
+        let command = root.0.join("codex");
+        let added = root.0.join("added");
+        fs::write(&command, format!(r#"#!/bin/sh
+case "$1 $2" in
+  '--version ') echo 'codex-cli 0.159.2' ;;
+  'mcp add') if test "$3" = '--help'; then echo '--url'; else touch '{}'; fi ;;
+  'mcp get') if test "$3" = '--help'; then echo '--json'; else echo "No MCP server named" >&2; exit 1; fi ;;
+  *) exit 1 ;;
+esac
+"#, added.display())).unwrap();
+        fs::set_permissions(&command, fs::Permissions::from_mode(0o700)).unwrap();
+        let other = root.0.join("other").join("messenger-claude-channel");
+        fs::create_dir_all(other.parent().unwrap()).unwrap();
+        fs::write(&other, "other").unwrap();
+        let home = root.0.join("codex-home");
+        fs::create_dir_all(&home).unwrap();
+        let foreign = serde_json::json!({"hooks": {"SessionStart": [{"hooks": [
+            {"type": "command", "command": format!("\"{}\" hook --host codex", other.display())}
+        ]}]}})
+        .to_string();
+        fs::write(home.join("hooks.json"), &foreign).unwrap();
+        let sidecar = root.0.join("messenger-claude-channel");
+        fs::write(&sidecar, "channel").unwrap();
+        let provider = Provider::with_paths(command, home.clone(), sidecar);
+        assert_eq!(provider.present().state, "à vérifier");
+        assert!(provider.equip().is_err());
+        assert!(!added.exists(), "the MCP entry is not added either");
+        assert_eq!(fs::read_to_string(home.join("hooks.json")).unwrap(), foreign);
+        assert!(!equipment::skill_path(&home).exists());
     }
 }
 

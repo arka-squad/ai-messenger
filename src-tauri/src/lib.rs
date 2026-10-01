@@ -451,6 +451,8 @@ pub fn run() {
             owner_commands::save_preferences,
             owner_commands::create_project,
             owner_commands::copy_invitation,
+            owner_commands::update_account,
+            owner_commands::set_account_active,
             owner_commands::merge_accounts,
             owner_commands::file_account,
             owner_commands::save_contacts,

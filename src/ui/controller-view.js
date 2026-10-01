@@ -50,7 +50,10 @@
       const actions = intervention ? [['prendre_en_charge', 'Prendre en charge', 'var(--tx2)']] : [
         ['valider', 'Valider', 'var(--pass-tx)'], ['refuser', 'Refuser', 'var(--fail-tx)'], ['discuter', 'Discuter', 'var(--tx2)'],
       ];
+      // Désignée par sa notification : bordée et amenée en vue dans « Ce qu’on me demande ».
+      const focused = this.state.box === 'moi' && this.state.openRequest === request.id;
       return { id: request.id, from: request.opened_by, gesture: request.gesture, scope: request.scope,
+        focused, border: focused ? 'rgba(217, 119, 6, 0.55)' : 'rgba(var(--w), 0.1)', reveal: focused ? this._reveal : this._still,
         reversible: request.reversible, ifRefused: request.if_refused, whyNow: request.why_now,
         result: request.closure?.result || globalThis.MESSENGER_I18N.text(request.decision_journey === 'pending' ? 'Le dépôt n’est pas confirmé. L’agent ne peut pas encore utiliser cette décision.' : (request.verdict?.response === 'valider' ? 'L’agent doit encore rapporter le résultat.' : intervention && request.taken ? 'La suite se passe dans la session de l’agent.' : ''), this.state.lang),
         state: request.closure_journey === 'pending' ? 'CLÔTURE EN ATTENTE DE PUBLICATION' : request.decision_journey === 'pending' ? 'DÉCISION EN ATTENTE DE PUBLICATION' : request.closure ? 'TERMINÉE' : intervention ? (request.taken ? 'PRISE EN CHARGE' : 'INTERVENTION') : request.verdict ? (request.verdict.response === 'valider' ? 'VALIDÉE · RÉSULTAT ATTENDU' : 'REFUSÉE') : 'EN ATTENTE',
@@ -127,6 +130,10 @@
       }),
 
       groups,
+      hasInactive: inactive.length > 0, inactive, inactiveOpen: this.state.inactiveOpen,
+      inactiveTitle: 'Comptes désactivés (' + inactive.length + ')',
+      inactiveCaret: this.state.inactiveOpen ? 'rotate(90deg)' : 'none',
+      toggleInactive: () => this.setState((st) => ({ inactiveOpen: !st.inactiveOpen })),
       allProjColor: this.state.project ? 'var(--tx5)' : 'var(--tx2)',
       pickAllProjects: () => { this.setState({ project: null, agent: null }); this._reload(); },
 
@@ -260,12 +267,12 @@
       closeAgent: () => {
         this.setState({ agentClosing: true });
         clearTimeout(this._p);
-        this._p = setTimeout(() => this.setState({ agentPanel: null, agentClosing: false }), 195);
+        this._p = setTimeout(() => this.setState({ agentPanel: null, agentClosing: false, ...ACCOUNT_IDLE }), 195);
       },
       ag: ap ? {
         name: ap[10], address: ap[1],
-        role: ap[5] || 'Aucune information sur ce compte.',
-        tech: ap[3] + ' · ' + ap[4],
+        role: ap[5] || noRole, post: ap[11] || '—',
+        acct: this._accountControls(ap[1], ap[5], ap[7]),
         dot: ap[7] > 0 ? 'var(--warn-tx)' : (ap[6] ? 'var(--pass-tx)' : 'var(--tx5)'),
         pulse: ap[7] > 0 ? 'pulse' : '',
         alert: ap[7] > 0 || ap[3] === 'inconnu',
@@ -293,7 +300,8 @@
       } : {},
 
       modalOpen: !!kind,
-      closeModal: () => this.setState({ modal: null, modalAgent: null }),
+      // Fermer le menu abandonne ses gestes de compte : rien ne revient armé dans la fiche de l'agent.
+      closeModal: () => this.setState({ modal: null, modalAgent: null, ...ACCOUNT_IDLE }),
       stop: (e) => e.stopPropagation(),
       modal: {
         width: kind === 'setup' ? '640px' : (kind === 'adv' ? '680px' : '560px'),
@@ -368,6 +376,8 @@
           ? 'Son adresse porte son projet (' + ma[2] + ') : il ne se range pas ailleurs.'
           : 'Ce compte n\u2019a pas de projet dans son adresse : tu peux le ranger où tu veux.',
         canFile: !!(ma && ma[1].indexOf('@') < 0),
+        role: ma ? ma[5] || noRole : '', post: ma ? ma[11] || '—' : '',
+        acct: ma ? this._accountControls(ma[1], ma[5], ma[7]) : {},
         fileChoices: projOpts.map((o) => {
           const on = this.state.fileTarget === o.p;
           return {
@@ -464,16 +474,23 @@
               return this._refresh();
             }, (error) => this.setState({ busy: false, projectNotice: String(error) }));
           }
-          if (kind === 'adv' && ma) return this._run(async () => {
+          // Un rôle en cours de saisie part avec le reste plutôt que d'être perdu.
+          const role = kind === 'adv' && ma && this.state.roleEdit === ma[1] ? this.state.roleDraft.trim() : null;
+          if (role !== null && roleProblem(role)) return this.setState({ accountNotice: { address: ma[1], text: roleProblem(role) } });
+          if (kind === 'adv' && ma) return (async () => {
             const runtime = globalThis.MESSENGER_RUNTIME;
-            if (this.state.contactAlias.trim()) {
-              const current = this.state.directory.find((entry) => entry.account.address === ma[1]).contacts;
-              const contact = { alias: this.state.contactAlias.trim(), addresses: pickedNames, note: this.state.contactNote };
-              await runtime.contacts(ma[1], current.filter((c) => c.alias !== contact.alias).concat([contact]));
-            }
-            if (this.state.fileTarget !== null) await runtime.file(ma[1], this.state.fileTarget);
-            if (this.state.mergeTarget) await runtime.merge(ma[1], this.state.mergeTarget);
-          }, { modal: null, modalAgent: null });
+            // Le rôle passe d'abord par le chemin du compte : un refus reste sous le champ, jamais en signalement.
+            if (role !== null && role !== ma[5] && !(await this._account(ma[1], () => runtime.updateAccount(ma[1], role), { roleEdit: null, roleDraft: '' }))) return;
+            return this._run(async () => {
+              if (this.state.contactAlias.trim()) {
+                const current = this.state.directory.find((entry) => entry.account.address === ma[1]).contacts;
+                const contact = { alias: this.state.contactAlias.trim(), addresses: pickedNames, note: this.state.contactNote };
+                await runtime.contacts(ma[1], current.filter((c) => c.alias !== contact.alias).concat([contact]));
+              }
+              if (this.state.fileTarget !== null) await runtime.file(ma[1], this.state.fileTarget);
+              if (this.state.mergeTarget) await runtime.merge(ma[1], this.state.mergeTarget);
+            }, { modal: null, modalAgent: null, ...ACCOUNT_IDLE });
+          })();
         },
       },
     };

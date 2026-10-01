@@ -286,26 +286,85 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
             .deposit(ExchangeItem::Checkpoint(&checkpoint))?;
         Ok(())
     }
+    /// Ids of mail that became visible after the call, or still nouveau and never handed to this
+    /// session. The poller and local writes wake the wait; it never reads the box itself.
     pub async fn await_mail(
         &self,
         account: &str,
         timeout: u64,
-    ) -> Result<Vec<MailMessage>, MailboxError> {
+        returned: &BTreeSet<String>,
+    ) -> Result<Vec<String>, MailboxError> {
         self.require_account(account).await?;
         let deadline =
-            tokio::time::Instant::now() + std::time::Duration::from_secs(timeout.min(300));
+            tokio::time::Instant::now() + std::time::Duration::from_secs(timeout.min(MAX_WAIT));
+        let mut before: Option<BTreeSet<String>> = None;
         loop {
             let notified = self.arrived.notified();
             tokio::pin!(notified);
             notified.as_mut().enable();
-            self.receive().await?;
-            let messages = self.inbox(account).await?;
-            if !messages.is_empty() {
-                return Ok(messages);
+            let entries = self.inbox_entries(account).await?;
+            let known = before.get_or_insert_with(|| entries.iter().map(|(m, _, _)| m.id.clone()).collect());
+            let fresh = entries
+                .into_iter()
+                .filter(|(m, nouveau, _)| !known.contains(&m.id) || (*nouveau && !returned.contains(&m.id)))
+                .map(|(m, _, _)| m.id)
+                .collect::<Vec<_>>();
+            if !fresh.is_empty() {
+                return Ok(fresh);
             }
             if tokio::time::timeout_at(deadline, notified).await.is_err() {
                 return Ok(Vec::new());
             }
         }
     }
+    /// relever: reads the box and lists the mail addressed to the account and not traité, plus each
+    /// copy until the collection after its arrival. The local collection time is kept at every call;
+    /// the shared Collected event is published at most once per account every ten minutes.
+    pub async fn collect(&self, account: &str) -> Result<Vec<super::views::MessageView>, MailboxError> {
+        self.receive().await?;
+        let entries = self.inbox_entries(account).await?;
+        let shown_key = format!("copies_shown:{account}");
+        let shown = self.setting(&shown_key).await?
+            .and_then(|v| serde_json::from_value::<BTreeSet<String>>(v).ok())
+            .unwrap_or_default();
+        let mut listed = BTreeSet::new();
+        let mut copies = BTreeSet::new();
+        for (message, _, addressed) in entries {
+            if !addressed {
+                if shown.contains(&message.id) {
+                    copies.insert(message.id);
+                    continue;
+                }
+                copies.insert(message.id.clone());
+            }
+            listed.insert(message.id);
+        }
+        // Only the copies still visible are remembered, so the set never outgrows the box.
+        if copies != shown {
+            self.set_setting(&shown_key, json!(copies)).await?;
+        }
+        let published_key = format!("collection_published:{account}");
+        let recent = self.setting(&published_key).await?.as_ref().and_then(Value::as_str)
+            .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
+            .is_some_and(|at| Utc::now().signed_duration_since(at) < chrono::Duration::minutes(10));
+        let at = now();
+        if !recent {
+            self.event(Change::Collected { account: account.into() }).await?;
+            self.set_setting(&published_key, json!(at)).await?;
+        }
+        self.set_setting(&format!("collected_at:{account}"), json!(at)).await?;
+        Ok(self
+            .message_views()
+            .await?
+            .into_iter()
+            .filter(|v| listed.contains(&v.message.id))
+            .collect())
+    }
+    /// The last collection of an account on this installation, kept at every relever.
+    pub(crate) async fn collected_at(&self, account: &str) -> Result<Option<String>, MailboxError> {
+        Ok(self.setting(&format!("collected_at:{account}")).await?.and_then(|v| v.as_str().map(str::to_owned)))
+    }
 }
+
+/// Longest attendre, in seconds.
+pub(crate) const MAX_WAIT: u64 = 1800;

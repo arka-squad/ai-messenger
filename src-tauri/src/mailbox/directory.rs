@@ -138,163 +138,6 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
                 )
             })
     }
-    /// Enrols an agent under the box naming rule, as the first mailbox did: the address
-    /// `cl-agent-<tâche>-win` and the display `CL_Agent-<Tâche>_WIN` come from the attested
-    /// provider, the agent's task and this computer's system, so every account names its post.
-    pub async fn enroll_agent(
-        &self,
-        provider: &str,
-        session: &str,
-        task: &str,
-        role: &str,
-        project: Option<String>,
-    ) -> Result<Value, MailboxError> {
-        let (prefix, display) = agent_identity(provider, task, system())
-            .ok_or(MailboxError::from(DomainError::InvalidAccount))?;
-        self.enroll_as(provider, session, &prefix, &display, role, project)
-            .await
-    }
-    pub async fn enroll(
-        &self,
-        provider: &str,
-        session: &str,
-        display: &str,
-        role: &str,
-        project: Option<String>,
-    ) -> Result<Value, MailboxError> {
-        let prefix = display
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
-            .collect::<String>()
-            .to_lowercase();
-        self.enroll_as(provider, session, &prefix, display, role, project)
-            .await
-    }
-    async fn enroll_as(
-        &self,
-        provider: &str,
-        session: &str,
-        prefix: &str,
-        display: &str,
-        role: &str,
-        project: Option<String>,
-    ) -> Result<Value, MailboxError> {
-        let _guard = self.changes.lock().await;
-        if session.is_empty()
-            || !single_line(display)
-            || !single_line(role)
-            || matches!(role.trim().to_lowercase().as_str(), "human" | "humain")
-        {
-            return Err(DomainError::InvalidAccount.into());
-        }
-        if let Some(identity) = self.identity(provider, session).await? {
-            return Ok(json!({"identity":identity,"already_enrolled":true}));
-        }
-        if project.as_ref().is_some_and(|p| !valid_name(p)) {
-            return Err(refusal(
-                "projet_invalide",
-                "Le nom du projet doit être une adresse simple, sans espace ni chemin.",
-            ));
-        }
-        if prefix.is_empty() || prefix == "owner" {
-            return Err(DomainError::InvalidAccount.into());
-        }
-        let existing = self.accounts().await?;
-        let mut suffix = 0;
-        let address = loop {
-            let local = if suffix == 0 {
-                prefix.to_owned()
-            } else {
-                format!("{prefix}-{suffix}")
-            };
-            let candidate = match &project {
-                Some(p) => format!("{local}@{p}"),
-                None => local,
-            };
-            if !existing.iter().any(|a| a.address == candidate) {
-                break candidate;
-            }
-            suffix += 1;
-        };
-        let account = AgentAccount {
-            address: address.clone(),
-            display: display.into(),
-            host: provider.into(),
-            machine: self.machine.clone(),
-            role: role.into(),
-            active: true,
-            created_at: now(),
-            installation: self.installation.clone(),
-            project: project.clone(),
-            merged_into: None,
-        };
-        let identity = SessionIdentity {
-            session: session.into(),
-            provider: provider.into(),
-            account: address.clone(),
-            installation: self.installation.clone(),
-            project,
-        };
-        // A recovery key stays on the local installation; it never enters the shared journal.
-        let recovery_key = new_id() + &new_id();
-        self.set_setting(
-            &format!("recovery:{address}"),
-            json!(hash(recovery_key.as_bytes())),
-        )
-        .await?;
-        self.event(Change::Account {
-            account: account.clone(),
-        })
-        .await?;
-        self.set_setting(&format!("session:{provider}:{session}"), json!(identity))
-            .await?;
-        Ok(json!({"identity":identity,"account":account,"recovery_key":recovery_key}))
-    }
-    pub async fn recognize(
-        &self,
-        provider: &str,
-        session: &str,
-        address: &str,
-        recovery_key: &str,
-    ) -> Result<SessionIdentity, MailboxError> {
-        let _guard = self.changes.lock().await;
-        if let Some(identity) = self.identity(provider, session).await? {
-            if identity.account != address {
-                return Err(refusal(
-                    "session_deja_liee",
-                    "Cette session appartient déjà à un autre compte.",
-                ));
-            }
-            return Ok(identity);
-        }
-        let account = self.require_account(address).await?;
-        let expected = self.setting(&format!("recovery:{address}")).await?;
-        if expected.as_ref().and_then(Value::as_str) != Some(hash(recovery_key.as_bytes()).as_str())
-        {
-            return Err(refusal(
-                "reprise_refusee",
-                "La clé de reprise ne correspond pas à ce compte sur cette installation.",
-            ));
-        }
-        let mut account = account;
-        account.installation = self.installation.clone();
-        account.host = provider.into();
-        account.machine = self.machine.clone();
-        self.event(Change::Account {
-            account: account.clone(),
-        })
-        .await?;
-        let identity = SessionIdentity {
-            session: session.into(),
-            provider: provider.into(),
-            account: account.address,
-            installation: self.installation.clone(),
-            project: account.project,
-        };
-        self.set_setting(&format!("session:{provider}:{session}"), json!(identity))
-            .await?;
-        Ok(identity)
-    }
     pub async fn merge_accounts(&self, source: &str, target: &str) -> Result<String, MailboxError> {
         let _guard = self.changes.lock().await;
         if !self
@@ -371,6 +214,7 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
         self.event(Change::Project { name: name.clone() }).await?;
         Ok(name)
     }
+    #[cfg(test)]
     pub async fn projects(&self) -> Result<Vec<String>, MailboxError> {
         Ok(shared_projects(&self.events().await?, &self.accounts().await?))
     }
@@ -397,76 +241,6 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
         }
         self.set_setting("projects_shared", json!(true)).await?;
         Ok(shared)
-    }
-    pub async fn contacts(&self, address: &str) -> Result<Vec<Contact>, MailboxError> {
-        self.require_account(address).await?;
-        Ok(self
-            .contact_books()
-            .await?
-            .remove(address)
-            .unwrap_or_default())
-    }
-    pub(crate) async fn contact_books(
-        &self,
-    ) -> Result<BTreeMap<String, Vec<Contact>>, MailboxError> {
-        let mut books = BTreeMap::new();
-        for mutation in self.rows("legacy_account").await? {
-            if let Mutation::LegacyAccount(v) = mutation {
-                if let Some(address) = v["nom"].as_str() {
-                    let contacts = v["contacts"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .filter_map(|c| {
-                            Some(Contact {
-                                alias: c["alias"].as_str()?.into(),
-                                addresses: c["adresses"]
-                                    .as_array()?
-                                    .iter()
-                                    .filter_map(|a| a.as_str().map(str::to_owned))
-                                    .collect(),
-                                note: c["note"].as_str().unwrap_or_default().into(),
-                            })
-                        })
-                        .collect();
-                    books.insert(address.to_owned(), contacts);
-                }
-            }
-        }
-        for event in self.events().await? {
-            if let Change::Contacts { account, contacts } = event.change {
-                books.insert(account, contacts);
-            }
-        }
-        Ok(books)
-    }
-    pub async fn set_contacts(
-        &self,
-        address: &str,
-        contacts: Vec<Contact>,
-    ) -> Result<String, MailboxError> {
-        let _guard = self.changes.lock().await;
-        self.require_account(address).await?;
-        let mut aliases = BTreeSet::new();
-        for contact in &contacts {
-            if !single_line(&contact.alias)
-                || !aliases.insert(contact.alias.clone())
-                || contact.addresses.is_empty()
-            {
-                return Err(refusal(
-                    "contact_invalide",
-                    "Chaque contact doit avoir un alias unique et au moins une adresse.",
-                ));
-            }
-            for target in &contact.addresses {
-                self.require_account(target).await?;
-            }
-        }
-        self.event(Change::Contacts {
-            account: address.into(),
-            contacts,
-        })
-        .await
     }
     pub async fn is_recipient(
         &self,
@@ -542,10 +316,48 @@ pub(crate) fn system() -> &'static str {
 /// `(address prefix, display)` for an agent: `cl-agent-messengerai-win` and
 /// `CL_Agent-MessengerAI_WIN`. The prefix stays within 32 characters.
 pub(crate) fn agent_identity(provider: &str, task: &str, system: &str) -> Option<(String, String)> {
+    compose_identity(provider, task, system, true)
+}
+
+/// The identity composed from the task exactly as given, before `bare_task`: accounts enrolled
+/// that way keep serving the agent that returns with the same task.
+pub(crate) fn raw_identity(provider: &str, task: &str, system: &str) -> Option<(String, String)> {
+    compose_identity(provider, task, system, false)
+}
+
+/// A task already written as an account name (`CL_Agent-Cortex-5_WIN`, `Agent-Cortex-5_WIN`)
+/// keeps only the task, so the composed name is never doubled.
+pub(crate) fn bare_task(task: &str) -> &str {
+    let mut rest = task.trim();
+    let head = rest.get(..9).unwrap_or("");
+    let named = head.len() == 9
+        && head.as_bytes()[..2].iter().all(u8::is_ascii_alphabetic)
+        && (head[2..].eq_ignore_ascii_case("_agent-") || head[2..].eq_ignore_ascii_case("-agent-"));
+    if named {
+        rest = &rest[9..];
+    } else if rest.get(..6).is_some_and(|h| h.eq_ignore_ascii_case("agent-") || h.eq_ignore_ascii_case("agent_")) {
+        rest = &rest[6..];
+    }
+    loop {
+        let cut = ["_win", "_mac", "_lnx", "-win", "-mac", "-lnx"].into_iter().find(|suffix| {
+            rest.len() > suffix.len()
+                && rest.get(rest.len() - suffix.len()..).is_some_and(|end| end.eq_ignore_ascii_case(suffix))
+        });
+        match cut {
+            Some(suffix) => rest = rest[..rest.len() - suffix.len()].trim_end(),
+            None => break,
+        }
+    }
+    let rest = rest.trim();
+    if rest.is_empty() { task.trim() } else { rest }
+}
+
+fn compose_identity(provider: &str, task: &str, system: &str, bare: bool) -> Option<(String, String)> {
     if task.contains(['\n', '\r']) {
         return None;
     }
     let task = task.split_whitespace().collect::<Vec<_>>().join(" ");
+    let task = if bare { bare_task(&task).to_owned() } else { task };
     if task.is_empty() {
         return None;
     }

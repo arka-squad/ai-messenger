@@ -56,20 +56,6 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
         }
         Ok(visible)
     }
-    pub async fn inbox_views(&self, account: &str) -> Result<Vec<MessageView>, MailboxError> {
-        let ids = self
-            .inbox(account)
-            .await?
-            .into_iter()
-            .map(|m| m.id)
-            .collect::<BTreeSet<_>>();
-        Ok(self
-            .message_views()
-            .await?
-            .into_iter()
-            .filter(|v| ids.contains(&v.message.id))
-            .collect())
-    }
     pub async fn messages(&self) -> Result<Vec<MailMessage>, MailboxError> {
         let mut messages = BTreeMap::new();
         for row in self.rows("legacy_message").await? {

@@ -1,20 +1,40 @@
 const L = (n) => `./assets/icons/${n}.svg`;
-const { ME, TINTS, ST, ORDER, initialState } = globalThis.MESSENGER_PRESENTATION;
+const { ME, TINTS, ST, ORDER, HOSTS, ACCOUNT_IDLE, initialState } = globalThis.MESSENGER_PRESENTATION;
 // Même règle que create_project côté Rust : trim, minuscules, espaces -> '-'.
 const projectName = (value) => value.trim().toLowerCase().split(/\s+/).filter(Boolean).join('-');
 const projectProblem = (name) => !name ? 'Donne un nom au projet.'
   : name === 'commun' ? '« commun » désigne déjà les comptes sans projet : choisis un autre nom.'
   : !/^[a-z0-9._-]{1,120}$/.test(name) || name === '.' || name === '..' ? 'Choisis un nom simple : lettres sans accent, chiffres, point, tiret ou soulignement.' : null;
+// Même règle que l'enrôlement côté Rust : une ligne, non vide, jamais « humain ».
+const roleProblem = (role) => !role ? 'Donne un rôle à ce compte.'
+  : /[\r\n]/.test(role) ? 'Le rôle tient sur une seule ligne.'
+  : /^(human|humain)$/i.test(role) ? 'Un agent n’est jamais « humain » : décris son rôle de travail.' : null;
 
 class Component extends DCLogic {
   state = initialState();
+  // Références stables : appelées à l'apparition de l'élément, pas à chaque rendu.
+  _focus = (el) => el?.focus?.();
+  _reveal = (el) => el?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  _still = () => {};
 
   componentDidMount() {
     this._refresh();
     this._poll = setInterval(() => this._refresh(), 2500);
-    globalThis.MESSENGER_RUNTIME.listenMessage((id) => this.setState({ sel: id, box: 'toutes' }))?.then((stop) => { this._unlisten = stop; });
+    const runtime = globalThis.MESSENGER_RUNTIME;
+    runtime.listenMessage((id) => this.setState({ sel: id, box: 'toutes' }))?.then((stop) => { this._unlisten = stop; });
+    runtime.listenRequest?.((id) => this._openRequest(id))?.then((stop) => { this._unlistenRequest = stop; });
   }
-  componentWillUnmount() { clearTimeout(this._p); clearInterval(this._poll); this._unlisten?.(); }
+  componentWillUnmount() { clearTimeout(this._p); clearInterval(this._poll); this._unlisten?.(); this._unlistenRequest?.(); }
+  // La notification d'une demande ouvre « Ce qu’on me demande » et y désigne la demande.
+  _openRequest(id) {
+    this.setState({ box: 'moi', openRequest: id || null });
+    this._reload();
+  }
+  // Une autre fiche d'agent : les gestes de compte entamés ailleurs sont abandonnés.
+  _showAgent(address) {
+    clearTimeout(this._p);
+    this.setState((st) => st.agentPanel === address && !st.agentClosing ? {} : { agentPanel: address, agentClosing: false, ...ACCOUNT_IDLE });
+  }
   async _refresh() {
     if (this._refreshing) return;
     this._refreshing = true;
@@ -42,6 +62,63 @@ class Component extends DCLogic {
   _preference(key, value) {
     const preferences = { theme: this.state.theme, lang: this.state.lang, notif: this.state.notif, [key]: value };
     return this._run(() => globalThis.MESSENGER_RUNTIME.preferences(preferences), preferences);
+  }
+  // Rôle et activation : un refus reste affiché près du compte, jamais en signalement.
+  async _account(address, work, patch = {}) {
+    if (this.state.busy) return false;
+    this.setState({ busy: true, accountNotice: null });
+    try {
+      await work();
+      this.setState((state) => ({ ...(typeof patch === 'function' ? patch(state) : patch), busy: false }));
+      await this._refresh();
+      return true;
+    } catch (error) { this.setState({ busy: false, accountNotice: { address, text: String(error) } }); return false; }
+  }
+  // Le poste d'un agent : son outil d'IA et son ordinateur (ex. Claude Code · GRIMWORKSHOP).
+  // Seul le repli « Outil inconnu » se traduit, jamais un nom d'outil ou de machine.
+  _post(account) {
+    const known = !!account.host && account.host !== 'inconnu';
+    const provider = known ? (this.state.providers || []).find((item) => item.id === account.host) : null;
+    const tool = known ? provider?.name || HOSTS[account.host] || account.host : globalThis.MESSENGER_I18N.text('Outil inconnu', this.state.lang);
+    return [tool, account.machine].filter(Boolean).join(' · ');
+  }
+  // Mêmes gestes depuis la fiche de l'agent et depuis son menu « … ».
+  _accountControls(address, role, waiting = 0) {
+    const runtime = globalThis.MESSENGER_RUNTIME;
+    const editing = this.state.roleEdit === address;
+    const confirming = this.state.confirmDeactivate === address;
+    const notice = this.state.accountNotice?.address === address ? this.state.accountNotice.text : '';
+    const saveRole = () => {
+      const next = this.state.roleDraft.trim();
+      const problem = roleProblem(next);
+      if (problem) return this.setState({ accountNotice: { address, text: problem } });
+      if (next === role) return this.setState({ roleEdit: null, roleDraft: '', accountNotice: null });
+      return this._account(address, () => runtime.updateAccount(address, next), { roleEdit: null, roleDraft: '' });
+    };
+    return {
+      viewing: !editing, editing, roleDraft: editing ? this.state.roleDraft : '', saveRole, focus: this._focus, reveal: this._reveal,
+      onRoleDraft: (e) => this.setState({ roleDraft: e.target.value, accountNotice: null }),
+      roleKey: (e) => { if (e.key === 'Enter') { e.preventDefault?.(); saveRole(); } },
+      editRole: () => this.setState({ roleEdit: address, roleDraft: role || '', confirmDeactivate: null, accountNotice: null }),
+      cancelRole: () => this.setState({ roleEdit: null, roleDraft: '', accountNotice: null }),
+      // Le refus s'affiche sous le geste en cours : le rôle, ou la confirmation de désactivation.
+      notice, noticeAtRole: !!notice && !confirming, noticeAtDeactivate: !!notice && confirming, idle: !confirming, confirming,
+      askDeactivate: () => this.setState({ confirmDeactivate: address, roleEdit: null, roleDraft: '', accountNotice: null }),
+      cancelDeactivate: () => this.setState({ confirmDeactivate: null, accountNotice: null }),
+      // Désactivé, il ne relève plus, n'écrit plus et ne reçoit plus ; sa session suivante s'enrôlerait à nouveau.
+      consequence: 'Son agent ne pourra plus relever ni écrire, et personne ne pourra plus lui écrire. S’il travaille encore, sa prochaine session créera un nouveau compte. Son historique reste dans la boîte ; tu peux le réactiver depuis « Comptes désactivés ».',
+      // Du courrier l'attend : pour un doublon, la fusion transfère ce courrier, la désactivation le laisse en plan.
+      hasWaiting: waiting > 0,
+      waitingText: waiting > 0 ? waiting + ' message(s) l’attendent encore : pour un doublon, fusionne-le plutôt dans le compte qui reste (son courrier en attente le suit).' : '',
+      mergeInstead: () => this._openModal('adv', address),
+      deactivate: () => this._account(address, () => runtime.setAccountActive(address, false), (state) => ({
+        ...ACCOUNT_IDLE,
+        agentPanel: state.agentPanel === address ? null : state.agentPanel,
+        agent: state.agent === address ? null : state.agent,
+        modal: state.modalAgent === address ? null : state.modal,
+        modalAgent: state.modalAgent === address ? null : state.modalAgent,
+      })),
+    };
   }
   _reload() { this._refresh(); }
   // Trié : les teintes suivent l'ordre, identiques sur chaque ordinateur de la boîte.
@@ -101,6 +178,7 @@ class Component extends DCLogic {
 
   _openModal(kind, agentName) {
     this.setState({ modal: kind, modalAgent: agentName || null, copied: false, projName: '', projectNotice: null, mergeTarget: null, fileTarget: null, contactAlias: '', contactNote: '', contactTargets: {}, providerNotice: null,
+      roleEdit: null, roleDraft: '', confirmDeactivate: null, accountNotice: null,
       remoteUrl: kind === 'poste' && this.state.exchange?.kind === 'url' ? this.state.exchange.path : '', remoteToken: '', remoteBusy: false });
   }
 
@@ -110,8 +188,9 @@ class Component extends DCLogic {
       const last = entry.last_collection ? new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).format(new Date(entry.last_collection)) : '';
       const age = entry.oldest_waiting ? Math.max(0, Math.floor((Date.now() - new Date(entry.oldest_waiting).getTime()) / 3600000)) + ' h' : '';
       return [a.address, a.address, a.address.split('@')[1] || a.project || '', a.host || 'inconnu', a.machine || '—', a.role, last, entry.waiting, age,
-        entry.contacts.map((c) => [c.alias, c.addresses.join(', '), c.note, c.addresses]), a.display || a.address];
+        entry.contacts.map((c) => [c.alias, c.addresses.join(', '), c.note, c.addresses]), a.display || a.address, this._post(a)];
     });
+    const noRole = globalThis.MESSENGER_I18N.text('Aucune information sur ce compte.', this.state.lang);
     const byName = Object.fromEntries(AGENTS.map((a) => [a[0], a]));
     const SCENARIO = { projectNames: this._projects(), trafficDay: new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Paris' }).format(new Date()).replaceAll('-', ''),
       connectedProjectsText: this._projects().length ? 'Projets : ' + this._projects().join(', ') : 'Aucun projet pour l’instant.', projectPlaceholder: 'ex. talos' };
@@ -185,7 +264,7 @@ class Component extends DCLogic {
           const panel = this.state.agentPanel === a[0];
           return {
             name: a[10],
-            title: a[1] + '\n' + a[3] + ' · ' + a[4] + '\n' + (a[5] || 'Aucune information sur ce compte.'),
+            tip: [a[1], a[11], a[5] || noRole].filter(Boolean).join('\n'),
             dot: a[7] > 0 ? 'var(--warn-tx)' : (a[6] ? 'var(--pass-tx)' : 'var(--tx5)'),
             pulse: a[7] > 0 ? 'pulse' : '',
             color: on || panel ? 'var(--tx1)' : 'var(--tx3)',
@@ -194,10 +273,22 @@ class Component extends DCLogic {
             last: a[6] ? 'dernier ' + a[6] : 'silencieux',
             waiting: a[7] > 0,
             waitLabel: a[7] + ' en attente depuis ' + a[8],
-            open: () => this.setState({ agentPanel: a[0] }),
+            open: () => this._showAgent(a[0]),
             more: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this._openModal('adv', a[0]); },
           };
         }),
+      };
+    });
+
+    // ——— comptes désactivés : historique gardé, réactivables par l'humain
+    const inactive = (this.state.inactive || []).map((account) => {
+      const notice = this.state.accountNotice?.address === account.address ? this.state.accountNotice.text : '';
+      return {
+        name: account.display || account.address, address: account.address,
+        post: [this._post(account), account.address.split('@')[1] || account.project].filter(Boolean).join(' · '),
+        tip: [account.address, this._post(account), account.role].filter(Boolean).join('\n'),
+        notice, hasNotice: !!notice,
+        reactivate: () => this._account(account.address, () => globalThis.MESSENGER_RUNTIME.setAccountActive(account.address, true)),
       };
     });
 
@@ -223,7 +314,7 @@ class Component extends DCLogic {
         icon: L('user-round-x'), canHide: true,
         text: orphan[0] + ' a été repris d\u2019une ancienne boîte : son agent ne l\u2019a jamais repris, il ne relève donc pas son courrier.',
         cta: 'Envoyer son invite',
-        act: () => this.setState({ agentPanel: orphan[0] }),
+        act: () => this._showAgent(orphan[0]),
         hide: () => this.setState((s) => ({ hidden: Object.assign({}, s.hidden, { orphan: true }) })),
       });
     }

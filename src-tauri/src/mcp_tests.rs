@@ -23,7 +23,7 @@ async fn call<R: RepositoryPort, E: ExchangePort>(
 async fn complete_mcp_contract_binds_actor_and_attests_origin_without_trusting_client_fields() {
     let root = Temporary::new();
     let mailbox = root.mailbox("one").await;
-    let names = tools()
+    let names = schema::tools()
         .as_array()
         .unwrap()
         .iter()
@@ -159,7 +159,7 @@ async fn real_http_sessions_do_not_publish_the_private_transport_credential() {
     let port = listener.local_addr().unwrap().port();
     let served = mailbox.clone();
     let service = tokio::spawn(async move {
-        axum::serve(listener, router(served)).await.unwrap();
+        axum::serve(listener, router(served, port)).await.unwrap();
     });
     let (headers,initial)=http(port,None,json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"codex"}}})).await;
     assert_eq!(
@@ -188,7 +188,7 @@ async fn real_http_sessions_do_not_publish_the_private_transport_credential() {
         json!({"jsonrpc":"2.0","id":3,"method":"tools/list"}),
     )
     .await;
-    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 15);
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 16);
     service.abort();
 }
 #[tokio::test]
@@ -198,7 +198,7 @@ async fn standard_sdk_exercises_the_real_agent_contract_over_http() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let service = tokio::spawn(async move {
-        axum::serve(listener, router(mailbox)).await.unwrap();
+        axum::serve(listener, router(mailbox, port)).await.unwrap();
     });
     let output = tokio::task::spawn_blocking(move || {
         std::process::Command::new("node")

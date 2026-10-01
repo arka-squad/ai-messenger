@@ -12,10 +12,18 @@ use std::{
 };
 use tokio::sync::{Mutex as AsyncMutex, Notify};
 
+mod addressing;
+mod contacts;
 pub(crate) mod directory;
+mod enrolment;
+pub(crate) mod identity;
+pub(crate) mod profile;
 mod receive;
 mod requests;
+mod transports;
 mod views;
+pub(crate) use receive::MAX_WAIT;
+pub(crate) use views::parse_date;
 pub use requests::ApprovalView;
 
 #[derive(Debug, thiserror::Error)]
@@ -37,13 +45,19 @@ pub struct MailboxService<R, E> {
     sync: AsyncMutex<()>,
     incidents: Mutex<BTreeMap<String, Incident>>,
     pub(crate) arrived: Arc<Notify>,
+    // Claude channel sessions connected to this app: only these can be named as a delivery route.
+    channels: Mutex<Vec<String>>,
+    // Message ids already handed to each agent session, so attendre announces only what is new to it.
+    returned: Mutex<BTreeMap<String, BTreeSet<String>>>,
+    // The push route each agent session last set ("provider:session" -> route session), so that a
+    // session moving to another account takes that route away from the account it left.
+    pushed: Mutex<BTreeMap<String, String>>,
+    // Serializes the read-check-write of push routes and of the MCP transport index.
+    routes: AsyncMutex<()>,
+    transports: AsyncMutex<()>,
 }
 
 impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
-    #[cfg(test)]
-    pub fn new(store: R, exchange: E) -> Self {
-        Self::with_installation(store, exchange, "test-installation".into(), "Test".into())
-    }
     pub fn with_installation(store: R, exchange: E, installation: String, machine: String) -> Self {
         Self {
             store,
@@ -54,6 +68,11 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
             sync: AsyncMutex::new(()),
             incidents: Mutex::new(BTreeMap::new()),
             arrived: Arc::new(Notify::new()),
+            channels: Mutex::new(Vec::new()),
+            returned: Mutex::new(BTreeMap::new()),
+            pushed: Mutex::new(BTreeMap::new()),
+            routes: AsyncMutex::new(()),
+            transports: AsyncMutex::new(()),
         }
     }
     pub async fn schema_version(&self) -> Result<u8, MailboxError> {
@@ -145,7 +164,7 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
             }
         }
         for address in message.to.iter().chain(&message.copies) {
-            self.require_account(address).await?;
+            self.require_recipient(address).await?;
         }
         message.projects = message
             .to
@@ -274,27 +293,41 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
         message.reply_to = Some(reply_to.into());
         self.send(message).await
     }
+    #[cfg(test)]
     pub async fn inbox(&self, account: &str) -> Result<Vec<MailMessage>, MailboxError> {
+        Ok(self.inbox_entries(account).await?.into_iter().map(|(m, _, _)| m).collect())
+    }
+    /// The relever list as `(message, nouveau, addressed)`: nouveau while one of its `to` addresses
+    /// for this account is still nouveau; addressed while it is not traité, otherwise it is listed
+    /// only as a copy. The directory is folded once per call, not once per address.
+    pub(crate) async fn inbox_entries(
+        &self,
+        account: &str,
+    ) -> Result<Vec<(MailMessage, bool, bool)>, MailboxError> {
         self.require_account(account).await?;
-        let effective = self.resolve_account(account).await?;
+        let accounts = self.accounts().await?;
+        let effective = directory::resolve_address(&accounts, account)?;
         let statuses = self.statuses().await?;
         let mut result = Vec::new();
         for message in self.messages().await? {
-            let addressed = self.is_recipient(&message, &effective).await?;
-            let copy = self.is_copy(&message, &effective).await?;
-            let mut done = true;
+            let (mut addressed, mut done, mut fresh, mut copy) = (false, true, false, false);
             for recipient in &message.to {
-                if self.resolve_account(recipient).await? == effective
-                    && statuses
+                if directory::resolve_address(&accounts, recipient)? == effective {
+                    let status = statuses
                         .get(&message.id)
                         .and_then(|s| s.get(recipient))
-                        .is_none_or(|s| s != "traité")
-                {
-                    done = false;
+                        .map(String::as_str)
+                        .unwrap_or("nouveau");
+                    addressed = true;
+                    done &= status == "traité";
+                    fresh |= status == "nouveau";
                 }
             }
+            for address in &message.copies {
+                copy |= directory::resolve_address(&accounts, address)? == effective;
+            }
             if (addressed && !done) || copy {
-                result.push(message);
+                result.push((message, addressed && fresh, addressed && !done));
             }
         }
         Ok(result)
@@ -433,3 +466,6 @@ mod tests;
 #[cfg(test)]
 #[path = "projects_tests.rs"]
 mod projects_tests;
+#[cfg(test)]
+#[path = "accounts_tests.rs"]
+mod accounts_tests;

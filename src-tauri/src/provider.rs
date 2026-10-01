@@ -24,6 +24,8 @@ macro_rules! providers {
 }
 
 mod claude_http;
+/// Hooks and skill shared by the providers that run the bundled channel binary.
+mod equipment;
 providers!(codex, claude, kimi);
 
 pub(crate) fn executable(name: &str) -> std::path::PathBuf {

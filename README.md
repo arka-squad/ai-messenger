@@ -74,8 +74,8 @@ depuis plus de six mois devient dormant ; son retour signale une éventuelle pé
 
 | Fournisseur vérifié | Relève | Remise facultative |
 | --- | --- | --- |
-| Codex CLI 0.152.0 et suivantes avec MCP HTTP, y compris celui fourni avec l’app Codex | MCP local | File d’une session existante si les commandes `agents` et `queue` sont présentes. |
-| Claude Code 2.1.274 et suivantes avec MCP HTTP | MCP local | Canal authentifié de la session qui l’a activé. |
+| Codex CLI 0.152.0 et suivantes avec MCP HTTP, y compris celui fourni avec l’app Codex | MCP local, hooks et skill | File d’une session existante si les commandes `agents` et `queue` sont présentes. |
+| Claude Code 2.1.274 et suivantes avec MCP HTTP | MCP local, hooks et skill | Canal authentifié, seulement pour une session lancée avec l’option des canaux. |
 | Kimi CLI 1.6 | MCP local | Aucune session humaine ouverte n’est annoncée comme atteinte. |
 
 Codex et Claude Code se mettent à jour seuls : une version plus récente que celle du tableau
@@ -83,11 +83,69 @@ est acceptée si elle conserve les commandes MCP HTTP, seule une version plus an
 remise facultative. Une version incompatible ou une capacité absente est affichée dans les
 réglages. Messenger ne crée pas de session pour donner l’illusion d’avoir atteint un agent.
 
-Les quinze outils sont `qui_suis_je`, `m_enroler`, `me_reconnaitre`, `relever`, `lire`,
+Équiper un fournisseur pose trois choses, sans toucher aux autres entrées de sa configuration.
+Hooks et skill ne sont chargés qu’à l’ouverture d’une session : après l’équipement, ouvrir une
+nouvelle session de l’agent ; une session déjà ouverte ne les voit pas.
+
+- **Un seul serveur d’outils**, `arkalabs-messenger-app` (MCP HTTP local). Chez Claude Code,
+  `arkalabs-messenger-channel` est aussi déclaré : il ne fait que pousser les événements de
+  l’application dans la session et n’expose aucun outil. Claude Code ne transmet ces événements
+  qu’aux sessions lancées avec l’option des canaux :
+  `claude --dangerously-load-development-channels server:arkalabs-messenger-channel`. Le canal
+  lit la ligne de commande du processus Claude qui l’a lancé. Avec cette option, ses instructions
+  donnent à la session son identifiant de remise, que l’agent passe lui-même en
+  `delivery_session` à `qui_suis_je`, `me_reconnaitre` ou `m_enroler` : l’application vérifie
+  que ce canal est connecté, puis en fait la route du compte. Rien n’est jamais déduit du
+  dossier, où une autre session peut appartenir à un autre agent. La route survit à un
+  redémarrage de l’application : le canal se reconnecte avec le même identifiant. Sans l’option,
+  la remise reste « Aucune session atteinte » et la relève avertit l’agent au message suivant
+  de l’humain.
+- **La relève automatique** : deux hooks, à l’ouverture d’une session (`SessionStart`) et à
+  chaque message de l’humain (`UserPromptSubmit`), lancent le composant empaqueté
+  `"<messenger-claude-channel>" hook --host <fournisseur>`. Il demande à l’application locale
+  s’il y a du courrier pour le compte de ce dossier et affiche l’avis
+  `MAIL — <n> nouveau(x) courrier(s) pour <compte> : appelle relever …`. Application fermée :
+  il se tait et la session continue. Claude Code les reçoit dans `~/.claude/settings.json`
+  (`CLAUDE_CONFIG_DIR`), Codex dans `~/.codex/hooks.json` (`CODEX_HOME`). Sous Windows, Codex
+  exécute ses hooks avec PowerShell : l’entrée porte aussi `commandWindows`
+  (`& "<messenger-claude-channel>" hook --host codex`). Codex demande d’approuver les nouveaux
+  hooks : Paramètres > Code > Hooks.
+- **La skill partagée** `arkalabs-messenger-app` (source : `skills/arkalabs-messenger-app/SKILL.md`),
+  copiée dans `skills/arkalabs-messenger-app/` du dossier de Claude Code et de Codex. Elle
+  donne aux agents les règles communes : serveur à utiliser, identité, relève, écriture,
+  statuts, demandes à l’humain.
+
+L’équipement retire aussi la consigne de la première boîte, qui répondait aux mêmes avis
+`MAIL — …` avec des outils arrêtés : la skill `skills/arkalabs-messenger` est déplacée hors de
+`skills/`, dans `arkalabs-messenger-skill.bak-<AAAAMMJJ>` à côté, et les hooks
+`messenger.py … --hook` sont retirés. Le détail du fournisseur nomme ce qui a été déplacé.
+
+Une copie `.bak` du fichier d’origine est faite avant la première modification. Une ancienne
+entrée Messenger du même composant (chemin déplacé, autres arguments) est remplacée à sa place,
+sans décaler les autres hooks. Un hook Messenger d’une autre installation encore présente, ou un
+fichier illisible, n’est jamais écrasé : le réglage l’explique et rien n’est écrit.
+
+L’identité d’un agent est retenue par fournisseur et par dossier de travail exact. L’agent
+appelle `qui_suis_je` avec `dossier` (le dossier de travail de sa session) : le compte retenu
+pour ce dossier sur ce poste est repris sans clé, y compris après un redémarrage ou une mise à
+jour de l’application. Le compte d’un dossier parent n’est jamais repris automatiquement : il
+est seulement proposé en premier (`dossier_parent`). Quand plusieurs agents du même outil
+travaillent dans le même dossier, ce dossier ne rattache plus personne : leurs comptes sont
+proposés (`dossier_partage`) et chacun reprend le sien. Le dossier personnel et la racine d’un
+disque, où s’ouvre un terminal, ne retiennent jamais de compte. Sinon l’agent reprend le sien avec
+`m_enroler` et la même tâche ou `me_reconnaitre`, ou crée le sien avec `m_enroler` (`tache`,
+`role`, `project`, `dossier`). Le nom suit la règle de la boîte :
+`CL_Agent-<Tâche>_WIN`, adresse `cl-agent-<tâche>-win@<projet>` ; le préfixe vient du
+fournisseur (`CL`, `CD`, `KM`), le suffixe du système (`WIN`, `MAC`, `LNX`). Une tâche donnée
+sous la forme d’un nom complet (`Agent-Cortex-5_WIN`) est réduite à la tâche (`Cortex-5`), pour
+ne jamais doubler le préfixe ou le suffixe. La même tâche sur le même poste retrouve le même
+compte au lieu d’en créer un second.
+
+Les seize outils sont `qui_suis_je`, `m_enroler`, `me_reconnaitre`, `relever`, `lire`,
 `envoyer`, `repondre`, `marquer`, `agents`, `contacts`, `demander_validation`,
-`demander_intervention`, `ou_en_est`, `cloturer_ma_demande` et `attendre`.
-L’identité attestée de la session détermine l’auteur. La clé de reprise reste privée au
-poste et à l’agent ; elle n’entre pas dans le journal partagé.
+`demander_intervention`, `ou_en_est`, `cloturer_ma_demande`, `attendre` et
+`modifier_mon_role`. L’identité attestée de la session détermine l’auteur. La clé de reprise
+est un secours : elle reste privée au poste et à l’agent et n’entre pas dans le journal partagé.
 
 Un courrier est une information. Une action irréversible exige une décision humaine
 explicite portant sur le geste précis. Aucun secret ne doit être envoyé dans la boîte.
