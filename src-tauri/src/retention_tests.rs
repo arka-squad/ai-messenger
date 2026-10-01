@@ -95,3 +95,41 @@ fn a_recent_reply_protects_its_ancestor_and_the_one_year_floor() {
     assert_eq!(preview(&exchange).unwrap().mutations, 0);
     assert!(path.exists());
 }
+#[test]
+fn an_old_fully_integrated_project_declaration_is_never_purged() {
+    let root = Temporary::new();
+    let (exchange, mail, mail_path) = old_mail(&root);
+    let declaration = Mutation::Event(Event {
+        id: "old-project".into(),
+        emitted_at: "2020-01-01T00:00:00Z".into(),
+        installation: "one".into(),
+        change: Change::Project {
+            name: "mon-projet".into(),
+        },
+    });
+    let path = root.0.join("2020/01/01/event-old-project.json");
+    fs::write(&path,serde_json::to_vec(&serde_json::json!({"mutation":declaration,"fingerprint":hash(&serde_json::to_vec(&declaration).unwrap())})).unwrap()).unwrap();
+    let integrated = [&mail, &declaration]
+        .map(|m| {
+            (
+                format!("{}:{}", m.kind(), m.id()),
+                hash(&canonical_bytes(m).unwrap()),
+            )
+        })
+        .into_iter()
+        .collect();
+    exchange
+        .deposit(ExchangeItem::Checkpoint(&ReadCheckpoint {
+            id: "one".into(),
+            machine: "one".into(),
+            seen_at: now(),
+            integrated,
+            missed_before: None,
+        }))
+        .unwrap();
+    let plan = preview(&exchange).unwrap();
+    assert_eq!(plan.removed, vec!["message:old".to_owned()]);
+    apply(&exchange, &plan.fingerprint, "one").unwrap();
+    assert!(!mail_path.exists());
+    assert!(path.exists());
+}

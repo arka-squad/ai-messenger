@@ -1,11 +1,11 @@
 use crate::{
-    domain::journal::{Contact, Project},
+    domain::journal::Contact,
     exchange::atomic_replace,
     mailbox::{hash, new_id},
     AppState,
 };
 use serde_json::{json, Value};
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
@@ -50,11 +50,10 @@ pub async fn snapshot(state: tauri::State<'_, AppState>) -> Result<Value, String
         .await
         .map_err(|e| e.to_string())?
         .unwrap_or_else(|| json!({"theme":"dark","lang":"FR","notif":"on"}));
-    let projects = mailbox
-        .setting("projects")
-        .await
-        .map_err(|e| e.to_string())?
-        .unwrap_or_else(|| json!([]));
+    let projects = crate::mailbox::directory::shared_projects(&events, &accounts)
+        .into_iter()
+        .map(|name| json!({ "name": name }))
+        .collect::<Vec<_>>();
     let mut result = json!({"messages":messages,"directory":directory,"requests":requests,"providers":state.providers.statuses(),
         "exchange":crate::exchange_location_value(&state),"incidents":mailbox.incidents(),"preferences":preferences,"projects":projects,"installation":state.installation,"machine":mailbox.machine});
     let fingerprint = hash(&serde_json::to_vec(&result).map_err(|e| e.to_string())?);
@@ -74,81 +73,17 @@ pub async fn save_preferences(
     }
     state.mailbox.set_setting("preferences",json!({"theme":preferences["theme"],"lang":preferences["lang"],"notif":preferences["notif"]})).await.map_err(|e|e.to_string())
 }
+// A project is only a name shared through the box; no folder is bound on this machine.
 #[tauri::command]
-pub async fn choose_project_folder() -> Result<Option<String>, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        rfd::FileDialog::new()
-            .pick_folder()
-            .map(|p| p.to_string_lossy().into_owned())
-    })
-    .await
-    .map_err(|e| e.to_string())
-}
-#[tauri::command]
-pub async fn connect_project(
+pub async fn create_project(
     name: String,
-    directory: String,
     state: tauri::State<'_, AppState>,
-) -> Result<Project, String> {
-    let name = name
-        .trim()
-        .to_lowercase()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join("-");
-    if !crate::mailbox::directory::valid_name(&name) {
-        return Err("Choisis un nom de projet simple, sans espace ni chemin.".into());
-    }
-    let path = PathBuf::from(&directory);
-    if !path.is_dir() {
-        return Err("Le dossier du projet n’est pas accessible.".into());
-    }
-    let binding = path.join(".messenger.json");
-    let mut data = if binding.exists() {
-        serde_json::from_slice::<Value>(
-            &fs::read(&binding).map_err(|_| "Le rattachement existant n’est pas lisible.")?,
-        )
-        .map_err(|_| "Le rattachement existant est illisible ; rien n’a été remplacé.")?
-    } else {
-        json!({})
-    };
-    if !data.is_object() || data["project"].as_str().is_some_and(|p| p != name) {
-        return Err("Ce dossier est déjà rattaché autrement ; rien n’a été remplacé.".into());
-    }
-    let providers = state.providers.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        for provider in providers.statuses().into_iter().filter(|p| p.can_equip) {
-            providers.equip(&provider.id)?;
-        }
-        Ok::<(), crate::domain::ports::PortError>(())
-    })
-    .await
-    .map_err(|_| "Les outils d’IA n’ont pas pu être préparés.")?
-    .map_err(|e| e.to_string())?;
-    data["project"] = json!(name);
-    atomic_replace(
-        &binding,
-        &serde_json::to_vec_pretty(&data).map_err(|e| e.to_string())?,
-    )
-    .map_err(|e| e.to_string())?;
-    let project = Project { name, directory };
-    let mut projects: Vec<Project> = serde_json::from_value(
-        state
-            .mailbox
-            .setting("projects")
-            .await
-            .map_err(|e| e.to_string())?
-            .unwrap_or_else(|| json!([])),
-    )
-    .map_err(|_| "Les projets mémorisés sont illisibles.")?;
-    projects.retain(|p| p.directory != project.directory);
-    projects.push(project.clone());
+) -> Result<String, String> {
     state
         .mailbox
-        .set_setting("projects", json!(projects))
+        .declare_project(&name)
         .await
-        .map_err(|e| e.to_string())?;
-    Ok(project)
+        .map_err(|e| e.to_string())
 }
 #[tauri::command]
 pub async fn copy_invitation(

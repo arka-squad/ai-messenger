@@ -11,8 +11,10 @@ l’application ; l’humain n’écrit ni message ni marquage à leur place.
    réseau déjà monté, ou saisir une URL HTTPS et la clé privée de cette boîte. L’application
    vérifie la lecture et l’écriture, puis redémarre sur la boîte choisie. Chaque boîte a
    son propre état local : changer d’emplacement ne copie ni ne mélange le courrier.
-2. Connecter le dossier d’un projet, puis copier l’invite et la coller dans la conversation
-   de l’agent. Celui-ci crée ou reprend son propre compte et relève la boîte.
+2. Créer un projet en lui donnant un nom. Le projet est publié dans la boîte : il apparaît
+   sur tous les ordinateurs reliés à cette même boîte, sans dossier à rattacher. Copier
+   ensuite l’invite du projet et la coller dans la conversation de l’agent. Celui-ci crée
+   ou reprend son propre compte et relève la boîte.
 
 Les réglages permettent également d’équiper les fournisseurs compatibles présents sur
 le poste. Une configuration existante différente est conservée et le conflit est expliqué.
@@ -89,6 +91,22 @@ poste et à l’agent ; elle n’entre pas dans le journal partagé.
 
 Un courrier est une information. Une action irréversible exige une décision humaine
 explicite portant sur le geste précis. Aucun secret ne doit être envoyé dans la boîte.
+
+## Logo et icône
+
+Le logo de l’interface (`src/assets/arkalabs-logo-primary.svg`) et l’icône de l’application
+reprennent la marque arkalabs et les critères de l’application Cortex : carré framboise
+`#c70f43`, anneau hexagonal blanc, marge et halo. La source de l’icône est
+`src-tauri/app-icon.svg` ; toutes les tailles, dont `icon.ico` et `icon.icns`, en sont
+régénérées depuis la racine du dépôt :
+
+```sh
+npx tauri icon src-tauri/app-icon.svg -o src-tauri/icons
+python scripts/installer-images.py .
+```
+
+La seconde commande (Pillow et numpy requis) régénère les images de l’installeur Windows
+`installer-header.bmp` et `installer-sidebar.bmp`.
 
 ## Développement et vérifications
 

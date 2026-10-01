@@ -43,10 +43,11 @@ globalThis.MESSENGER_I18N = (() => {
   "À coller dans le chat de cet agent : il reprend ce compte et relève son courrier.": "Paste into this agent’s chat: it resumes this account and collects its mail.",
   "Options avancées": "Advanced options",
   "Ranger dans un projet, fusionner deux comptes, ajouter un contact": "File under a project, merge accounts, add a contact",
-  "1 · Le dossier du projet, sur cet ordinateur": "1 · The project folder on this computer",
-  "Choisis le dossier dans la fenêtre qui vient de s'ouvrir. Si tu ne la vois pas, elle est derrière cette page.": "Select the folder in the window that just opened. If it is hidden, check behind this page.",
-  "2 · Le nom du projet": "2 · Project name",
-  "Rattache un dossier de projet à la boîte et prépare les outils d'IA de cet ordinateur. Ensuite, tu copieras l'invite à envoyer aux agents du projet.": "Connect a project folder to the mailbox and equip this computer’s AI tools. Then copy the invitation for the project’s agents.",
+  "Le nom du projet": "Project name",
+  "ex. talos": "e.g. talos",
+  "Donne un nom au projet.": "Name the project.",
+  "« commun » désigne déjà les comptes sans projet : choisis un autre nom.": "“commun” already refers to accounts without a project. Choose another name.",
+  "Choisis un nom simple : lettres sans accent, chiffres, point, tiret ou soulignement.": "Use a simple name: unaccented letters, digits, dots, hyphens or underscores.",
   "Dans quel projet ?": "Which project?",
   "Tu obtiens un texte à coller dans le chat de ton agent. Il y lit son projet et crée son compte tout seul.": "You get text to paste into your agent’s chat. It reads its project and creates its own account.",
   "Invite copiée. Tu peux la coller à plusieurs agents : la même invite sert à tous ceux du projet.": "Invitation copied. You can paste it to several agents in this project.",
@@ -79,7 +80,7 @@ globalThis.MESSENGER_I18N = (() => {
   "Montre à cet ordinateur le dossier partagé où vit la boîte. Fais le même geste sur chaque machine, vers le même dossier : tout le monde lit alors le même courrier.": "Select the shared mailbox folder on this computer. Select the same folder on each machine so everyone reads the same mail.",
   "Changer de boîte": "Change mailbox",
   "Outils d'IA de cet ordinateur": "This computer’s AI tools",
-  "Branche la boîte dans ces outils, sans rien effacer de leurs réglages. Colle ensuite la même invite dans chacun de tes agents déjà ouverts : chacun crée son propre compte.": "Connect the mailbox to these tools while preserving their settings. Paste the invitation into each agent’s chat; each creates its own account.",
+  "Branche la boîte dans ces outils, sans effacer leurs réglages. Ouvre une nouvelle session dans chaque outil pour charger les outils MCP, puis colle l’invite : chaque agent crée son compte.": "Connect the mailbox to these tools while preserving their settings. Open a new session in each tool to load the MCP tools, then paste the invitation; each agent creates its own account.",
   "Éteindre": "Shut down",
   "Ferme Messenger sur cet ordinateur. Ses outils seront de nouveau disponibles lorsque tu le rouvriras.": "Close Messenger on this computer. Its tools will be available again when you reopen it.",
   "Éteindre la boîte": "Shut down Messenger",
@@ -122,7 +123,7 @@ globalThis.MESSENGER_I18N = (() => {
   "Réponses": "Replies",
   "Avec pièce jointe": "With attachments",
   "Mise en place guidée": "Guided setup",
-  "Connecter un projet": "Connect a project",
+  "Créer un projet": "Create a project",
   "Inviter un agent": "Invite an agent",
   "Nouveaux": "New",
   "Lus": "Read",
@@ -146,20 +147,23 @@ globalThis.MESSENGER_I18N = (() => {
   "Copier son invite": "Copy its invitation",
   "Ne voir que son courrier": "Show its mail only",
   "Retirer le filtre": "Clear filter",
-  "Trois étapes, une seule fois. Tu peux y revenir quand tu veux.": "Three steps, once. You can return here anytime.",
-  "Rattache un dossier de projet à la boîte.": "Connect a project folder to the mailbox.",
+  "Quatre étapes, une seule fois. Tu peux y revenir quand tu veux.": "Four steps, once. You can return here anytime.",
+  "Équiper les outils d’IA": "Equip the AI tools",
+  "Équiper les outils": "Equip the tools",
+  "Branche la boîte dans les outils d’IA de cet ordinateur, puis ouvre une nouvelle session.": "Connect the mailbox to this computer’s AI tools, then open a new session.",
+  "Le projet apparaît sur tous les ordinateurs reliés à cette boîte.": "The project appears on every computer connected to this mailbox.",
   "Tu obtiens un texte à coller dans le chat de ton agent.": "Get text to paste into your agent’s chat.",
   "Options avancées de ce compte.": "Advanced account options.",
   "Sans projet (compte commun)": "No project (shared account)",
   "Il écrit à tout le monde, sans projet": "It writes across projects",
-  "Fenêtre de choix ouverte…": "Folder picker open…",
-  "Choisir le dossier du projet…": "Select the project folder…",
-  "Connecter": "Connect",
+  "Créer le projet": "Create project",
   "Enregistrer": "Save",
   "Annuler": "Cancel",
   "Copier l’invite": "Copy invitation",
   "Choisir le dossier": "Select folder",
-  "Connecter un autre projet": "Connect another project",
+  "Créer un autre projet": "Create another project",
+  "Inviter tes agents": "Invite your agents",
+  "Aucun projet pour l’instant.": "No projects yet.",
   "Aucun message à afficher.": "No message to display.",
   "pour information": "for information",
   "Voir le message": "View message",
@@ -190,7 +194,7 @@ globalThis.MESSENGER_I18N = (() => {
   "Colle l’invite dans le chat de chaque agent : il crée son compte tout seul, dans ce projet.": "Paste the invitation into each agent’s chat so it can enroll in this project.",
   "Choisis le compte qui garde la main. Les messages déjà envoyés ne changent pas.": "Choose the surviving account. Existing messages remain unchanged.",
   "La boîte, les outils d’IA, et l’extinction.": "Mailbox, AI tools and shutdown.",
-  "Rien n’est envoyé à personne : tu prépares seulement cet ordinateur.": "Prepare this computer before inviting agents.",
+  "Aucun agent n’est prévenu : copie ensuite l’invite du projet.": "No agent is notified. Copy the project invitation next.",
   "Colle-la dans le chat de ton agent : il crée son compte tout seul, dans ce projet.": "Paste into your agent’s chat so it can enroll in this project.",
   "Son adresse ne change pas.": "Its address remains unchanged.",
   "Reprise terminée. Aucun agent n’a été réveillé.": "Import completed. No agents were woken.",
@@ -198,17 +202,25 @@ globalThis.MESSENGER_I18N = (() => {
 };
   const keys = Object.keys(english);
   const ui = (lang) => Object.fromEntries(keys.map((key, index) => ['t' + index, lang === 'EN' ? english[key] : key]));
-  const translate = (text) => english[text] || text
+  // Phrases portant des noms de projet : traduites sans repasser les noms dans les règles suivantes.
+  const named = [
+    [/^Projets : /, 'Projects: '],
+    [/^Le projet s’appellera (.*) \(minuscules, sans espace\)\.$/, 'The project will be named $1 (lowercase, no spaces).'],
+  ];
+  const rules = (text) => text
     .replace(/^Relève toutes les (\d+) s$/, 'Collecting every $1 s')
     .replace(/^Relève automatique toutes les (\d+) s$/, 'Collecting automatically every $1 s')
-    .replace(/^Prêts : /, 'Ready: ').replace(/^Projets connectés : /, 'Connected projects: ')
-    .replace(/Aucun projet connecté\./g, 'No projects connected.')
+    .replace(/^Prêts : /, 'Ready: ')
     .replace(/message\(s\) en attente dans ce projet/g, 'messages pending in this project')
     .replace(/messages envoyés/g, 'messages sent').replace(/en attente depuis/g, 'pending for')
     .replace(/dernier /g, 'last ').replace(/messages?$/, 'messages')
     .replace(/ nouveaux/g, ' new').replace(/ pièces jointes/g, ' attachments')
     .replace(/ signalements?/g, ' notices').replace(/ fils/g, ' threads')
     .replace(/ agents/g, ' agents').replace(/ contacts?/g, ' contacts');
+  const translate = (text) => {
+    const rule = named.find(([pattern]) => pattern.test(text));
+    return english[text] || (rule ? text.replace(...rule) : rules(text));
+  };
   const content = new Set(['objet', 'body', 'line', 'short', 'from', 'to', 'address', 'name', 'role', 'alias', 'note', 'targets', 'gesture', 'scope', 'whyNow', 'ifRefused', 'reversible', 'result', 'pj', 'boxPath', 'query', 'projName', 'targetQuery', 'mergeQuery', 'account', 'counts']);
   const render = (value, lang) => {
     if (lang !== 'EN') return { ...value, ui: ui(lang) };

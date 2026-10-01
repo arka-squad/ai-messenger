@@ -83,7 +83,8 @@ fn plan(exchange: &DirectoryExchange, today: NaiveDate) -> Result<RetentionPrevi
                         | Change::File { .. }
                         | Change::Contacts { .. }
                         | Change::Imported { .. }
-                        | Change::Purged { .. },
+                        | Change::Purged { .. }
+                        | Change::Project { .. },
                     ..
                 })
         );

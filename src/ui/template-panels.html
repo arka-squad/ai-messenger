@@ -205,25 +205,12 @@
           </sc-if>
 
           <sc-if value="{{ modal.isProject }}" hint-placeholder-val="{{ false }}">
-            <div style="display: flex; flex-direction: column; gap: 14px;">
-              <div style="display: flex; flex-direction: column; gap: 7px;">
-                <span style="font-size: 12px; font-weight: 600; color: var(--tx2);">1 · Le dossier du projet, sur cet ordinateur</span>
-                <div onClick="{{ modal.browse }}" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 8px; border: 1px dashed rgba(var(--w), 0.16); cursor: pointer;" style-hover="background: rgba(var(--w), 0.04);">
-                  <span class="ic" style="width: 15px; height: 15px; color: var(--tx4); -webkit-mask-image: url('./assets/icons/folder-open.svg'); mask-image: url('./assets/icons/folder-open.svg');"></span>
-                  <span style="flex: 1; min-width: 0; font-size: 12.5px; color: {{ modal.folderColor }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ modal.folderLabel }}</span>
-                </div>
-                <sc-if value="{{ modal.browsing }}" hint-placeholder-val="{{ true }}">
-                  <span class="fade-in" style="font-size: 11.5px; color: var(--tx4); line-height: 1.5;">Choisis le dossier dans la fenêtre qui vient de s'ouvrir. Si tu ne la vois pas, elle est derrière cette page.</span>
-                </sc-if>
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 7px;">
-                <span style="font-size: 12px; font-weight: 600; color: var(--tx2);">2 · Le nom du projet</span>
-                <input value="{{ modal.projName }}" onChange="{{ modal.onProjName }}" placeholder="{{ modal.projectPlaceholder }}" style="height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(var(--w), 0.12); background: transparent; outline: none; font-family: var(--font-mono); font-size: 12.5px; color: var(--tx1);" />
-                <sc-if value="{{ modal.normalized }}" hint-placeholder-val="{{ false }}">
-                  <span class="fade-in" style="font-size: 11.5px; color: var(--tx4);">{{ modal.normalizedText }}</span>
-                </sc-if>
-              </div>
-              <span style="font-size: 12px; color: var(--tx4); line-height: 1.55; text-wrap: pretty;">Rattache un dossier de projet à la boîte et prépare les outils d'IA de cet ordinateur. Ensuite, tu copieras l'invite à envoyer aux agents du projet.</span>
+            <div style="display: flex; flex-direction: column; gap: 7px;">
+              <span style="font-size: 12px; font-weight: 600; color: var(--tx2);">Le nom du projet</span>
+              <input value="{{ modal.projName }}" onChange="{{ modal.onProjName }}" placeholder="{{ modal.projectPlaceholder }}" aria-label="Le nom du projet" autocomplete="off" style="height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(var(--w), 0.12); background: transparent; outline: none; font-family: var(--font-mono); font-size: 12.5px; color: var(--tx1);" />
+              <sc-if value="{{ modal.normalized }}" hint-placeholder-val="{{ false }}">
+                <span class="fade-in" style="font-size: 11.5px; color: var(--tx4);">{{ modal.normalizedText }}</span>
+              </sc-if>
             </div>
           </sc-if>
 
@@ -237,7 +224,7 @@
                       <span style="width: 7px; height: 7px; border-radius: 9999px; background: {{ c.inner }}; transition: background 160ms ease;"></span>
                     </span>
                     <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
-                      <span style="font-family: var(--font-mono); font-size: 12px; color: {{ c.color }};">{{ c.label }}</span>
+                      <span style="font-family: var(--font-mono); font-size: 12px; color: {{ c.color }};">{{ c.name }}{{ c.label }}</span>
                       <span style="font-size: 11px; color: var(--tx5); line-height: 1.4;">{{ c.hint }}</span>
                     </span>
                   </div>
@@ -258,7 +245,7 @@
                 <sc-if value="{{ modal.canFile }}" hint-placeholder-val="{{ true }}">
                   <div style="display: flex; flex-wrap: wrap; gap: 7px;">
                     <sc-for list="{{ modal.fileChoices }}" as="f" hint-placeholder-count="3">
-                      <span onClick="{{ f.pick }}" style="display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid {{ f.border }}; background: {{ f.bg }}; font-family: var(--font-mono); font-size: 11.5px; color: {{ f.color }}; cursor: pointer; transition: background 140ms ease;" style-hover="background: rgba(var(--w), 0.06);">{{ f.label }}</span>
+                      <span onClick="{{ f.pick }}" style="display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid {{ f.border }}; background: {{ f.bg }}; font-family: var(--font-mono); font-size: 11.5px; color: {{ f.color }}; cursor: pointer; transition: background 140ms ease;" style-hover="background: rgba(var(--w), 0.06);">{{ f.name }}{{ f.label }}</span>
                     </sc-for>
                   </div>
                   <span style="font-size: 11.5px; color: var(--tx5); line-height: 1.5;">Son adresse ne change pas : son courrier et son carnet restent valables.</span>

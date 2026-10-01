@@ -12,7 +12,7 @@ globalThis.MESSENGER_PRESENTATION = {
     box: 'toutes', filter: null, project: null, agent: null, query: '', view: 'fils', openThreads: {}, sel: null,
     statuses: {}, approvals: [], deciding: null, providers: [], equipping: null, providerNotice: null,
     exchange: null, exchangeNotice: null, remoteUrl: '', remoteToken: '', remoteBusy: false, openGroups: {}, agentPanel: null, agentClosing: false, modal: null, modalAgent: null,
-    hidden: {}, incidentsOpen: false, copied: false, browsing: false, folder: '', projName: '', inviteChoice: '',
+    hidden: {}, incidentsOpen: false, copied: false, projName: '', projectNotice: null, inviteChoice: '',
     mergeTarget: null, fileTarget: null, contactAlias: '', contactNote: '', contactTargets: {}, mergeQuery: '', targetQuery: '',
     busy: false, migration: null, retention: null, maintenanceNotice: null,
   }),

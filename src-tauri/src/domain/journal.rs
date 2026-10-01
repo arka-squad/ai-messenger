@@ -29,12 +29,6 @@ pub struct Contact {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct Project {
-    pub name: String,
-    pub directory: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SessionIdentity {
     pub session: String,
     pub provider: String,
@@ -100,6 +94,9 @@ pub enum Change {
     Purged {
         removed: Vec<String>,
         dormant: Vec<String>,
+    },
+    Project {
+        name: String,
     },
 }
 

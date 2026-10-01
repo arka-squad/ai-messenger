@@ -430,3 +430,6 @@ pub(crate) fn validate_message(message: &MailMessage) -> Result<(), MailboxError
 #[cfg(test)]
 #[path = "mailbox_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "projects_tests.rs"]
+mod projects_tests;

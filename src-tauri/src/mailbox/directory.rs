@@ -316,6 +316,60 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
         })
         .await
     }
+    pub async fn declare_project(&self, name: &str) -> Result<String, MailboxError> {
+        let name = project_name(name);
+        if !valid_name(&name) {
+            return Err(refusal(
+                "projet_invalide",
+                "Choisis un nom simple : lettres sans accent, chiffres, point, tiret ou soulignement.",
+            ));
+        }
+        if name == COMMON_PROJECT {
+            return Err(refusal(
+                "projet_reserve",
+                "« commun » désigne déjà les comptes sans projet : choisis un autre nom.",
+            ));
+        }
+        let _guard = self.changes.lock().await;
+        // Pending, published and received declarations all count; random ids never collide between machines.
+        if self
+            .events()
+            .await?
+            .iter()
+            .any(|e| matches!(&e.change, Change::Project { name: declared } if *declared == name))
+        {
+            return Ok(name);
+        }
+        self.event(Change::Project { name: name.clone() }).await?;
+        Ok(name)
+    }
+    pub async fn projects(&self) -> Result<Vec<String>, MailboxError> {
+        Ok(shared_projects(&self.events().await?, &self.accounts().await?))
+    }
+    /// Shares once the projects that earlier versions kept only in the local setting.
+    pub async fn share_legacy_projects(&self) -> Result<usize, MailboxError> {
+        if self.setting("projects_shared").await?.is_some() {
+            return Ok(0);
+        }
+        let legacy = self
+            .setting("projects")
+            .await?
+            .and_then(|v| v.as_array().cloned())
+            .unwrap_or_default();
+        let mut shared = 0;
+        for name in legacy
+            .iter()
+            .filter_map(|v| v.get("name").and_then(Value::as_str))
+        {
+            match self.declare_project(name).await {
+                Ok(_) => shared += 1,
+                Err(MailboxError::Refusal { .. }) => {}
+                Err(error) => return Err(error),
+            }
+        }
+        self.set_setting("projects_shared", json!(true)).await?;
+        Ok(shared)
+    }
     pub async fn contacts(&self, address: &str) -> Result<Vec<Contact>, MailboxError> {
         self.require_account(address).await?;
         Ok(self
@@ -433,6 +487,43 @@ pub(crate) fn valid_name(name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
         && name != "."
         && name != ".."
+}
+
+// The interface already names the accounts without a project "commun".
+pub(crate) const COMMON_PROJECT: &str = "commun";
+
+pub(crate) fn project_name(name: &str) -> String {
+    name.trim()
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
+/// A name another machine may have published: valid, normalized and not the common group.
+fn shared_name(name: &str) -> bool {
+    valid_name(name) && name != COMMON_PROJECT && project_name(name) == name
+}
+
+/// Declared names, deduplicated across machines, plus the projects carried by active accounts.
+/// A malformed name from another machine is ignored, never fatal.
+pub(crate) fn shared_projects(events: &[Event], accounts: &[AgentAccount]) -> Vec<String> {
+    events
+        .iter()
+        .filter_map(|e| match &e.change {
+            Change::Project { name } => Some(name.clone()),
+            _ => None,
+        })
+        .chain(accounts.iter().filter(|a| a.active).filter_map(|a| {
+            a.address
+                .split_once('@')
+                .map(|(_, project)| project.to_owned())
+                .or_else(|| a.project.clone())
+        }))
+        .filter(|name| shared_name(name))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
 }
 
 pub(crate) fn resolve_address(

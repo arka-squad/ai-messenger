@@ -6,8 +6,10 @@
       })
       .filter((g) => g.rows.length > 0);
 
-    const projOpts = projNames.map((p) => ({ p, label: p, hint: all.filter((m) => m.projects.indexOf(p) >= 0).length + ' messages' }))
-      .concat([{ p: '', label: 'Sans projet (compte commun)', hint: 'Il écrit à tout le monde, sans projet' }]);
+    // name porte le nom du projet (jamais traduit), label le libellé du compte commun.
+    const projOpts = projNames.map((p) => ({ p, name: p, label: '', hint: all.filter((m) => m.projects.indexOf(p) >= 0).length + ' messages' }))
+      .concat([{ p: '', name: '', label: 'Sans projet (compte commun)', hint: 'Il écrit à tout le monde, sans projet' }]);
+    const newProject = projectName(this.state.projName);
 
     const providerHosts = (this.state.providers || []).map((provider) => {
       const equipping = this.state.equipping === provider.id;
@@ -130,7 +132,7 @@
 
       ctas: [
         { label: 'Mise en place guidée', icon: L('list-checks'), kind: 'setup', todo: false },
-        { label: 'Connecter un projet', icon: L('folder-plus'), kind: 'project', todo: false },
+        { label: 'Créer un projet', icon: L('plus'), kind: 'project', todo: false },
         { label: 'Inviter un agent', icon: L('user-round-plus'), kind: 'invite', todo: true },
       ].map((c) => ({
         label: c.label, icon: c.icon, todo: c.todo,
@@ -303,9 +305,12 @@
           { n: '1', title: 'Choisir la boîte', state: exchangeReady ? 'FAIT' : 'À FAIRE', done: exchangeReady,
             text: 'Choisis un dossier local, un partage réseau ou une adresse HTTPS commune.',
             cta: exchangeReady ? '' : 'Choisir le dossier', kind: 'poste' },
-          { n: '2', title: 'Connecter un projet', state: this.state.projects.length ? 'FAIT' : 'À FAIRE', done: this.state.projects.length > 0,
-            text: SCENARIO.connectedProjectsText, cta: 'Connecter un autre projet', kind: 'project' },
-          { n: '3', title: 'Inviter tes agents', state: this.state.directory.some(({ account }) => account.installation === this.state.installation && !!account.installation) ? 'FAIT' : 'À FAIRE', done: this.state.directory.some(({ account }) => account.installation === this.state.installation && !!account.installation),
+          { n: '2', title: 'Équiper les outils d’IA', state: readyHosts.length ? 'FAIT' : 'À FAIRE', done: readyHosts.length > 0,
+            text: readyHosts.length ? 'Prêts : ' + readyHosts.join(', ') : 'Branche la boîte dans les outils d’IA de cet ordinateur, puis ouvre une nouvelle session.',
+            cta: readyHosts.length ? '' : 'Équiper les outils', kind: 'poste', icon: 'wrench' },
+          { n: '3', title: 'Créer un projet', state: this._projects().length ? 'FAIT' : 'À FAIRE', done: this._projects().length > 0,
+            text: SCENARIO.connectedProjectsText, cta: this._projects().length ? 'Créer un autre projet' : 'Créer un projet', kind: 'project' },
+          { n: '4', title: 'Inviter tes agents', state: this.state.directory.some(({ account }) => account.installation === this.state.installation && !!account.installation) ? 'FAIT' : 'À FAIRE', done: this.state.directory.some(({ account }) => account.installation === this.state.installation && !!account.installation),
             text: 'Colle l\u2019invite dans le chat de chaque agent : il crée son compte tout seul, dans ce projet.', cta: 'Copier l\u2019invite', kind: 'invite' },
         ].map((st) => ({
           n: st.n, title: st.title, state: st.state, text: st.text,
@@ -316,18 +321,16 @@
           numBg: 'transparent',
           numColor: st.done ? 'var(--pass-tx)' : 'var(--warn-tx)',
           hasCta: !!st.cta, cta: st.cta,
-          ctaIcon: L(st.kind === 'invite' ? 'copy' : 'folder-plus'),
+          ctaIcon: L(st.icon || ({ invite: 'copy', project: 'plus' })[st.kind] || 'folder-plus'),
           ctaBorder: 'rgba(var(--w), 0.14)', ctaBg: 'rgba(var(--w), 0.04)', ctaColor: 'var(--tx1)',
           act: () => this._openModal(st.kind),
         })),
 
         browse: async () => {
-          this.setState({ browsing: true, exchangeNotice: null });
-          try {
-            if (kind === 'poste') { const selected = await globalThis.MESSENGER_RUNTIME.chooseExchangeLocation(); if (selected) this.setState({ exchange: selected }); }
-            else { const folder = await globalThis.MESSENGER_RUNTIME.chooseProjectFolder(); if (folder) this.setState({ folder }); }
-          } catch (error) { this.setState({ exchangeNotice: String(error) }); }
-          finally { this.setState({ browsing: false }); await this._refresh(); }
+          this.setState({ exchangeNotice: null });
+          try { const selected = await globalThis.MESSENGER_RUNTIME.chooseExchangeLocation(); if (selected) this.setState({ exchange: selected }); }
+          catch (error) { this.setState({ exchangeNotice: String(error) }); }
+          finally { await this._refresh(); }
         },
         remoteUrl: this.state.remoteUrl,
         remoteToken: this.state.remoteToken,
@@ -341,19 +344,16 @@
           catch (error) { this.setState({ exchangeNotice: String(error) }); }
           finally { this.setState({ remoteBusy: false, remoteToken: '' }); }
         },
-        browsing: this.state.browsing,
-        folderLabel: this.state.browsing ? 'Fenêtre de choix ouverte…' : (this.state.folder || 'Choisir le dossier du projet…'),
-        folderColor: this.state.folder ? 'var(--tx1)' : 'var(--tx4)',
         projName: this.state.projName,
         projectPlaceholder: SCENARIO.projectPlaceholder,
-        onProjName: (e) => this.setState({ projName: e.target.value }),
-        normalized: /[A-Z\s]/.test(this.state.projName),
-        normalizedText: 'Le projet s\u2019appellera ' + this.state.projName.toLowerCase().replace(/\s+/g, '-') + ' (minuscules, sans espace).',
+        onProjName: (e) => this.setState({ projName: e.target.value, projectNotice: null }),
+        normalized: !!newProject && newProject !== this.state.projName,
+        normalizedText: 'Le projet s\u2019appellera ' + newProject + ' (minuscules, sans espace).',
 
         choices: projOpts.map((o) => {
           const on = this.state.inviteChoice === o.p;
           return {
-            label: o.label, hint: o.hint,
+            name: o.name, label: o.label, hint: o.hint,
             border: on ? 'rgba(var(--w), 0.22)' : 'rgba(var(--w), 0.1)',
             bg: on ? 'rgba(var(--w), 0.06)' : 'transparent',
             ring: on ? 'var(--arka-red)' : 'rgba(var(--w), 0.22)',
@@ -371,7 +371,7 @@
         fileChoices: projOpts.map((o) => {
           const on = this.state.fileTarget === o.p;
           return {
-            label: o.label,
+            name: o.name, label: o.label,
             border: on ? 'rgba(var(--w), 0.24)' : 'rgba(var(--w), 0.1)',
             bg: on ? 'rgba(var(--w), 0.07)' : 'transparent',
             color: on ? 'var(--tx1)' : 'var(--tx3)',
@@ -422,7 +422,8 @@
         }),
 
         hosts,
-        providerNotice: this.state.providerNotice,
+        // Un nom refusé reste dans la fenêtre : il ne devient pas un signalement.
+        providerNotice: this.state.projectNotice || this.state.providerNotice,
         exchangeNotice: this.state.exchangeNotice,
         shutdown: () => globalThis.MESSENGER_RUNTIME.shutdown().catch((error) => this.setState({ providerNotice: String(error) })),
         maintenanceNotice: this.state.maintenanceNotice,
@@ -437,18 +438,32 @@
           { migration: null, retention: null, maintenanceNotice: this.state.migration ? 'Reprise terminée. Aucun agent n’a été réveillé.' : 'Suppression effectuée selon l’aperçu.' }),
 
         foot: kind === 'invite' ? 'Colle-la dans le chat de ton agent : il crée son compte tout seul, dans ce projet.'
-          : (kind === 'project' ? 'Rien n\u2019est envoyé à personne : tu prépares seulement cet ordinateur.'
+          : (kind === 'project' ? 'Aucun agent n\u2019est prévenu : copie ensuite l\u2019invite du projet.'
           : (kind === 'adv' ? 'Son adresse ne change pas.' : '')),
         cancel: kind === 'setup' || kind === 'poste' ? 'Fermer' : 'Annuler',
         hasPrimary: kind === 'invite' || kind === 'project' || kind === 'adv',
-        primaryLabel: kind === 'invite' ? (this.state.copied ? 'Invite copiée' : 'Copier l\u2019invite') : (kind === 'project' ? 'Connecter' : 'Enregistrer'),
-        primaryIcon: L(kind === 'invite' ? (this.state.copied ? 'check' : 'copy') : (kind === 'project' ? 'folder-plus' : 'check')),
+        primaryLabel: kind === 'invite' ? (this.state.copied ? 'Invite copiée' : 'Copier l\u2019invite') : (kind === 'project' ? 'Créer le projet' : 'Enregistrer'),
+        primaryIcon: L(kind === 'invite' ? (this.state.copied ? 'check' : 'copy') : (kind === 'project' ? 'plus' : 'check')),
         primaryBorder: 'rgba(var(--w), 0.2)',
         primaryBg: 'rgba(var(--w), 0.08)',
         primaryColor: 'var(--tx1)',
         primary: () => {
           if (kind === 'invite') return copyInvite(this.state.inviteChoice);
-          if (kind === 'project') return this._run(() => globalThis.MESSENGER_RUNTIME.connectProject(this.state.projName, this.state.folder), { modal: null });
+          if (kind === 'project') {
+            const problem = projectProblem(newProject);
+            if (problem) return this.setState({ projectNotice: problem });
+            // Créé : on passe à l'invite, projet présélectionné sans attendre la relève suivante.
+            // Un refus reste dans la fenêtre du projet, effacé dès que le nom change.
+            if (this.state.busy) return;
+            this.setState({ busy: true, projectNotice: null });
+            return globalThis.MESSENGER_RUNTIME.createProject(newProject).then((created) => {
+              if (this.state.modal === 'project') this._openModal('invite');
+              const projects = this.state.projects;
+              this.setState({ busy: false, inviteChoice: created, projName: '', copied: false,
+                projects: projects.some((p) => p.name === created) ? projects : [...projects, { name: created }] });
+              return this._refresh();
+            }, (error) => this.setState({ busy: false, projectNotice: String(error) }));
+          }
           if (kind === 'adv' && ma) return this._run(async () => {
             const runtime = globalThis.MESSENGER_RUNTIME;
             if (this.state.contactAlias.trim()) {

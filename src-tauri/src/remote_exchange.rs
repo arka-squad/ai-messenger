@@ -164,7 +164,7 @@ impl ExchangePort for RemoteExchange {
 #[cfg(test)]
 mod tests {
     use super::{normalize_url, RemoteExchange};
-    use crate::{domain::{journal::{ExchangeItem, Mutation, ReadCheckpoint}, models::Attachment, ports::ExchangePort}, exchange::fingerprint, test_support::message};
+    use crate::{domain::{journal::{Change, Event, ExchangeItem, Mutation, ReadCheckpoint}, models::Attachment, ports::ExchangePort}, exchange::fingerprint, test_support::message};
     #[test]
     fn only_root_https_urls_without_embedded_credentials_are_accepted() {
         assert_eq!(normalize_url("https://messenger.arka-squad.app/").unwrap(), "https://messenger.arka-squad.app");
@@ -192,8 +192,11 @@ mod tests {
         assert_eq!(remote.deposit(ExchangeItem::Attachment { reference: &reference, bytes }).unwrap(), reference.fingerprint);
         let checkpoint = ReadCheckpoint { id: format!("installation-{id}"), machine: "test".into(), seen_at: chrono::Utc::now().to_rfc3339(), integrated: Default::default(), missed_before: None };
         remote.deposit(ExchangeItem::Checkpoint(&checkpoint)).unwrap();
+        let project = Mutation::Event(Event { id: format!("project-{id}"), emitted_at: chrono::Utc::now().to_rfc3339(), installation: checkpoint.id.clone(), change: Change::Project { name: "mon-projet".into() } });
+        remote.deposit(ExchangeItem::Mutation(&project)).unwrap();
         let batch = remote.list(None, &[reference.clone()]).unwrap();
         assert!(batch.mutations.contains(&value));
+        assert!(batch.mutations.contains(&project));
         assert_eq!(batch.attachments[&reference.fingerprint], bytes);
         assert!(batch.checkpoints.contains(&checkpoint));
         assert_eq!(remote.retention_preview().unwrap().mutations, 0);

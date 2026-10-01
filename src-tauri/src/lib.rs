@@ -406,8 +406,16 @@ pub fn run() {
             let delivering=providers.clone();
             let notifying=app.handle().clone();
             tauri::async_runtime::spawn(async move {
+                let mut legacy_projects=true;
                 loop {
-                    let _ = poller.receive().await;
+                    let received=poller.receive().await.is_ok() && !poller.incidents().iter().any(|i|i.id=="emplacement");
+                    // Projects kept locally by earlier versions are shared once the box has been read.
+                    if legacy_projects && received {
+                        legacy_projects=false;
+                        if let Err(error)=poller.share_legacy_projects().await {
+                            eprintln!("Messenger : les projets locaux seront partagés au prochain démarrage ({error}).");
+                        }
+                    }
                     delivery::deliver(&poller,&delivering).await;
                     notifications::notify(&poller,&notifying).await;
                     use domain::ports::ExchangePort;
@@ -441,8 +449,7 @@ pub fn run() {
             equip_provider,
             owner_commands::snapshot,
             owner_commands::save_preferences,
-            owner_commands::choose_project_folder,
-            owner_commands::connect_project,
+            owner_commands::create_project,
             owner_commands::copy_invitation,
             owner_commands::merge_accounts,
             owner_commands::file_account,

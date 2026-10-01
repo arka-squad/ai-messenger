@@ -1,5 +1,10 @@
 const L = (n) => `./assets/icons/${n}.svg`;
 const { ME, TINTS, ST, ORDER, initialState } = globalThis.MESSENGER_PRESENTATION;
+// Même règle que create_project côté Rust : trim, minuscules, espaces -> '-'.
+const projectName = (value) => value.trim().toLowerCase().split(/\s+/).filter(Boolean).join('-');
+const projectProblem = (name) => !name ? 'Donne un nom au projet.'
+  : name === 'commun' ? '« commun » désigne déjà les comptes sans projet : choisis un autre nom.'
+  : !/^[a-z0-9._-]{1,120}$/.test(name) || name === '.' || name === '..' ? 'Choisis un nom simple : lettres sans accent, chiffres, point, tiret ou soulignement.' : null;
 
 class Component extends DCLogic {
   state = initialState();
@@ -19,7 +24,9 @@ class Component extends DCLogic {
       if (snapshot.fingerprint !== this._fingerprint) {
         this._fingerprint = snapshot.fingerprint;
         const openGroups = { ...this.state.openGroups };
-        snapshot.directory.forEach(({ account }) => { const project = account.address.split('@')[1] || account.project || 'commun'; if (!(project in openGroups)) openGroups[project] = true; });
+        snapshot.projects.map(({ name }) => name)
+          .concat(snapshot.directory.map(({ account }) => account.address.split('@')[1] || account.project || 'commun'))
+          .forEach((project) => { if (!(project in openGroups)) openGroups[project] = true; });
         this.setState({ ...snapshot, ...snapshot.preferences, openGroups, clock, loading: false }, () => this._applyTheme());
       } else if (this.state.loading) this.setState({ loading: false });
       else if (this.state.clock !== clock) this.setState({ clock });
@@ -37,8 +44,10 @@ class Component extends DCLogic {
     return this._run(() => globalThis.MESSENGER_RUNTIME.preferences(preferences), preferences);
   }
   _reload() { this._refresh(); }
+  // Trié : les teintes suivent l'ordre, identiques sur chaque ordinateur de la boîte.
   _projects() {
-    return [...new Set(this.state.projects.map((p) => p.name).concat(this.state.directory.map(({ account }) => account.address.split('@')[1] || account.project).filter(Boolean)))];
+    const names = this.state.projects.map((p) => p.name).concat(this.state.directory.map(({ account }) => account.address.split('@')[1] || account.project));
+    return [...new Set(names.filter((name) => name && name !== 'commun'))].sort();
   }
   _applyTheme() {
     const el = this._root;
@@ -91,7 +100,7 @@ class Component extends DCLogic {
   }
 
   _openModal(kind, agentName) {
-    this.setState({ modal: kind, modalAgent: agentName || null, copied: false, browsing: false, mergeTarget: null, fileTarget: null, contactAlias: '', contactNote: '', contactTargets: {}, providerNotice: null,
+    this.setState({ modal: kind, modalAgent: agentName || null, copied: false, projName: '', projectNotice: null, mergeTarget: null, fileTarget: null, contactAlias: '', contactNote: '', contactTargets: {}, providerNotice: null,
       remoteUrl: kind === 'poste' && this.state.exchange?.kind === 'url' ? this.state.exchange.path : '', remoteToken: '', remoteBusy: false });
   }
 
@@ -105,7 +114,7 @@ class Component extends DCLogic {
     });
     const byName = Object.fromEntries(AGENTS.map((a) => [a[0], a]));
     const SCENARIO = { projectNames: this._projects(), trafficDay: new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Paris' }).format(new Date()).replaceAll('-', ''),
-      connectedProjectsText: this._projects().length ? 'Projets connectés : ' + this._projects().join(', ') : 'Aucun projet connecté.', projectPlaceholder: 'ex. talos' };
+      connectedProjectsText: this._projects().length ? 'Projets : ' + this._projects().join(', ') : 'Aucun projet pour l’instant.', projectPlaceholder: 'ex. talos' };
     const light = this.state.theme === 'light';
     const parisClock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date()).split(':');
     const parisMinutes = Number(parisClock[0]) * 60 + Number(parisClock[1]);
@@ -297,7 +306,7 @@ class Component extends DCLogic {
         span: items.length > 1 ? oldest.hhmm + ' → ' + newest.hhmm : newest.hhmm,
         last: newest.day === SCENARIO.trafficDay ? newest.hhmm : newest.day.slice(6, 8) + '/' + newest.day.slice(4, 6),
         count: String(items.length),
-        tags: tags.map((p) => ({ name: p, tint: this._tint(p === 'commun' ? '' : p), title: p === 'commun' ? 'Compte commun à tous les projets' : p })),
+        tags: tags.map((p) => ({ name: p, tint: this._tint(p === 'commun' ? '' : p), title: p === 'commun' ? 'Compte commun à tous les projets' : '' })),
         stalled: items.length === 1 && !byId[r],
         forMe, roleLabel: actor ? 'on attend ta décision' : 'pour information',
         roleIcon: L(actor ? 'hand' : 'eye'),
@@ -358,8 +367,8 @@ class Component extends DCLogic {
     const ma = this.state.modalAgent ? byName[this.state.modalAgent] : null;
     const kind = this.state.modal;
     const modalTitles = {
-      setup: ['Mise en place', 'Trois étapes, une seule fois. Tu peux y revenir quand tu veux.'],
-      project: ['Connecter un projet', 'Rattache un dossier de projet à la boîte.'],
+      setup: ['Mise en place', 'Quatre étapes, une seule fois. Tu peux y revenir quand tu veux.'],
+      project: ['Créer un projet', 'Le projet apparaît sur tous les ordinateurs reliés à cette boîte.'],
       invite: ['Inviter un agent', 'Tu obtiens un texte à coller dans le chat de ton agent.'],
       adv: [ma ? ma[0] : '', 'Options avancées de ce compte.'],
       poste: ['Réglages de cet ordinateur', 'La boîte, les outils d\u2019IA, et l\u2019extinction.'],

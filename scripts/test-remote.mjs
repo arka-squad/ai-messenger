@@ -60,6 +60,12 @@ try {
   assert.equal((await (await request('/v1/mutations', 'POST', message)).json()).fingerprint, proof);
   assert.equal((await request('/v1/mutations', 'POST', { ...message, payload: { ...message.payload, subject: 'Conflict' } })).status, 409);
   assert.equal((await request('/v1/mutations', 'POST', { ...message, payload: { ...message.payload, id: '../escape' } })).status, 422);
+  // A shared project is a name-only event; the redeployed server must accept and return it unchanged.
+  const project = { kind: 'event', payload: { id: 'project-proof', emitted_at: new Date().toISOString(), installation: 'test-installation', change: { kind: 'project', name: 'mon-projet' } } };
+  const declared = await request('/v1/mutations', 'POST', project);
+  assert.equal(declared.status, 200);
+  const declaration = (await declared.json()).fingerprint;
+  assert.equal((await (await request('/v1/mutations', 'POST', project)).json()).fingerprint, declaration);
 
   const bytes = new TextEncoder().encode('verified attachment');
   const fingerprint = createHash('sha256').update(bytes).digest('hex');
@@ -68,7 +74,9 @@ try {
   assert.deepEqual(new Uint8Array(await (await request('/v1/attachments/' + fingerprint + '?' + query)).arrayBuffer()), bytes);
   const checkpoint = { id: 'test-installation', machine: 'test', seen_at: new Date().toISOString(), integrated: {}, missed_before: null };
   assert.equal((await request('/v1/checkpoints', 'PUT', checkpoint)).status, 200);
-  assert.equal((await (await request('/v1/list')).json()).mutations.length, 1);
+  const listed = (await (await request('/v1/list')).json()).mutations;
+  assert.equal(listed.length, 2);
+  assert.deepEqual(listed.find((m) => m.kind === 'event').payload, project.payload);
   const retention = await (await request('/v1/retention')).json();
   assert.equal(retention.mutations, 0);
   assert.equal((await request('/v1/retention', 'POST', { fingerprint: 'stale', installation: checkpoint.id })).status, 409);
@@ -86,14 +94,15 @@ try {
   }
   assert(ready, 'The service must reopen the same mailbox');
   const reopened = await (await request('/v1/list')).json();
-  assert.equal(reopened.mutations[0].payload.id, 'http-proof');
+  assert.deepEqual(reopened.mutations.map((m) => m.payload.id).sort(), ['http-proof', 'project-proof']);
+  assert.equal(reopened.mutations.find((m) => m.kind === 'event').payload.change.name, 'mon-projet');
   assert.equal(reopened.checkpoints[0].id, checkpoint.id);
 
   const rust = spawnSync('cargo', ['test', '--manifest-path', join(root, 'src-tauri/Cargo.toml'), 'remote_exchange::tests::http_end_to_end', '--', '--ignored', '--nocapture'], {
     cwd: root, env: { ...process.env, CARGO_TARGET_DIR: target, MESSENGER_REMOTE_TEST_URL: url, MESSENGER_REMOTE_TEST_TOKEN: token }, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024,
   });
   if (rust.status !== 0) throw new Error((rust.stdout + rust.stderr).slice(-5000));
-  console.log('Remote protocol: authentication, immutable deposits, attachments, checkpoints, reopening, retention apply, and Rust client passed');
+  console.log('Remote protocol: authentication, immutable deposits, project declarations, attachments, checkpoints, reopening, retention apply, and Rust client passed');
 } finally {
   await stop();
   await rm(temporary, { recursive: true, force: true });
