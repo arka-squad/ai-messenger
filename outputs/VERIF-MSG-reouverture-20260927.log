@@ -1,0 +1,5 @@
+Réouverture native à froid : schéma 3, empreinte vérifiée, 430 messages conservés.
+SELECT payload,encoded,journey FROM mutation WHERE ($kind = NONE OR kind = $kind) AND ($journey = NONE OR journey = $journey) : 1296 ms, 155 lignes
+SELECT payload,encoded,journey FROM mutation WHERE kind = $kind : 349 ms, 155 lignes
+SELECT payload,encoded,journey FROM mutation WHERE kind = $kind EXPLAIN : 6 ms, 2 lignes
+Plan [{"detail":{"plan":{"index":"mutation_content","operator":"=","value":"event"},"table":"mutation"},"operation":"Iterate Index"},{"detail":{"type":"Memory"},"operation":"Collector"}]

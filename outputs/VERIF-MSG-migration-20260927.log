@@ -1,0 +1,18 @@
+   Compiling messenger v0.1.0 (/Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 44s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/messenger_lib-942e285451dd1b4b)
+
+running 1 test
+test migration::tests::actual_prototype_snapshot_preserves_every_id_status_history_account_and_attachment has been running for over 60 seconds
+Empreinte de migration : 80862634bad6282f3a504a5d0a5f0f32c76de68d6ff9da99f4e6a299d387bf5b
+Migration réelle : 430 messages, 27 comptes, 150 empreintes de pièces jointes, compteurs {"cd-agent-arkalabsweb-mac@cortex": {"nouveau": 3}, "cd-agent-cloud-dev-mac@cortex": {"lu": 1, "traité": 7}, "cd-agent-cortex-core-1-mac@cortex": {"traité": 52}, "cd-agent-dev-addons-mac@cortex": {"lu": 1, "nouveau": 2, "traité": 1}, "cd-agent-messenger-app-mac@messenger-app": {"traité": 3}, "cd-agent-releve-courrier-mac@ai-messenger": {"nouveau": 6, "traité": 1}, "cd-agent-translate-2-win@ai-messenger": {"nouveau": 5, "traité": 2}, "cl-agent-addon-boite-mac": {"nouveau": 1, "traité": 26}, "cl-agent-cloud-mac@cortex": {"traité": 9}, "cl-agent-cortex-chat-2-mac@cortex": {"lu": 5, "traité": 12}, "cl-agent-cortex-chat-mac@cortex": {"lu": 9, "nouveau": 1, "traité": 116}, "cl-agent-cortex-core-2-mac@cortex": {"lu": 9, "nouveau": 1, "traité": 53}, "cl-agent-cortex-core-3-mac@cortex": {"lu": 5, "traité": 13}, "cl-agent-messengerai-win@ai-messenger": {"lu": 1, "nouveau": 1, "traité": 31}, "cl-agent-plugin-connector-mac@cortex": {"nouveau": 1, "traité": 1}, "cloud": {"traité": 4}, "kimi": {"lu": 3, "traité": 3}, "km-agent-release-mac": {"lu": 1, "nouveau": 2, "traité": 3}, "km-agent-translate-mac@ai-messenger": {"traité": 10}, "mac": {"lu": 8, "nouveau": 4, "traité": 19}, "owner": {"lu": 18, "nouveau": 68, "traité": 23}, "windows": {"lu": 21, "traité": 44}}
+test migration::tests::actual_prototype_snapshot_preserves_every_id_status_history_account_and_attachment ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 46 filtered out; finished in 147.54s
+
+     Running unittests src/main.rs (src-tauri/target/debug/deps/messenger-ee040a694155f248)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

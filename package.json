@@ -1,0 +1,20 @@
+{
+  "name": "arkalabs-messenger",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "prepare-ui": "node scripts/vendor-ui.mjs",
+    "prepare-channel": "node scripts/build-claude-channel.mjs",
+    "build": "npm run prepare-ui && npm run prepare-channel && tauri build",
+    "test": "node scripts/check-architecture.mjs && node scripts/test-ui.mjs && npm run prepare-channel && bun test channel/claude-channel.test.ts && node scripts/test-native.mjs",
+    "dev": "npm run prepare-ui && npm run prepare-channel && tauri dev"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.10.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}

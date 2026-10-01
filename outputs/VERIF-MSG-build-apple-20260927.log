@@ -1,0 +1,24 @@
+
+> arkalabs-messenger@0.1.0 build
+> npm run prepare-ui && npm run prepare-channel && tauri build --bundles app
+
+
+> arkalabs-messenger@0.1.0 prepare-ui
+> node scripts/vendor-ui.mjs
+
+
+> arkalabs-messenger@0.1.0 prepare-channel
+> node scripts/build-claude-channel.mjs
+
+ [240ms]  bundle  237 modules
+[1000ms] compile  /Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri/binaries/messenger-claude-channel-x86_64-apple-darwin
+Claude channel: /Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri/binaries/messenger-claude-channel-x86_64-apple-darwin
+        Info Looking up installed tauri packages to check mismatched versions...
+    Blocking waiting for file lock on package cache
+   Compiling messenger v0.1.0 (/Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri)
+    Finished `release` profile [optimized] target(s) in 8m 27s
+       Built application at: /Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri/target/release/messenger
+    Bundling arkalabs Messenger.app (/Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri/target/release/bundle/macos/arkalabs Messenger.app)
+    Finished 1 bundle at:
+        /Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri/target/release/bundle/macos/arkalabs Messenger.app
+

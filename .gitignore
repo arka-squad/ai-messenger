@@ -1,0 +1,8 @@
+.input/
+node_modules/
+src/assets/vendor/
+src-tauri/target/
+src-tauri/binaries/
+server/target/
+*.bun-build
+.DS_Store

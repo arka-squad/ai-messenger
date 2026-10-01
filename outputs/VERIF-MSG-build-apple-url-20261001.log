@@ -1,0 +1,86 @@
+
+> arkalabs-messenger@0.1.0 build
+> npm run prepare-ui && npm run prepare-channel && tauri build --bundles app
+
+
+> arkalabs-messenger@0.1.0 prepare-ui
+> node scripts/vendor-ui.mjs
+
+
+> arkalabs-messenger@0.1.0 prepare-channel
+> node scripts/build-claude-channel.mjs
+
+  [77ms]  bundle  237 modules
+ [146ms] compile  /Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri/binaries/messenger-claude-channel-x86_64-apple-darwin
+Claude channel: /Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri/binaries/messenger-claude-channel-x86_64-apple-darwin
+        Info Looking up installed tauri packages to check mismatched versions...
+   Compiling jobserver v0.1.35
+   Compiling fs_extra v1.3.0
+   Compiling aws-lc-rs v1.17.0
+   Compiling tokio-util v0.7.19
+   Compiling system-configuration-sys v0.6.0
+   Compiling rustls-pki-types v1.15.1
+   Compiling try-lock v0.2.5
+   Compiling rustls v0.23.43
+   Compiling core-foundation v0.9.4
+   Compiling sync_wrapper v1.0.2
+   Compiling security-framework-sys v2.17.0
+   Compiling want v0.3.1
+   Compiling tower v0.5.3
+   Compiling axum-core v0.5.6
+   Compiling cc v1.4.7
+   Compiling security-framework v3.7.0
+   Compiling system-configuration v0.7.0
+   Compiling tower-http v0.6.11
+   Compiling h2 v0.4.19
+   Compiling cmake v0.1.58
+   Compiling embed-resource v3.0.11
+   Compiling tauri-winres v0.3.6
+   Compiling objc2-exception-helper v0.1.1
+   Compiling psm v0.1.32
+   Compiling stacker v0.1.25
+   Compiling ring v0.17.14
+   Compiling blake3 v1.8.7
+   Compiling mac-notification-sys v0.6.15
+   Compiling aws-lc-sys v0.41.0
+   Compiling tauri-build v2.6.3
+   Compiling objc2 v0.6.4
+   Compiling tauri v2.11.6
+   Compiling messenger v0.1.0 (/Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri)
+   Compiling cedar-policy-core v2.4.2
+   Compiling tauri-plugin-clipboard-manager v2.3.3
+   Compiling objc2-core-foundation v0.3.2
+   Compiling block2 v0.6.2
+   Compiling dispatch2 v0.3.1
+   Compiling hyper v1.11.1
+   Compiling objc2-foundation v0.3.2
+   Compiling objc2-core-graphics v0.3.2
+   Compiling hyper-util v0.1.20
+   Compiling jsonwebtoken v9.3.1
+   Compiling axum v0.8.9
+   Compiling cedar-policy-validator v2.4.2
+   Compiling cedar-policy v2.4.2
+   Compiling surrealdb-core v2.6.5
+   Compiling objc2-app-kit v0.3.2
+   Compiling notify-rust v4.18.0
+   Compiling objc2-web-kit v0.3.2
+   Compiling tao v0.35.3
+   Compiling window-vibrancy v0.6.0
+   Compiling muda v0.19.3
+   Compiling arboard v3.6.1
+   Compiling rfd v0.15.4
+   Compiling tauri-runtime v2.11.3
+   Compiling wry v0.55.1
+   Compiling tauri-runtime-wry v2.11.4
+   Compiling rustls-webpki v0.103.13
+   Compiling tokio-rustls v0.26.5
+   Compiling rustls-platform-verifier v0.7.0
+   Compiling hyper-rustls v0.27.9
+   Compiling reqwest v0.13.5
+   Compiling surrealdb v2.6.5
+    Finished `release` profile [optimized] target(s) in 6m 11s
+       Built application at: /Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri/target/release/messenger
+    Bundling arkalabs Messenger.app (/Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri/target/release/bundle/macos/arkalabs Messenger.app)
+    Finished 1 bundle at:
+        /Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri/target/release/bundle/macos/arkalabs Messenger.app
+

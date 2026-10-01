@@ -1,0 +1,14 @@
+*
+!server/
+!server/Cargo.toml
+!server/Cargo.lock
+!server/Dockerfile
+!server/src/
+!server/src/**
+!src-tauri/
+!src-tauri/src/
+!src-tauri/src/domain.rs
+!src-tauri/src/domain/
+!src-tauri/src/domain/**
+!src-tauri/src/exchange.rs
+!src-tauri/src/retention.rs

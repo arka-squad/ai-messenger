@@ -1,0 +1,22 @@
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('../assets/fonts/Inter.ttf') format('truetype'); }
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 100 800; font-display: swap; src: url('../assets/fonts/JetBrainsMono.ttf') format('truetype'); }
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 300; font-display: swap; src: url('../assets/fonts/Poppins-Light.ttf') format('truetype'); }
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 400; font-display: swap; src: url('../assets/fonts/Poppins-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 500; font-display: swap; src: url('../assets/fonts/Poppins-Medium.ttf') format('truetype'); }
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 600; font-display: swap; src: url('../assets/fonts/Poppins-SemiBold.ttf') format('truetype'); }
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 700; font-display: swap; src: url('../assets/fonts/Poppins-Bold.ttf') format('truetype'); }
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 800; font-display: swap; src: url('../assets/fonts/Poppins-ExtraBold.ttf') format('truetype'); }
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 900; font-display: swap; src: url('../assets/fonts/Poppins-Black.ttf') format('truetype'); }
+
+/* Typographie de rôle.
+   --font-ui      : produit, écrans denses, tableaux, formulaires (Inter)
+   --font-sans    : marque, deck, site, titres éditoriaux (Poppins)
+   --font-display : titres hero (Poppins 800, aplat arka-red)
+   Un écran produit n'utilise JAMAIS --font-sans pour du texte courant :
+   Poppins a des chasses larges qui cassent la densité d'un tableau. */
+:root {
+  --font-ui:      'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans:    'Poppins', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  --font-display: 'Poppins', system-ui, sans-serif;
+}

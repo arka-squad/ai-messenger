@@ -1,0 +1,89 @@
+
+> arkalabs-messenger@0.1.0 test
+> node scripts/check-architecture.mjs && node scripts/test-ui.mjs && npm run prepare-channel && bun test channel/claude-channel.test.ts && node scripts/test-native.mjs
+
+Architecture: 52 files <= 700 lines, dependency direction valid
+UI : données réelles, commandes persistantes, pièces jointes incomplètes, interventions et droits humains vérifiés
+
+> arkalabs-messenger@0.1.0 prepare-channel
+> node scripts/build-claude-channel.mjs
+
+ [657ms]  bundle  237 modules
+[1472ms] compile  /Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri/binaries/messenger-claude-channel-x86_64-apple-darwin
+Claude channel: /Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/src-tauri/binaries/messenger-claude-channel-x86_64-apple-darwin
+bun test v1.4.2 (744846f84)
+
+channel/claude-channel.test.ts:
+(pass) the authenticated live channel exposes tools and filters event senders [30919.34ms]
+
+ 1 pass
+ 0 fail
+ 4 expect() calls
+Ran 1 test across 1 file. [33.78s]
+    Blocking waiting for file lock on artifact directory
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 10s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/messenger_lib-942e285451dd1b4b)
+
+running 47 tests
+test domain::tests::a_write_is_not_confirmed_without_proof ... ok
+test domain::tests::a_human_cannot_be_enrolled_as_an_account ... ok
+test domain::tests::bodies_have_at_most_two_lines ... ok
+test exchange::tests::actual_share_supports_publication_readback_attachments_and_native_listening ... ignored, Requires a writable SMB share in MESSENGER_EXCHANGE_FIXTURE
+test domain::tests::publication_and_agent_reachability_are_distinct ... ok
+test domain::tests::an_actor_can_only_write_as_its_own_account ... ok
+test domain::tests::a_message_is_data_not_an_execution_authority ... ok
+test domain::tests::message_is_immutable_and_corrections_are_new_messages ... ok
+test domain::tests::one_mutation_cannot_erase_another ... ok
+test domain::tests::status_never_moves_backward ... ok
+test domain::tests::application_mutations_have_no_secret_field ... ok
+test domain::tests::statuses_belong_to_each_recipient ... ok
+test exchange::tests::publication_never_overwrites_another_mutation_and_is_idempotent ... ok
+test exchange::tests::late_publication_uses_the_deposit_day_and_incremental_scan_skips_old_history ... ok
+test mcp::tests::local_http_rejects_browser_origin_and_dns_rebinding ... ok
+test exchange::tests::incomplete_mutation_is_not_integrated_or_reported_as_a_valid_proof ... ok
+test exchange::tests::a_missing_share_is_not_silently_created_by_any_deposit ... ok
+test migration::tests::actual_prototype_snapshot_preserves_every_id_status_history_account_and_attachment ... ignored, Requires a private prototype snapshot in MESSENGER_MIGRATION_FIXTURE
+test migration::tests::changed_source_and_traversing_attachments_cannot_pass_the_migration_review ... ok
+test mcp::tests::real_http_sessions_do_not_publish_the_private_transport_credential ... ok
+test migration::tests::a_missing_legacy_attachment_stays_announced_incomplete_and_can_be_requested ... ok
+test mailbox::tests::human_accounts_and_multiline_payloads_are_refused_before_publication ... ok
+test mailbox::tests::session_binding_and_private_recovery_keys_never_enter_the_shared_journal ... ok
+test provider::claude::tests::configured_channel_delivers_only_to_its_live_session ... ok
+test mailbox::tests::an_unconfirmed_decision_cannot_authorize_an_agent_or_close_its_request ... ok
+test provider::kimi::tests::kimi_equipment_preserves_other_servers_and_refuses_an_existing_conflict ... ok
+test provider::tests::fake_provider_exercises_the_five_capabilities ... ok
+test retention::tests::a_recent_reply_protects_its_ancestor_and_the_one_year_floor ... ok
+test retention::tests::dormant_installations_are_named_and_a_changed_review_is_rejected ... ok
+test mailbox::tests::merge_redirects_pending_mail_without_rewriting_the_original_message ... ok
+test mailbox::tests::verdict_requires_the_opener_to_report_a_result_and_discussion_is_not_authorization ... ok
+test retention::tests::retention_requires_every_active_installation_and_never_runs_without_human_apply ... ok
+test migration::tests::migration_is_lossless_neutral_and_verified_per_account ... ok
+test mailbox::tests::pending_outbox_survives_disconnect_and_retries_with_its_original_id ... ok
+test mailbox::tests::merged_copies_keep_read_access_without_gaining_recipient_rights ... ok
+test mcp::tests::complete_mcp_contract_binds_actor_and_attests_origin_without_trusting_client_fields ... ok
+test provider::claude::tests::websocket_routes_claude_tools_and_events_end_to_end ... ok
+test storage::tests::corrupt_local_attachment_is_repaired_from_verified_bytes ... ok
+test mailbox::tests::simultaneous_approval_and_discussion_preserve_the_single_published_decision ... ok
+test mailbox::tests::attachment_completeness_is_verified_both_ways_and_can_be_restored ... ok
+test mailbox::tests::concurrent_old_read_mark_cannot_regress_a_completed_recipient ... ok
+test storage::tests::durable_readback_and_identical_replay_preserve_immutable_content ... ok
+test mailbox::tests::complete_exchange_has_independent_monotone_recipient_statuses_and_read_only_copies ... ok
+test provider::claude::tests::conflicting_configuration_is_never_overwritten ... ok
+test mcp::tests::standard_sdk_exercises_the_real_agent_contract_over_http ... ok
+test provider::codex::tests::an_existing_mcp_configuration_is_never_overwritten ... ok
+test provider::codex::tests::supported_codex_is_probed_and_can_queue_a_verdict ... ok
+
+test result: ok. 45 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 38.25s
+
+     Running unittests src/main.rs (src-tauri/target/debug/deps/messenger-ee040a694155f248)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests messenger_lib
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,1 @@
+51e1c0d8ea1bd28893a607709854990d4e87acbd2b3a9d38d4c98d0665619a34  src-tauri/target/release/bundle/dmg/arkalabs Messenger_0.1.0_x64.dmg

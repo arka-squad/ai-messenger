@@ -1,0 +1,10 @@
+{
+  "identifier": "main",
+  "description": "Lecture des \u00e9v\u00e9nements locaux et affichage de Messenger.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default"
+  ]
+}

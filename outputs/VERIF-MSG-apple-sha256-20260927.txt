@@ -1,0 +1,3 @@
+d33a4925fbf39d9233676c12039cb22bbfbca3cbbe60cb2af87dcde7ccf06368  arkalabs Messenger_0.1.0_x64.dmg
+a729cbe98333b04e7ead1320591f849685c44359442be960c465bbec6a14ef67  arkalabs Messenger.app/Contents/MacOS/messenger
+cab8b743bc4b5c2098b219cb49456eb54be4eb59caaef876488104c1d5a41edb  arkalabs Messenger.app/Contents/MacOS/messenger-claude-channel

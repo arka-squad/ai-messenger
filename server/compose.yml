@@ -1,0 +1,24 @@
+services:
+  messenger-server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    image: arka-messenger-server:0.1.0
+    container_name: messenger-server
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      MESSENGER_ROOT: /mailbox
+      MESSENGER_TOKEN_FILE: /run/secrets/messenger-token
+    volumes:
+      - /home/ubuntu/aimessenger:/mailbox
+      - /home/ubuntu/.config/messenger/token:/run/secrets/messenger-token:ro
+    networks:
+      - minio_default
+
+networks:
+  minio_default:
+    external: true

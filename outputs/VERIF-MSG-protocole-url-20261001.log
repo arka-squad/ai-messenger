@@ -1,0 +1,3 @@
+   Compiling messenger-server v0.1.0 (/Users/jeremygrimonpont/workspace/ARKA_LABS/LABS_PRODUCTS/messenger/server)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 10.36s
+Remote protocol: authentication, immutable deposits, attachments, checkpoints, reopening, retention apply, and Rust client passed
