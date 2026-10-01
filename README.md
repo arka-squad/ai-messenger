@@ -72,7 +72,7 @@ depuis plus de six mois devient dormant ; son retour signale une éventuelle pé
 
 | Fournisseur vérifié | Relève | Remise facultative |
 | --- | --- | --- |
-| Codex CLI 0.152.0 et suivantes avec MCP HTTP | MCP local | File d’une session existante si les commandes `agents` et `queue` sont présentes. |
+| Codex CLI 0.152.0 et suivantes avec MCP HTTP, y compris celui fourni avec l’app Codex | MCP local | File d’une session existante si les commandes `agents` et `queue` sont présentes. |
 | Claude Code 2.1.274 et suivantes avec MCP HTTP | MCP local | Canal authentifié de la session qui l’a activé. |
 | Kimi CLI 1.6 | MCP local | Aucune session humaine ouverte n’est annoncée comme atteinte. |
 

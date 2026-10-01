@@ -25,7 +25,11 @@ pub struct Provider {
 
 impl Provider {
     pub fn new() -> Self {
-        Self::with_command(super::executable("codex"))
+        let command = super::executable("codex");
+        if command.is_absolute() {
+            return Self::with_command(command);
+        }
+        Self::with_command(bundled_command().unwrap_or(command))
     }
 
     fn with_command(command: impl Into<PathBuf>) -> Self {
@@ -186,6 +190,42 @@ fn probe(command: &Path) -> ProviderStatus {
     }
 }
 
+/// The Codex desktop app ships its CLI inside the app, outside PATH. On Windows the Store
+/// package folder changes with every update, so it is asked from the system each time.
+#[cfg(windows)]
+fn bundled_command() -> Option<PathBuf> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let output = std::process::Command::new("powershell.exe")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "(Get-AppxPackage -Name OpenAI.Codex).InstallLocation",
+        ])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()?;
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|root| Path::new(root.trim()).join("app/resources/codex.exe"))
+        .find(|command| command.is_file())
+}
+
+#[cfg(target_os = "macos")]
+fn bundled_command() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+    [Path::new("/Applications"), &home.join("Applications")]
+        .into_iter()
+        .map(|applications| applications.join("Codex.app/Contents/Resources/codex"))
+        .find(|command| command.is_file())
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
+fn bundled_command() -> Option<PathBuf> {
+    None
+}
+
 fn run(command: &Path, arguments: &[&str]) -> Result<Output, std::io::Error> {
     super::command(command).args(arguments).output()
 }
@@ -314,5 +354,22 @@ esac
         let provider = Provider::with_command(command);
         assert!(provider.present().equipped);
         assert_eq!(provider.deliver("session-1", "Courrier").unwrap(), Reachability::NoSession);
+    }
+}
+
+#[cfg(all(test, windows))]
+mod windows_tests {
+    use super::{Provider, ProviderPort};
+
+    #[test]
+    #[ignore = "Requires the Codex desktop app and an isolated CODEX_HOME"]
+    fn actual_codex_desktop_cli_is_found_and_equipped() {
+        assert!(
+            std::env::var_os("CODEX_HOME").is_some(),
+            "set CODEX_HOME to a temporary folder: this test writes the Codex MCP configuration"
+        );
+        let provider = Provider::new();
+        assert!(provider.present().available, "{}", provider.present().detail);
+        assert!(provider.equip().unwrap().equipped);
     }
 }
