@@ -20,5 +20,6 @@ globalThis.MESSENGER_PRESENTATION = {
     mergeTarget: null, fileTarget: null, contactAlias: '', contactNote: '', contactTargets: {}, mergeQuery: '', targetQuery: '',
     busy: false, migration: null, retention: null, maintenanceNotice: null, openRequest: null,
     inactive: [], inactiveOpen: false, roleEdit: null, roleDraft: '', confirmDeactivate: null, accountNotice: null,
+    observation: { projects: [], delegates: [], state: 'absente', log: [] }, observerKey: null,
   }),
 };

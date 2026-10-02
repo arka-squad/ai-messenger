@@ -465,7 +465,12 @@ pub fn run() {
             owner_commands::apply_migration,
             owner_commands::preview_retention,
             owner_commands::apply_retention,
-            owner_commands::shutdown
+            owner_commands::shutdown,
+            owner_commands::watch_projects,
+            owner_commands::set_delegates,
+            owner_commands::open_observation,
+            owner_commands::pause_observation,
+            owner_commands::revoke_observation
         ])
         .run(tauri::generate_context!())
         .expect("Messenger could not start");

@@ -216,7 +216,19 @@ globalThis.MESSENGER_I18N = (() => {
   "Ce compte a été repris d’une ancienne boîte : son agent ne l’a jamais repris, il ne relève donc pas son courrier. Envoie-lui son invite : il reprendra son compte depuis son dossier de travail.": "This account was imported from an old mailbox. Its agent never resumed it, so it does not collect its mail. Send it its invitation so it resumes its account from its working folder.",
   "Désactiver": "Deactivate",
   "Réactiver": "Reactivate",
-  "Leur historique reste dans la boîte.": "Their history stays in the mailbox."
+  "Leur historique reste dans la boîte.": "Their history stays in the mailbox.",
+  "Surveillance par Cortex": "Cortex monitoring",
+  "Cortex lit en lecture seule les projets cochés, rien d’autre. Rien n’est surveillé par défaut.": "Cortex reads the ticked projects, read-only, and nothing else. Nothing is monitored by default.",
+  "Aucun accès ouvert.": "No access open.",
+  "Accès ouvert : Cortex peut lire les projets cochés.": "Access open: Cortex can read the ticked projects.",
+  "Accès en pause : Cortex ne lit plus rien.": "Access paused: Cortex reads nothing.",
+  "Ouvrir l’accès": "Open access",
+  "Nouvelle clé": "New key",
+  "Mettre en pause": "Pause",
+  "Reprendre": "Resume",
+  "Retirer l’accès": "Revoke access",
+  "Clé copiée : colle-la dans Cortex. Elle ne sera plus affichée.": "Key copied: paste it into Cortex. It will not be shown again.",
+  "Délégués de l’Owner : leurs décisions s’affichent « sous délégation ».": "Owner delegates: their decisions are shown as delegated."
 };
   const keys = Object.keys(english);
   const ui = (lang) => Object.fromEntries(keys.map((key, index) => ['t' + index, lang === 'EN' ? english[key] : key]));

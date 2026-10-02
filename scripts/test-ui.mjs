@@ -27,6 +27,7 @@ globalThis.__TAURI__ = { event: { listen: async (name, callback) => { listeners[
     return args.name;
   }
   if (name === 'answer_approval') return { publication: 'published', notice: null };
+  if (name === 'open_observation') return 'cle-observateur-test';
   if (name === 'update_account') {
     if (args.role === 'Refusé par la boîte') throw 'Compte inconnu.';
     data.directory.find(({ account }) => account.address === args.address).account.role = args.role;
@@ -136,6 +137,18 @@ component.state.remoteToken = 'private-test-key';
 await component.renderVals().modal.connectRemote();
 assert(calls.some(([name, args]) => name === 'choose_exchange_url' && args.url === 'https://messenger.arka-squad.app' && args.token === 'private-test-key'));
 assert.equal(component.state.remoteToken, '', 'The secret is cleared from UI state after connection');
+// Surveillance par Cortex : rien n'est coché ; cocher un projet puis ouvrir l'accès montre la clé une seule fois.
+const watch = component.renderVals().modal.watch;
+assert(watch.projects.length > 0 && watch.projects.every((p) => p.mark === '☐'), 'Nothing is watched by default');
+assert.equal(watch.stateText, 'Aucun accès ouvert.');
+await watch.projects[0].toggle();
+assert(calls.some(([name, args]) => name === 'watch_projects' && args.projects.length === 1 && args.projects[0] === watch.projects[0].name));
+await component.renderVals().modal.watch.open();
+assert(calls.some(([name]) => name === 'open_observation'));
+assert.equal(component.renderVals().modal.watch.key, 'cle-observateur-test');
+component.renderVals().closeModal();
+assert.equal(component.state.observerKey, null, 'The observer key is shown once, then forgotten');
+component._openModal('poste');
 // Comptes : le poste se lit, le rôle se corrige, la désactivation garde l'historique et se réactive.
 component.state.modal = null;
 view = component.renderVals();
@@ -345,6 +358,9 @@ assert.match(component.renderVals().trafficTitle, /^Traffic on /);
 component.state.agentPanel = null;
 for (const key of ['Rôle', 'Modifier le rôle', 'Désactiver le compte', 'Désactiver ce compte ?', 'Désactiver', 'Réactiver', 'Leur historique reste dans la boîte.', 'Le rôle de cet agent', 'Outil d’IA et ordinateur de cet agent', 'Son rôle, sur une ligne (ex. relecture du code)', 'Donne un rôle à ce compte.', 'Le rôle tient sur une seule ligne.', 'Fusionner plutôt', 'Outil inconnu', 'Ce compte n’a jamais été repris']) {
   assert(globalThis.MESSENGER_I18N.text(key, 'EN') !== key, 'Every new owner string has an English translation: ' + key);
+}
+for (const key of ['Surveillance par Cortex', 'Cortex lit en lecture seule les projets cochés, rien d’autre. Rien n’est surveillé par défaut.', 'Aucun accès ouvert.', 'Accès ouvert : Cortex peut lire les projets cochés.', 'Accès en pause : Cortex ne lit plus rien.', 'Ouvrir l’accès', 'Nouvelle clé', 'Mettre en pause', 'Reprendre', 'Retirer l’accès', 'Clé copiée : colle-la dans Cortex. Elle ne sera plus affichée.', 'Délégués de l’Owner : leurs décisions s’affichent « sous délégation ».']) {
+  assert(globalThis.MESSENGER_I18N.text(key, 'EN') !== key, 'Every observation string has an English translation: ' + key);
 }
 component._openModal('project');
 component.state.projName = 'Fils Message';

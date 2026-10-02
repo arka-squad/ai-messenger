@@ -301,7 +301,7 @@
 
       modalOpen: !!kind,
       // Fermer le menu abandonne ses gestes de compte : rien ne revient armé dans la fiche de l'agent.
-      closeModal: () => this.setState({ modal: null, modalAgent: null, ...ACCOUNT_IDLE }),
+      closeModal: () => this.setState({ modal: null, modalAgent: null, observerKey: null, ...ACCOUNT_IDLE }),
       stop: (e) => e.stopPropagation(),
       modal: {
         width: kind === 'setup' ? '640px' : (kind === 'adv' ? '680px' : '560px'),
@@ -432,6 +432,7 @@
         }),
 
         hosts,
+        watch: this._watch(),
         // Un nom refusé reste dans la fenêtre : il ne devient pas un signalement.
         providerNotice: this.state.projectNotice || this.state.providerNotice,
         exchangeNotice: this.state.exchangeNotice,

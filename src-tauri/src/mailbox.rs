@@ -21,6 +21,7 @@ mod contacts;
 pub(crate) mod directory;
 mod enrolment;
 pub(crate) mod identity;
+mod observation;
 pub(crate) mod profile;
 mod receive;
 mod requests;
@@ -500,3 +501,6 @@ mod accounts_tests;
 #[cfg(test)]
 #[path = "releve_tests.rs"]
 mod releve_tests;
+#[cfg(test)]
+#[path = "observation_tests.rs"]
+mod observation_tests;

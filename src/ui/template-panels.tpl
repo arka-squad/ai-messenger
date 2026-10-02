@@ -477,6 +477,40 @@
                 <span style="font-size: 12px; color: var(--tx4); line-height: 1.55; text-wrap: pretty;">Branche la boîte dans ces outils, sans effacer leurs réglages. Ouvre une nouvelle session dans chaque outil pour charger les outils MCP, puis colle l’invite : chaque agent crée son compte.</span>
               </div>
               <div style="display: flex; flex-direction: column; gap: 8px;">
+                <span style="font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tx5);">Surveillance par Cortex</span>
+                <span style="font-size: 12px; color: var(--tx4); line-height: 1.55; text-wrap: pretty;">Cortex lit en lecture seule les projets cochés, rien d’autre. Rien n’est surveillé par défaut.</span>
+                <sc-for list="{{ modal.watch.projects }}" as="p" hint-placeholder-count="2">
+                  <div onClick="{{ p.toggle }}" style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid rgba(var(--w), 0.08); border-radius: 8px; cursor: pointer;">
+                    <span style="font-size: 13px; color: {{ p.color }};">{{ p.mark }}</span>
+                    <span style="flex: 1; min-width: 0; font-size: 12.5px; color: var(--tx2);">{{ p.name }}</span>
+                  </div>
+                </sc-for>
+                <span style="font-size: 12px; color: var(--tx3);">{{ modal.watch.stateText }}</span>
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" onClick="{{ modal.watch.open }}">{{ modal.watch.openLabel }}</button>
+                  <sc-if value="{{ modal.watch.canPause }}" hint-placeholder-val="{{ false }}">
+                    <button type="button" onClick="{{ modal.watch.pause }}">{{ modal.watch.pauseLabel }}</button>
+                    <button type="button" onClick="{{ modal.watch.revoke }}">Retirer l’accès</button>
+                  </sc-if>
+                </div>
+                <sc-if value="{{ modal.watch.key }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size: 11.5px; color: var(--warn-tx); line-height: 1.5;">Clé copiée : colle-la dans Cortex. Elle ne sera plus affichée.</span>
+                  <span style="font-family: var(--font-mono); font-size: 11px; color: var(--tx2); word-break: break-all; user-select: all;">{{ modal.watch.key }}</span>
+                </sc-if>
+                <span style="font-size: 11px; color: var(--tx4); line-height: 1.5;">Délégués de l’Owner : leurs décisions s’affichent « sous délégation ».</span>
+                <div style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
+                  <sc-for list="{{ modal.watch.delegates }}" as="d" hint-placeholder-count="2">
+                    <div onClick="{{ d.toggle }}" style="display: flex; align-items: center; gap: 10px; padding: 5px 10px; border-radius: 7px; cursor: pointer;" style-hover="background: rgba(var(--w), 0.06);">
+                      <span style="font-size: 13px; color: {{ d.color }};">{{ d.mark }}</span>
+                      <span style="flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 11px; color: var(--tx2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ d.address }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <sc-for list="{{ modal.watch.log }}" as="e" hint-placeholder-count="2">
+                  <span style="font-size: 11px; color: var(--tx4);">{{ e.line }}</span>
+                </sc-for>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
                 <span style="font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tx5);">Éteindre</span>
                 <span style="font-size: 12px; color: var(--tx4); line-height: 1.55; text-wrap: pretty;">Ferme Messenger sur cet ordinateur. Ses outils seront de nouveau disponibles lorsque tu le rouvriras.</span>
                 <div onClick="{{ modal.shutdown }}" style="display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 7px; border: 1px solid rgba(190, 18, 60, 0.4); cursor: pointer;" style-hover="background: rgba(190, 18, 60, 0.1);">

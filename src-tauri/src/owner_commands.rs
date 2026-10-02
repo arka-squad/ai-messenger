@@ -66,8 +66,13 @@ pub async fn snapshot(state: tauri::State<'_, AppState>) -> Result<Value, String
         .map(|name| json!({ "name": name }))
         .collect::<Vec<_>>();
     let inactive = crate::mailbox::profile::inactive_directory(&accounts);
+    // The key hash never leaves the store: the screen sees the consent and its latest entries.
+    let watched = mailbox.observation().await.map_err(|e| e.to_string())?;
+    let log = mailbox.consent_log().await.map_err(|e| e.to_string())?;
+    let observation = json!({"projects":watched.projects,"delegates":watched.delegates,"state":watched.state,
+        "log":log.iter().rev().take(8).collect::<Vec<_>>()});
     let mut result = json!({"messages":messages,"directory":directory,"requests":requests,"providers":state.providers.statuses(),
-        "exchange":crate::exchange_location_value(&state),"incidents":mailbox.incidents(),"preferences":preferences,"projects":projects,"installation":state.installation,"machine":mailbox.machine,"inactive":inactive});
+        "exchange":crate::exchange_location_value(&state),"incidents":mailbox.incidents(),"preferences":preferences,"projects":projects,"installation":state.installation,"machine":mailbox.machine,"inactive":inactive,"observation":observation});
     let fingerprint = hash(&serde_json::to_vec(&result).map_err(|e| e.to_string())?);
     result["fingerprint"] = json!(fingerprint);
     Ok(result)
@@ -339,4 +344,39 @@ pub async fn apply_retention(
 #[tauri::command]
 pub fn shutdown(app: AppHandle) {
     app.exit(0);
+}
+#[tauri::command]
+pub async fn watch_projects(
+    projects: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state.mailbox.watch_projects(projects).await.map(|_| ()).map_err(|e| e.to_string())
+}
+#[tauri::command]
+pub async fn set_delegates(
+    delegates: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state.mailbox.set_delegates(delegates).await.map(|_| ()).map_err(|e| e.to_string())
+}
+/// The new observer key is copied for Cortex and returned once; only its hash is kept.
+#[tauri::command]
+pub async fn open_observation(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
+    let key = state.mailbox.open_observation().await.map_err(|e| e.to_string())?;
+    let _ = app.clipboard().write_text(key.clone());
+    Ok(key)
+}
+#[tauri::command]
+pub async fn pause_observation(
+    paused: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state.mailbox.pause_observation(paused).await.map(|_| ()).map_err(|e| e.to_string())
+}
+#[tauri::command]
+pub async fn revoke_observation(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.mailbox.revoke_observation().await.map(|_| ()).map_err(|e| e.to_string())
 }

@@ -33,6 +33,11 @@ globalThis.MESSENGER_RUNTIME = {
   retention: () => call('preview_retention'),
   purge: (fingerprint) => call('apply_retention', { fingerprint }),
   shutdown: () => call('shutdown'),
+  watchProjects: (projects) => call('watch_projects', { projects }),
+  setDelegates: (delegates) => call('set_delegates', { delegates }),
+  openObservation: () => call('open_observation'),
+  pauseObservation: (paused) => call('pause_observation', { paused }),
+  revokeObservation: () => call('revoke_observation'),
   answer: (requestId, response, note = null) => call('answer_approval', { verdict: {
     request_id: requestId, response, rendered_at: new Date().toISOString(), note,
   } }),

@@ -126,6 +126,28 @@ class Component extends DCLogic {
     const names = this.state.projects.map((p) => p.name).concat(this.state.directory.map(({ account }) => account.address.split('@')[1] || account.project));
     return [...new Set(names.filter((name) => name && name !== 'commun'))].sort();
   }
+  // Surveillance par Cortex : rien n'est coché par défaut ; la clé ne s'affiche qu'une fois, à l'ouverture.
+  _watch() {
+    const o = this.state.observation;
+    const runtime = globalThis.MESSENGER_RUNTIME;
+    const flip = (list, value) => list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+    const row = (on) => ({ mark: on ? '☑' : '☐', color: on ? 'var(--pass-tx)' : 'var(--tx4)' });
+    return {
+      projects: this._projects().map((name) => ({ name, ...row(o.projects.includes(name)),
+        toggle: () => this._run(() => runtime.watchProjects(flip(o.projects, name))) })),
+      stateText: ({ absente: 'Aucun accès ouvert.', active: 'Accès ouvert : Cortex peut lire les projets cochés.', en_pause: 'Accès en pause : Cortex ne lit plus rien.' })[o.state] || '',
+      openLabel: o.state === 'absente' ? 'Ouvrir l’accès' : 'Nouvelle clé',
+      open: async () => { const key = await this._run(() => runtime.openObservation()); if (key) this.setState({ observerKey: key }); },
+      canPause: o.state !== 'absente',
+      pauseLabel: o.state === 'en_pause' ? 'Reprendre' : 'Mettre en pause',
+      pause: () => this._run(() => runtime.pauseObservation(o.state !== 'en_pause')),
+      revoke: () => this._run(() => runtime.revokeObservation(), { observerKey: null }),
+      key: this.state.observerKey,
+      delegates: this.state.directory.map(({ account }) => account.address).sort().map((address) => ({ address, ...row(o.delegates.includes(address)),
+        toggle: () => this._run(() => runtime.setDelegates(flip(o.delegates, address))) })),
+      log: o.log.map((entry) => ({ line: entry.at.slice(0, 16).replace('T', ' ') + ' · ' + entry.action + (entry.detail ? ' · ' + entry.detail : '') })),
+    };
+  }
   _applyTheme() {
     const el = this._root;
     if (!el) return;
