@@ -1,6 +1,6 @@
 [package]
 name = "messenger"
-version = "0.1.7"
+version = "0.1.8"
 description = "arkalabs Messenger"
 authors = ["Arka Labs"]
 edition = "2021"
