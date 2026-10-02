@@ -28,6 +28,13 @@ jobs:
       - run: npm test
       - run: npm run build -- --bundles app
 
+      # The runner disk fills up during the Rust build: the DMG needs the intermediate artefacts gone.
+      - name: Free the runner disk for the DMG
+        run: |
+          df -h .
+          rm -rf src-tauri/target/release/deps src-tauri/target/release/build src-tauri/target/release/incremental
+          df -h .
+
       - name: Sign ad hoc and package the DMG
         run: |
           set -euo pipefail
