@@ -28,13 +28,6 @@ jobs:
       - run: npm test
       - run: npm run build -- --bundles app
 
-      # The runner disk fills up during the Rust build: the DMG needs the intermediate artefacts gone.
-      - name: Free the runner disk for the DMG
-        run: |
-          df -h .
-          rm -rf src-tauri/target/release/deps src-tauri/target/release/build src-tauri/target/release/incremental
-          df -h .
-
       - name: Sign ad hoc and package the DMG
         run: |
           set -euo pipefail
@@ -48,7 +41,10 @@ jobs:
           cp -R "$app" "$stage/"
           ln -s /Applications "$stage/Applications"
           mkdir -p "$out"
-          hdiutil create -volname "arkalabs Messenger" -srcfolder "$stage" -fs APFS -format UDZO -ov "$dmg"
+          # hdiutil underestimates the image for -srcfolder ("No space left on device" inside the
+          # image, runner disk aside): give it the app's size plus room.
+          size=$(( $(du -sm "$stage" | cut -f1) + 64 ))
+          hdiutil create -volname "arkalabs Messenger" -srcfolder "$stage" -fs APFS -format UDZO -size "${size}m" -ov "$dmg"
           hdiutil verify "$dmg"
           mount=$(mktemp -d)
           hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount"
