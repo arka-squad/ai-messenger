@@ -47,6 +47,9 @@ impl RepositoryPort for CountingStore {
     async fn set_journey(&self, kind: &str, id: &str, journey: &str) -> Result<(), PortError> {
         self.0.set_journey(kind, id, journey).await
     }
+    async fn after(&self, position: u64, limit: usize) -> Result<Vec<(u64, StoredMutation)>, PortError> {
+        self.0.after(position, limit).await
+    }
     async fn setting(&self, key: &str) -> Result<Option<Value>, PortError> {
         self.0.setting(key).await
     }

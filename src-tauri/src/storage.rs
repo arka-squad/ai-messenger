@@ -17,7 +17,7 @@ use surrealdb::{
 };
 use tokio::sync::Mutex;
 
-const SCHEMA_VERSION: u8 = 3;
+const SCHEMA_VERSION: u8 = 4;
 
 pub struct LocalStore {
     database: Surreal<Db>,
@@ -32,6 +32,8 @@ struct Record {
     #[serde(default)]
     encoded: Option<String>,
     journey: String,
+    #[serde(default)]
+    position: Option<u64>,
 }
 impl Record {
     fn mutation(&self) -> Result<Mutation, PortError> {
@@ -58,7 +60,9 @@ impl LocalStore {
             DEFINE TABLE IF NOT EXISTS mutation SCHEMALESS;
             DEFINE INDEX IF NOT EXISTS mutation_content ON mutation FIELDS kind, mutation_id, fingerprint UNIQUE;
             DEFINE TABLE IF NOT EXISTS setting SCHEMALESS;
-            DEFINE INDEX IF NOT EXISTS setting_key ON setting FIELDS key UNIQUE;")
+            DEFINE INDEX IF NOT EXISTS setting_key ON setting FIELDS key UNIQUE;
+            DEFINE TABLE IF NOT EXISTS counter SCHEMALESS;
+            DEFINE INDEX IF NOT EXISTS mutation_position ON mutation FIELDS position;")
             .await.map_err(database_error)?.check().map_err(database_error)?;
         let blobs = path.with_extension("attachments");
         fs::create_dir_all(&blobs)
@@ -75,7 +79,10 @@ impl LocalStore {
             ));
         }
         if version < SCHEMA_VERSION {
-            store.migrate_previous_schema().await?;
+            if version < 3 {
+                store.migrate_previous_schema().await?;
+            }
+            store.position_journal().await?;
             store
                 .database
                 .query("UPSERT app_schema:current SET version = $version;")
@@ -130,6 +137,46 @@ impl LocalStore {
         }
         Ok(())
     }
+
+    /// Version 4: every row already published or integrated gets its place, oldest first, so a
+    /// cursor can replay this base from its beginning.
+    async fn position_journal(&self) -> Result<(), PortError> {
+        let mut response = self
+            .database
+            .query("SELECT payload, encoded, journey FROM mutation WHERE position = NONE AND (journey = 'published' OR journey = 'integrated');")
+            .await
+            .map_err(database_error)?;
+        let rows: Vec<Record> = response.take(0).map_err(database_error)?;
+        let mut mutations = rows
+            .iter()
+            .map(Record::mutation)
+            .collect::<Result<Vec<_>, _>>()?;
+        mutations.sort_by(|a, b| {
+            (a.emitted_at(), a.kind(), a.id()).cmp(&(b.emitted_at(), b.kind(), b.id()))
+        });
+        for mutation in mutations {
+            let position = self.next_position().await?;
+            self.database.query("UPDATE mutation SET position = $position WHERE kind = $kind AND mutation_id = $id AND position = NONE AND journey != 'conflict';")
+                .bind(("position", position)).bind(("kind", mutation.kind().to_owned())).bind(("id", mutation.id().to_owned()))
+                .await.map_err(database_error)?.check().map_err(database_error)?;
+        }
+        Ok(())
+    }
+
+    /// Positions follow the order in which this base sees mutations become visible: published by
+    /// this installation or integrated from the box. Callers hold `writes`.
+    async fn next_position(&self) -> Result<u64, PortError> {
+        let mut response = self
+            .database
+            .query("UPSERT counter:position SET value = (value ?? 0) + 1 RETURN VALUE value;")
+            .await
+            .map_err(database_error)?;
+        let values: Vec<u64> = response.take(0).map_err(database_error)?;
+        values
+            .first()
+            .copied()
+            .ok_or_else(|| PortError("La position locale n’a pas pu être attribuée.".into()))
+    }
 }
 
 impl RepositoryPort for LocalStore {
@@ -166,10 +213,11 @@ impl RepositoryPort for LocalStore {
         // Keep JSON as text: Surreal's object conversion removes null fields from imported immutable records.
         let encoded =
             serde_json::to_string(mutation).map_err(|_| PortError("mutation_invalide".into()))?;
-        self.database.query("UPSERT mutation SET kind = $kind, mutation_id = $id, encoded = $encoded, journey = $journey, fingerprint = $fingerprint WHERE kind = $kind AND mutation_id = $id AND fingerprint = $fingerprint;")
+        let position = if visible(journey) { Some(self.next_position().await?) } else { None };
+        self.database.query("UPSERT mutation SET kind = $kind, mutation_id = $id, encoded = $encoded, journey = $journey, fingerprint = $fingerprint, position = $position WHERE kind = $kind AND mutation_id = $id AND fingerprint = $fingerprint;")
             .bind(("kind", mutation.kind().to_owned())).bind(("id", mutation.id().to_owned()))
             .bind(("encoded", encoded)).bind(("journey", journey.to_owned()))
-            .bind(("fingerprint",fingerprint))
+            .bind(("fingerprint",fingerprint)).bind(("position", position))
             .await.map_err(database_error)?.check().map_err(database_error)?;
         Ok(true)
     }
@@ -205,10 +253,42 @@ impl RepositoryPort for LocalStore {
     }
 
     async fn set_journey(&self, kind: &str, id: &str, journey: &str) -> Result<(), PortError> {
-        self.database.query("UPDATE mutation SET journey = $journey WHERE kind = $kind AND mutation_id = $id AND journey != 'conflict';")
-            .bind(("kind",kind.to_owned())).bind(("id",id.to_owned())).bind(("journey",journey.to_owned()))
+        if !visible(journey) {
+            self.database.query("UPDATE mutation SET journey = $journey WHERE kind = $kind AND mutation_id = $id AND journey != 'conflict';")
+                .bind(("kind",kind.to_owned())).bind(("id",id.to_owned())).bind(("journey",journey.to_owned()))
+                .await.map_err(database_error)?.check().map_err(database_error)?;
+            return Ok(());
+        }
+        // Becoming visible gives a row its place once; a later publication keeps it.
+        let _guard = self.writes.lock().await;
+        let position = self.next_position().await?;
+        self.database.query("UPDATE mutation SET journey = $journey, position = position ?? $position WHERE kind = $kind AND mutation_id = $id AND journey != 'conflict';")
+            .bind(("kind",kind.to_owned())).bind(("id",id.to_owned())).bind(("journey",journey.to_owned())).bind(("position", position))
             .await.map_err(database_error)?.check().map_err(database_error)?;
         Ok(())
+    }
+
+    async fn after(
+        &self,
+        position: u64,
+        limit: usize,
+    ) -> Result<Vec<(u64, StoredMutation)>, PortError> {
+        let mut response = self
+            .database
+            .query("SELECT payload, encoded, journey, position FROM mutation WHERE position > $after ORDER BY position LIMIT $limit;")
+            .bind(("after", position))
+            .bind(("limit", limit as u64))
+            .await
+            .map_err(database_error)?;
+        let rows: Vec<Record> = response.take(0).map_err(database_error)?;
+        rows.into_iter()
+            .map(|row| {
+                Ok((
+                    row.position.unwrap_or_default(),
+                    StoredMutation { mutation: row.mutation()?, journey: row.journey },
+                ))
+            })
+            .collect()
     }
 
     async fn setting(&self, key: &str) -> Result<Option<Value>, PortError> {
@@ -288,6 +368,11 @@ impl RepositoryPort for LocalStore {
             )),
         }
     }
+}
+
+/// Published by this installation or integrated from the box: what gets a place for a cursor.
+fn visible(journey: &str) -> bool {
+    matches!(journey, "published" | "integrated")
 }
 
 pub fn verify_blob(reference: &Attachment, bytes: &[u8]) -> Result<(), PortError> {

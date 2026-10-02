@@ -38,12 +38,19 @@ pub trait RepositoryPort: Send + Sync {
         kind: Option<&str>,
         journey: Option<&str>,
     ) -> impl Future<Output = Result<Vec<StoredMutation>, PortError>> + Send;
+    /// A row that becomes published or integrated gets its local position once.
     fn set_journey(
         &self,
         kind: &str,
         id: &str,
         journey: &str,
     ) -> impl Future<Output = Result<(), PortError>> + Send;
+    /// Rows with a position above `position`, in position order: the integration cursor.
+    fn after(
+        &self,
+        position: u64,
+        limit: usize,
+    ) -> impl Future<Output = Result<Vec<(u64, StoredMutation)>, PortError>> + Send;
     fn setting(&self, key: &str) -> impl Future<Output = Result<Option<Value>, PortError>> + Send;
     fn set_setting(
         &self,

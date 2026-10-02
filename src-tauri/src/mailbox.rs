@@ -18,6 +18,7 @@ use tokio::sync::{Mutex as AsyncMutex, Notify};
 
 mod addressing;
 mod contacts;
+mod cursor;
 pub(crate) mod directory;
 mod enrolment;
 pub(crate) mod identity;
@@ -504,3 +505,6 @@ mod releve_tests;
 #[cfg(test)]
 #[path = "observation_tests.rs"]
 mod observation_tests;
+#[cfg(test)]
+#[path = "cursor_tests.rs"]
+mod cursor_tests;
