@@ -62,6 +62,8 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
         let excess = log.len().saturating_sub(LOG_LIMIT);
         log.drain(..excess);
         self.set_setting(LOG, json!(log)).await?;
+        // The pushed feed waits on arrivals: a pause, a withdrawal or a new scope applies at once.
+        self.arrived.notify_waiters();
         Ok(())
     }
 

@@ -149,3 +149,74 @@ fn message_after(id: &str, from: &str, to: &str) -> crate::domain::models::MailM
     later.emitted_at = "2099-01-01T00:00:00+00:00".into();
     later
 }
+
+/// Reads the pushed feed until `until` appears or `seconds` pass: (status, raw text).
+fn listen(port: u16, key: &str, path: &str, extra: &[(&str, &str)], until: &str, seconds: u64) -> (u16, String) {
+    use std::io::{Read, Write};
+    let mut connection = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+    connection.set_read_timeout(Some(std::time::Duration::from_millis(100))).unwrap();
+    let head = extra.iter().map(|(k, v)| format!("{k}: {v}\r\n")).collect::<String>();
+    write!(connection, "GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAuthorization: Bearer {key}\r\nAccept: text/event-stream\r\n{head}\r\n").unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(seconds);
+    let (mut received, mut buffer) = (Vec::new(), [0u8; 8192]);
+    while std::time::Instant::now() < deadline && !String::from_utf8_lossy(&received).contains(until) {
+        match connection.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(read) => received.extend_from_slice(&buffer[..read]),
+            Err(_) => {}
+        }
+    }
+    let text = String::from_utf8_lossy(&received).into_owned();
+    (text.split_whitespace().nth(1).and_then(|s| s.parse().ok()).unwrap_or(0), text)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_pushed_feed_replays_then_follows_the_box_and_the_consent() {
+    let root = Temporary::new();
+    let mailbox = Arc::new(root.mailbox("one").await);
+    let alpha = member(&mailbox, "alpha", "cortex").await;
+    let beta = member(&mailbox, "beta", "cortex").await;
+    let gamma = member(&mailbox, "gamma", "autre").await;
+    let delta = member(&mailbox, "delta", "autre").await;
+    mailbox.send(message("vu", &alpha, &beta)).await.unwrap();
+    mailbox.send(message("cache", &gamma, &delta)).await.unwrap();
+    mailbox.watch_projects(vec!["cortex".into()]).await.unwrap();
+    let key = mailbox.open_observation().await.unwrap();
+    let (port, server) = serve_mcp(mailbox.clone()).await;
+    let feed = |path: &'static str, last: Option<&'static str>, until: &'static str| {
+        let key = key.clone();
+        tokio::task::spawn_blocking(move || {
+            let extra = last.map(|cursor| vec![("Last-Event-ID", cursor)]).unwrap_or_default();
+            listen(port, &key, path, &extra, until, 10)
+        })
+    };
+
+    let (status, replay) = feed("/v1/observe/events", None, "\"id\":\"vu\"").await.unwrap();
+    assert_eq!(status, 200);
+    assert!(replay.contains("event: record") && replay.contains("\"id\":\"vu\""));
+    assert!(!replay.contains("\"id\":\"cache\""), "a project not ticked is never pushed");
+
+    let live = feed("/v1/observe/events?depuis=fin", None, "\"id\":\"direct\"");
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    let sent = std::time::Instant::now();
+    mailbox.send(message("direct", &alpha, &beta)).await.unwrap();
+    let (_, live) = live.await.unwrap();
+    assert!(live.contains("\"id\":\"direct\""));
+    assert!(sent.elapsed() < std::time::Duration::from_secs(2), "pushed within 2 s");
+    assert!(!live.contains("\"id\":\"vu\""), "from the end, the past is not replayed");
+
+    let (status, _) = feed("/v1/observe/events", Some("une-autre-base:4"), "curseur_inconnu").await.unwrap();
+    assert_eq!(status, 410);
+
+    let consent = feed("/v1/observe/events?depuis=fin", None, "event: revoked");
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    mailbox.pause_observation(true).await.unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    mailbox.revoke_observation().await.unwrap();
+    let (_, consent) = consent.await.unwrap();
+    assert!(consent.contains("event: paused"), "{consent}");
+    assert!(consent.contains("event: revoked"), "{consent}");
+    let (status, _) = feed("/v1/observe/events", None, "refus").await.unwrap();
+    assert_eq!(status, 401, "a withdrawn key opens no feed");
+    server.abort();
+}

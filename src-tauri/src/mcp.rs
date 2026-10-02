@@ -11,7 +11,7 @@ use axum::{
     extract::State,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    routing::post,
+    routing::{get, post},
     Json, Router,
 };
 use serde::de::DeserializeOwned;
@@ -65,6 +65,7 @@ pub(crate) fn router<R: RepositoryPort + 'static, E: ExchangePort + 'static>(
     Router::new()
         .route("/mcp", post(handle::<R, E>).delete(end_session::<R, E>))
         .route("/hook", post(hook::hook::<R, E>))
+        .route("/v1/observe/events", get(observer::events::<R, E>))
         .with_state(HttpState {
             mailbox,
             sessions: Arc::new(Mutex::new(BTreeMap::new())),
