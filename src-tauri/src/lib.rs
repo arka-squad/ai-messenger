@@ -416,7 +416,9 @@ pub fn run() {
                             eprintln!("Messenger : les projets locaux seront partagés au prochain démarrage ({error}).");
                         }
                     }
-                    delivery::deliver(&poller,&delivering).await;
+                    // Deliveries run beside the relève: a slow provider never holds the box back.
+                    let (mailbox,providers)=(poller.clone(),delivering.clone());
+                    tauri::async_runtime::spawn(async move{delivery::deliver(&mailbox,&providers).await});
                     notifications::notify(&poller,&notifying).await;
                     use domain::ports::ExchangePort;
                     let mut changes=watched.listen().ok();

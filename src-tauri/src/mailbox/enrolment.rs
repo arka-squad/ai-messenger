@@ -188,13 +188,19 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
             });
         }
         let mut account = account;
+        // Resuming from the same installation, host and machine changes nothing to publish.
+        let moved = account.installation != self.installation
+            || account.host != provider
+            || account.machine != self.machine;
         account.installation = self.installation.clone();
         account.host = provider.into();
         account.machine = self.machine.clone();
-        self.event(Change::Account {
-            account: account.clone(),
-        })
-        .await?;
+        if moved {
+            self.event(Change::Account {
+                account: account.clone(),
+            })
+            .await?;
+        }
         let identity = SessionIdentity {
             session: session.into(),
             provider: provider.into(),

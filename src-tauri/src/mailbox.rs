@@ -7,8 +7,12 @@ use crate::domain::{
 use chrono::Utc;
 use serde_json::{json, Value};
 use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::{Arc, Mutex},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    sync::{
+        atomic::{AtomicBool, AtomicU64},
+        Arc, Mutex,
+    },
+    time::Instant,
 };
 use tokio::sync::{Mutex as AsyncMutex, Notify};
 
@@ -55,6 +59,22 @@ pub struct MailboxService<R, E> {
     // Serializes the read-check-write of push routes and of the MCP transport index.
     routes: AsyncMutex<()>,
     transports: AsyncMutex<()>,
+    // Each mutation integrated from the box, by kind and id, with its content hash: a relève skips
+    // what it already integrated without touching the store. Only what the box still lists is kept.
+    known: Mutex<HashMap<(String, String), String>>,
+    // Attachments already checked against their fingerprint.
+    verified: Mutex<HashSet<String>>,
+    // Relèves started, and the start number of the last one completed: a call arriving while a
+    // relève runs waits for the next one instead of piling up its own.
+    receives_started: AtomicU64,
+    receive_completed: AtomicU64,
+    // False until a relève has written its integration proofs and checkpoint; once settled, a
+    // relève that brings nothing new skips that work.
+    settled: AtomicBool,
+    last_checkpoint: Mutex<Option<Instant>>,
+    // One delivery pass at a time, and when each failed delivery may be tried again.
+    pub(crate) delivering: AtomicBool,
+    pub(crate) retry_after: Mutex<HashMap<String, Instant>>,
 }
 
 impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
@@ -73,6 +93,14 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
             pushed: Mutex::new(BTreeMap::new()),
             routes: AsyncMutex::new(()),
             transports: AsyncMutex::new(()),
+            known: Mutex::new(HashMap::new()),
+            verified: Mutex::new(HashSet::new()),
+            receives_started: AtomicU64::new(0),
+            receive_completed: AtomicU64::new(0),
+            settled: AtomicBool::new(false),
+            last_checkpoint: Mutex::new(None),
+            delivering: AtomicBool::new(false),
+            retry_after: Mutex::new(HashMap::new()),
         }
     }
     pub async fn schema_version(&self) -> Result<u8, MailboxError> {
@@ -469,3 +497,6 @@ mod projects_tests;
 #[cfg(test)]
 #[path = "accounts_tests.rs"]
 mod accounts_tests;
+#[cfg(test)]
+#[path = "releve_tests.rs"]
+mod releve_tests;

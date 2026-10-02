@@ -1,8 +1,11 @@
 pub const ID: &str = "codex";
 use std::{
+    io::Read,
     path::{Path, PathBuf},
-    process::Output,
-    sync::Mutex,
+    process::{Output, Stdio},
+    sync::{Mutex, OnceLock},
+    thread,
+    time::{Duration, Instant},
 };
 
 use serde_json::Value;
@@ -19,6 +22,10 @@ use super::equipment;
 pub const PROVEN_VERSION: &str = "codex-cli 0.152.0";
 const MCP_NAME: &str = "arkalabs-messenger-app";
 const MCP_URL: &str = "http://127.0.0.1:47652/mcp";
+/// Every Codex call is bounded, so a Codex that hangs never holds Messenger back.
+const CALL_LIMIT: Duration = Duration::from_secs(30);
+/// A thread busy with a turn keeps `codex queue` waiting: past this the mail stays in the box.
+const QUEUE_LIMIT: Duration = Duration::from_secs(10);
 
 pub struct Provider {
     command: PathBuf,
@@ -26,6 +33,8 @@ pub struct Provider {
     home: PathBuf,
     sidecar: PathBuf,
     status: Mutex<ProviderStatus>,
+    /// Whether this Codex can queue into a thread: probed once, not at every delivery.
+    queue: OnceLock<bool>,
 }
 
 impl Provider {
@@ -47,6 +56,7 @@ impl Provider {
             home,
             sidecar,
             status: Mutex::new(status),
+            queue: OnceLock::new(),
         }
     }
 
@@ -62,19 +72,39 @@ impl Provider {
     }
 
     fn queue(&self, session: &str, text: &str) -> Result<Reachability, PortError> {
-        if session.trim().is_empty() || !queue_supported(&self.command) {
+        self.queue_within(session, text, QUEUE_LIMIT)
+    }
+
+    fn queue_within(
+        &self,
+        session: &str,
+        text: &str,
+        limit: Duration,
+    ) -> Result<Reachability, PortError> {
+        if session.trim().is_empty() || !self.can_queue() {
             return Ok(Reachability::NoSession);
         }
         let status = self.present();
         if !status.available {
             return Err(PortError(status.detail));
         }
-        let output = self.run(&["queue", "--thread", session, "--message", text])?;
+        let arguments = ["queue", "--thread", session, "--message", text];
+        let output = run_within(&self.command, &arguments, limit).map_err(|error| {
+            PortError(if error.kind() == std::io::ErrorKind::TimedOut {
+                "Codex n’a pas pris le courrier à temps : son fil est sans doute occupé. Le courrier reste dans la boîte.".into()
+            } else {
+                "Codex ne répond pas sur ce poste. Rouvre-le puis réessaie.".into()
+            })
+        })?;
         if output.status.success() {
             Ok(Reachability::NextStart)
         } else {
             Err(command_error("Codex n’a pas accepté le message", &output))
         }
+    }
+
+    fn can_queue(&self) -> bool {
+        *self.queue.get_or_init(|| queue_supported(&self.command))
     }
 }
 
@@ -294,7 +324,49 @@ fn bundled_command() -> Option<PathBuf> {
 }
 
 fn run(command: &Path, arguments: &[&str]) -> Result<Output, std::io::Error> {
-    super::command(command).args(arguments).output()
+    run_within(command, arguments, CALL_LIMIT)
+}
+
+/// Runs Codex and stops it past `limit`. The pipes are drained beside the wait, so a talkative
+/// Codex cannot fill them and stall.
+fn run_within(command: &Path, arguments: &[&str], limit: Duration) -> Result<Output, std::io::Error> {
+    let mut child = super::command(command)
+        .args(arguments)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    let drain = |pipe: Option<Box<dyn Read + Send>>| {
+        thread::spawn(move || {
+            let mut bytes = Vec::new();
+            if let Some(mut pipe) = pipe {
+                let _ = pipe.read_to_end(&mut bytes);
+            }
+            bytes
+        })
+    };
+    let stdout = drain(child.stdout.take().map(|p| Box::new(p) as Box<dyn Read + Send>));
+    let stderr = drain(child.stderr.take().map(|p| Box::new(p) as Box<dyn Read + Send>));
+    let deadline = Instant::now() + limit;
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "Codex n’a pas répondu à temps",
+            ));
+        }
+        thread::sleep(Duration::from_millis(20));
+    };
+    Ok(Output {
+        status,
+        stdout: stdout.join().unwrap_or_default(),
+        stderr: stderr.join().unwrap_or_default(),
+    })
 }
 
 fn queue_supported(command: &Path) -> bool {
@@ -364,6 +436,29 @@ mod tests {
 
     use super::{equipment, Provider, ProviderPort, PROVEN_VERSION};
     use crate::domain::Reachability;
+
+    #[test]
+    fn a_busy_codex_thread_never_holds_the_delivery() {
+        let root = std::env::temp_dir().join(format!("messenger-codex-busy-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let command = root.join("codex");
+        fs::write(
+            &command,
+            format!("#!/bin/sh\ncase \"$1 $2\" in\n  '--version ') echo '{PROVEN_VERSION}' ;;\n  'agents --help') echo 'shared local app-server daemon' ;;\n  'queue --help') echo '--thread' ;;\n  'mcp add') echo '--url' ;;\n  'mcp get') echo '--json' ;;\n  'queue --thread') exec sleep 30 ;;\nesac\n"),
+        )
+        .unwrap();
+        fs::set_permissions(&command, fs::Permissions::from_mode(0o700)).unwrap();
+        let provider = Provider::with_paths(command, root.join("codex-home"), root.join("sidecar"));
+        assert!(provider.present().available, "{}", provider.present().detail);
+        let started = std::time::Instant::now();
+        let refused = provider
+            .queue_within("thread", "courrier", std::time::Duration::from_millis(300))
+            .unwrap_err();
+        assert!(refused.0.contains("pas pris le courrier à temps"), "{}", refused.0);
+        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+        let _ = fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn supported_codex_is_probed_and_can_queue_a_verdict() {
@@ -492,6 +587,20 @@ esac
 #[cfg(all(test, windows))]
 mod windows_tests {
     use super::{Provider, ProviderPort};
+
+    #[test]
+    fn a_codex_that_never_answers_is_stopped_in_time() {
+        let root = std::env::temp_dir().join(format!("messenger-codex-hang-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let command = root.join("codex.cmd");
+        std::fs::write(&command, "@echo off\r\nping -n 30 127.0.0.1 > nul\r\n").unwrap();
+        let started = std::time::Instant::now();
+        let error = super::run_within(&command, &["queue"], std::time::Duration::from_millis(500))
+            .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+        let _ = std::fs::remove_dir_all(&root);
+    }
 
     #[test]
     #[ignore = "Requires the Codex desktop app and an isolated CODEX_HOME"]

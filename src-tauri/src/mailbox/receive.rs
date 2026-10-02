@@ -1,8 +1,19 @@
 use super::*;
+use std::{sync::atomic::Ordering, time::Duration};
+
+/// With nothing new, the read checkpoint is still refreshed this often, so the box sees this
+/// installation alive.
+const CHECKPOINT_REFRESH: Duration = Duration::from_secs(3600);
 
 impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
     pub async fn receive(&self) -> Result<usize, MailboxError> {
+        let arrival = self.receives_started.load(Ordering::SeqCst);
         let _guard = self.sync.lock().await;
+        // A relève that started after this call and has completed already read the box for it.
+        if self.receive_completed.load(Ordering::SeqCst) > arrival {
+            return Ok(0);
+        }
+        let started = self.receives_started.fetch_add(1, Ordering::SeqCst) + 1;
         let _changes = self.changes.lock().await;
         let references = self
             .messages()
@@ -13,14 +24,15 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
             .collect::<BTreeMap<_, _>>();
         let mut missing = Vec::new();
         for reference in references.values() {
-            if self
-                .store
-                .blob(&reference.fingerprint)
-                .await?
-                .is_none_or(|bytes| {
-                    hash(&bytes) != reference.fingerprint || bytes.len() as u64 != reference.size
-                })
-            {
+            if self.verified.lock().expect("verified lock").contains(&reference.fingerprint) {
+                continue;
+            }
+            let valid = self.store.blob(&reference.fingerprint).await?.is_some_and(|bytes| {
+                hash(&bytes) == reference.fingerprint && bytes.len() as u64 == reference.size
+            });
+            if valid {
+                self.verified.lock().expect("verified lock").insert(reference.fingerprint.clone());
+            } else {
                 missing.push(reference.clone());
             }
         }
@@ -38,8 +50,25 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
             }
         };
         self.clear_incident("emplacement");
+        let pending = self
+            .store
+            .mutations(None, Some("pending"))
+            .await?
+            .into_iter()
+            .map(|row| (row.mutation.kind().to_owned(), row.mutation.id().to_owned()))
+            .collect::<HashSet<_>>();
+        let mut known = std::mem::take(&mut *self.known.lock().expect("known lock"));
+        let mut listed = HashSet::new();
         let mut integrated = 0;
+        let mut changed = false;
         for mutation in batch.mutations {
+            let key = (mutation.kind().to_owned(), mutation.id().to_owned());
+            let print = hash(&serde_json::to_vec(&mutation).unwrap_or_default());
+            listed.insert(key.clone());
+            // Integrated by an earlier relève, unchanged, and not one of ours awaiting confirmation.
+            if known.get(&key) == Some(&print) && !pending.contains(&key) {
+                continue;
+            }
             if let Mutation::Event(Event {
                 change: Change::Purged { removed, dormant },
                 ..
@@ -84,50 +113,52 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
                         .set_journey(mutation.kind(), mutation.id(), "conflict")
                         .await?;
                     self.incident(Incident {id:format!("conflit:{}:{}",mutation.kind(),mutation.id()),kind:"mutation_en_conflit".into(),message:"Une autre écriture a été publiée pour cet identifiant. La boîte affiche l’écriture confirmée ; le contenu local écarté reste conservé.".into(),message_id:Some(mutation.id().into())});
+                    changed = true;
                     self.store.save(&mutation, "integrated").await?
                 }
                 Err(error) => return Err(error.into()),
             };
             if saved {
                 integrated += 1;
-            } else if self
-                .store
-                .mutations(Some(mutation.kind()), Some("pending"))
-                .await?
-                .iter()
-                .any(|v| v.mutation.id() == mutation.id())
-            {
+            } else if pending.contains(&key) {
                 self.store
                     .set_journey(mutation.kind(), mutation.id(), "published")
                     .await?;
+                changed = true;
             }
+            known.insert(key, print);
         }
+        known.retain(|key, _| listed.contains(key));
+        *self.known.lock().expect("known lock") = known;
+        changed |= integrated > 0;
         for reference in &missing {
             if let Some(bytes) = batch.attachments.get(&reference.fingerprint) {
                 self.store.save_blob(reference, bytes.clone()).await?;
             }
         }
         // Newly received references are fetched in the same pass, without rereading old mutations.
-        let all_references = self
-            .messages()
-            .await?
-            .into_iter()
-            .filter_map(|m| m.attachment)
-            .map(|r| (r.fingerprint.clone(), r))
-            .collect::<BTreeMap<_, _>>();
-        let discovered = all_references
-            .values()
-            .filter(|r| !references.contains_key(&r.fingerprint))
-            .cloned()
-            .collect::<Vec<_>>();
-        if !discovered.is_empty() {
-            let attachments = self
-                .exchange
-                .list(Some(&Utc::now().date_naive().to_string()), &discovered)?
-                .attachments;
-            for reference in &discovered {
-                if let Some(bytes) = attachments.get(&reference.fingerprint) {
-                    self.store.save_blob(reference, bytes.clone()).await?;
+        if integrated > 0 {
+            let all_references = self
+                .messages()
+                .await?
+                .into_iter()
+                .filter_map(|m| m.attachment)
+                .map(|r| (r.fingerprint.clone(), r))
+                .collect::<BTreeMap<_, _>>();
+            let discovered = all_references
+                .values()
+                .filter(|r| !references.contains_key(&r.fingerprint))
+                .cloned()
+                .collect::<Vec<_>>();
+            if !discovered.is_empty() {
+                let attachments = self
+                    .exchange
+                    .list(Some(&Utc::now().date_naive().to_string()), &discovered)?
+                    .attachments;
+                for reference in &discovered {
+                    if let Some(bytes) = attachments.get(&reference.fingerprint) {
+                        self.store.save_blob(reference, bytes.clone()).await?;
+                    }
                 }
             }
         }
@@ -209,50 +240,70 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
                 }
             }
         }
-        let accounts = self.accounts().await?;
-        for view in self.message_views().await? {
-            let mut destination_here = false;
-            for account in accounts
-                .iter()
-                .filter(|a| a.active && a.installation == self.installation)
-            {
-                if self.is_recipient(&view.message, &account.address).await? {
-                    destination_here = true;
-                    break;
+        // Proofs and checkpoint only follow a change; until they succeed once, every relève redoes them.
+        let settled = self.settled.swap(false, Ordering::SeqCst);
+        if changed || !settled {
+            let accounts = self.accounts().await?;
+            let events = self
+                .rows("event")
+                .await?
+                .into_iter()
+                .map(|event| event.id().to_owned())
+                .collect::<HashSet<_>>();
+            for view in self.message_views().await? {
+                let mut destination_here = false;
+                for account in accounts
+                    .iter()
+                    .filter(|a| a.active && a.installation == self.installation)
+                {
+                    if self.is_recipient(&view.message, &account.address).await? {
+                        destination_here = true;
+                        break;
+                    }
                 }
-            }
-            if view.complete
-                && destination_here
-                && view.message.origin.host != "prototype"
-                && matches!(view.journey.as_str(), "published" | "integrated")
-            {
-                let key = format!("integration:{}", view.message.id);
-                if self.setting(&key).await?.is_none() {
-                    let event = Event {
-                        id: new_id(),
-                        emitted_at: now(),
-                        installation: self.installation.clone(),
-                        change: Change::Integrated {
-                            message_id: view.message.id,
+                if view.complete
+                    && destination_here
+                    && view.message.origin.host != "prototype"
+                    && matches!(view.journey.as_str(), "published" | "integrated")
+                {
+                    let key = format!("integration:{}", view.message.id);
+                    if self.setting(&key).await?.is_none() {
+                        let event = Event {
+                            id: new_id(),
+                            emitted_at: now(),
                             installation: self.installation.clone(),
-                        },
-                    };
-                    self.set_setting(&key, json!(event)).await?;
-                }
-                if let Some(value) = self.setting(&key).await? {
-                    let event: Event = serde_json::from_value(value).map_err(|_| {
-                        refusal(
-                            "integration_invalide",
-                            "La preuve d’intégration locale est illisible.",
-                        )
-                    })?;
-                    if self.find("event", &event.id).await?.is_none() {
-                        self.publish(Mutation::Event(event)).await?;
+                            change: Change::Integrated {
+                                message_id: view.message.id,
+                                installation: self.installation.clone(),
+                            },
+                        };
+                        self.set_setting(&key, json!(event)).await?;
+                    }
+                    if let Some(value) = self.setting(&key).await? {
+                        let event: Event = serde_json::from_value(value).map_err(|_| {
+                            refusal(
+                                "integration_invalide",
+                                "La preuve d’intégration locale est illisible.",
+                            )
+                        })?;
+                        if !events.contains(&event.id) {
+                            self.publish(Mutation::Event(event)).await?;
+                        }
                     }
                 }
             }
         }
-        self.checkpoint().await?;
+        let stale = self
+            .last_checkpoint
+            .lock()
+            .expect("checkpoint lock")
+            .is_none_or(|at| at.elapsed() >= CHECKPOINT_REFRESH);
+        if changed || !settled || stale {
+            self.checkpoint().await?;
+            *self.last_checkpoint.lock().expect("checkpoint lock") = Some(Instant::now());
+        }
+        self.settled.store(true, Ordering::SeqCst);
+        self.receive_completed.store(started, Ordering::SeqCst);
         if integrated > 0 {
             self.arrived.notify_waiters();
         }
