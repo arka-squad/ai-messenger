@@ -30,6 +30,7 @@ mod transports;
 mod views;
 pub(crate) use receive::MAX_WAIT;
 pub(crate) use views::parse_date;
+pub(crate) use observation::Observation;
 pub use requests::ApprovalView;
 
 #[derive(Debug, thiserror::Error)]

@@ -16,7 +16,6 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
 
     /// What became visible after `cursor`, oldest first, each with its own cursor, and the cursor
     /// that follows the last one read.
-    #[allow(dead_code)] // Read by the observer access (lots M2 and M3).
     pub(crate) async fn read_after(
         &self,
         cursor: Option<&str>,

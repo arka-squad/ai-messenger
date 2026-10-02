@@ -157,7 +157,6 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
     }
 
     /// The observation this key opens, whatever its state; none for an unknown or revoked key.
-    #[allow(dead_code)] // Read by the observer access (lot M2).
     pub(crate) async fn observer(&self, key: &str) -> Result<Option<Observation>, MailboxError> {
         let observation = self.observation().await?;
         let presented = hash(key.as_bytes());
@@ -170,7 +169,6 @@ impl<R: RepositoryPort, E: ExchangePort> MailboxService<R, E> {
 }
 
 /// Compares two hashes in constant time.
-#[allow(dead_code)] // Read by the observer access (lot M2).
 fn same(expected: &[u8], presented: &[u8]) -> bool {
     expected.len() == presented.len()
         && expected.iter().zip(presented).fold(0u8, |diff, (a, b)| diff | (a ^ b)) == 0

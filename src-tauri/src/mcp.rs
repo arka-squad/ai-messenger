@@ -22,6 +22,7 @@ use std::{
 };
 
 mod hook;
+mod observer;
 mod schema;
 
 const PROTOCOL_VERSION: &str = "2025-06-18";
@@ -116,6 +117,10 @@ async fn handle<R: RepositoryPort, E: ExchangePort>(
 ) -> Response {
     if !local_headers(&headers) {
         return StatusCode::FORBIDDEN.into_response();
+    }
+    // An observer key opens Cortex's read-only access, and nothing else.
+    if let Some(key) = observer::bearer(&headers) {
+        return observer::handle(&state.mailbox, key, &request).await;
     }
     let initialize = request["method"] == "initialize";
     let (transport, session, provider) = if initialize {
@@ -539,6 +544,9 @@ mod tests;
 #[cfg(test)]
 #[path = "mcp_identity_tests.rs"]
 mod identity_tests;
+#[cfg(test)]
+#[path = "observer_tests.rs"]
+mod observer_tests;
 #[cfg(test)]
 #[path = "mcp_contract_tests.rs"]
 mod contract_tests;
